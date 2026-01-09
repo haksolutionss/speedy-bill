@@ -66,11 +66,7 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
           }
           .kot-type {
             font-size: 16px;
-            font-weight: bold;
-            margin-top: 4px;
             padding: 4px;
-            border: 2px solid #000;
-            display: inline-block;
           }
           .kot-info {
             display: flex;
@@ -133,13 +129,18 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
           }
         `}</style>
 
-        <div className="kot-header">
-          <div className="kot-title">*** KOT ***</div>
-          {isParcel && <div className="kot-type">PARCEL</div>}
-        </div>
+        {isParcel && (
+          <div className="kot-header">
+            <div className="kot-type">PARCEL</div>
+          </div>
+        )}
 
-        <div className="kot-table-number">
+        <div className="kot-info">
           {isParcel ? `TOKEN #${tokenNumber}` : `TABLE: ${tableNumber}`}
+          <div className="kot-info">
+            <span>KOT #: {kotNumber}</span>
+            {billNumber && <span>Bill: {billNumber}</span>}
+          </div>
         </div>
 
         <div className="kot-info">
@@ -147,10 +148,6 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
           <span>Time: {timeStr}</span>
         </div>
 
-        <div className="kot-info">
-          <span>KOT #: {kotNumber}</span>
-          {billNumber && <span>Bill: {billNumber}</span>}
-        </div>
 
         <div className="kot-items">
           {items.map((item, index) => (
@@ -169,15 +166,6 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
               )}
             </div>
           ))}
-        </div>
-
-        <div className="kot-count">
-          Total Items: {items.reduce((sum, item) => sum + item.quantity, 0)}
-        </div>
-
-        <div className="kot-footer">
-          --------------------------------<br />
-          Kitchen Copy
         </div>
       </div>
     );

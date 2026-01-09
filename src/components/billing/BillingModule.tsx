@@ -8,17 +8,17 @@ import { BillSummary } from './BillSummary';
 import { BillActions } from './BillActions';
 
 export function BillingModule() {
-  const { 
-    selectedTable, 
-    isParcelMode, 
+  const {
+    selectedTable,
+    isParcelMode,
     currentBill,
     cart,
     markItemsSentToKitchen,
     createNewBill,
   } = useBillingStore();
-  
+
   const showBillingPanel = selectedTable || isParcelMode;
-  
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -26,7 +26,7 @@ export function BillingModule() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      
+
       if (e.key === 'F1') {
         e.preventDefault();
         const pendingItems = cart.filter(item => !item.sentToKitchen);
@@ -35,7 +35,7 @@ export function BillingModule() {
           createNewBill();
         }
       }
-      
+
       if (e.key === 'F2') {
         e.preventDefault();
         if (cart.length > 0) {
@@ -43,29 +43,24 @@ export function BillingModule() {
         }
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cart, markItemsSentToKitchen, createNewBill]);
-  
+
   return (
     <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Panel - Table Selection / Current Table */}
-      <div className="flex-1 flex flex-col border-r border-border min-w-0 overflow-hidden">
-        {/* Header */}
-        <div className="border-b border-border p-4 shrink-0">
-          <h1 className="text-lg font-semibold">Restaurant Billing</h1>
-          <p className="text-sm text-muted-foreground">Select a table or start a parcel order</p>
-        </div>
-        
+      <div className="fixed w-[calc(100%_-_480px)] h-[calc(100vh_-_50px)] left-0 flex-1 flex flex-col border-r border-border min-w-0 overflow-hidden">
+
         {/* Table Grid */}
         <div className="flex-1 overflow-hidden p-4">
           <TableGrid />
         </div>
       </div>
-      
+
       {/* Right Panel - Billing */}
-      <div className="w-[480px] flex flex-col bg-card shrink-0 overflow-hidden">
+      <div className="fixed right-0 w-[480px] h-[calc(100vh_-_50px)] flex flex-col bg-card shrink-0 overflow-hidden">
         {showBillingPanel ? (
           <>
             {/* Current Order Header */}
@@ -77,7 +72,7 @@ export function BillingModule() {
                       <Package className="h-5 w-5 text-accent" />
                       <span className="text-lg font-semibold">Parcel Order</span>
                       {currentBill?.tokenNumber && (
-                        <span className="ml-2 px-2 py-0.5 bg-accent/20 text-accent rounded text-sm font-mono">
+                        <span className="ml-2 px-2 py-0.5 bg-accent/20 text-accent rounded text-sm ">
                           Token #{currentBill.tokenNumber}
                         </span>
                       )}
@@ -100,23 +95,20 @@ export function BillingModule() {
                 )}
               </div>
               {currentBill?.billNumber && (
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                <p className="text-xs text-muted-foreground mt-1 ">
                   {currentBill.billNumber}
                 </p>
               )}
             </div>
-            
+
             {/* Item Search */}
             <div className="p-4 border-b border-border shrink-0">
               <ItemSearch />
             </div>
-            
+
             {/* Cart - scrollable */}
             <Cart />
-            
-            {/* Bill Summary */}
-            <BillSummary />
-            
+
             {/* Actions */}
             <BillActions />
           </>

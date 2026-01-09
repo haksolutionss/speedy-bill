@@ -9,12 +9,12 @@ export function Cart() {
   const { cart, updateCartItemQuantity, removeFromCart, updateCartItemNotes } = useBillingStore();
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState('');
-  
+
   const handleStartEditNotes = (itemId: string, currentNotes?: string) => {
     setEditingNotes(itemId);
     setNoteValue(currentNotes || '');
   };
-  
+
   const handleSaveNotes = (itemId: string) => {
     updateCartItemNotes(itemId, noteValue);
     setEditingNotes(null);
@@ -24,7 +24,7 @@ export function Cart() {
   // Separate items by KOT status
   const sentItems = cart.filter(item => item.sentToKitchen);
   const pendingItems = cart.filter(item => !item.sentToKitchen);
-  
+
   if (cart.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 min-h-0">
@@ -56,29 +56,28 @@ export function Cart() {
         "cart-item animate-slide-up",
         item.sentToKitchen ? "cart-item-sent" : "cart-item-pending"
       )}
-      style={{ animationDelay: `${index * 50}ms` }}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-muted-foreground">{item.productCode}</span>
+              <span className=" text-xs text-muted-foreground">{item.productCode}</span>
               <span className="font-medium truncate">{item.productName}</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
               <span className="capitalize">{item.portion}</span>
               <span>×</span>
-              <span className="font-mono">₹{item.unitPrice}</span>
+              <span className="">₹{item.unitPrice}</span>
             </div>
             {item.notes && (
               <p className="text-xs text-accent mt-1 italic">"{item.notes}"</p>
             )}
           </div>
-          <span className="font-mono font-semibold text-success shrink-0">
+          <span className=" font-semibold text-success shrink-0">
             ₹{item.unitPrice * item.quantity}
           </span>
         </div>
-        
+
         {/* Notes editing */}
         {editingNotes === item.id && (
           <div className="mt-2 flex items-center gap-2">
@@ -103,7 +102,7 @@ export function Cart() {
             </Button>
           </div>
         )}
-        
+
         {/* Actions */}
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1">
@@ -115,7 +114,7 @@ export function Cart() {
             >
               <Minus className="h-3 w-3" />
             </Button>
-            <span className="font-mono w-8 text-center">{item.quantity}</span>
+            <span className=" w-8 text-center">{item.quantity}</span>
             <Button
               size="icon"
               variant="ghost"
@@ -125,7 +124,7 @@ export function Cart() {
               <Plus className="h-3 w-3" />
             </Button>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <Button
               size="icon"
@@ -148,17 +147,13 @@ export function Cart() {
       </div>
     </div>
   );
-  
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0">
       {/* Sent to Kitchen Section */}
       {sentItems.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-px flex-1 bg-blue-500/30" />
-            <span className="text-xs text-blue-400 font-medium">KOT Sent ({sentItems.length})</span>
-            <div className="h-px flex-1 bg-blue-500/30" />
-          </div>
+
           <div className="space-y-2">
             {sentItems.map((item, index) => renderItem(item, index))}
           </div>
@@ -168,11 +163,6 @@ export function Cart() {
       {/* Pending Section */}
       {pendingItems.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-px flex-1 bg-accent/30" />
-            <span className="text-xs text-accent font-medium">Pending ({pendingItems.length})</span>
-            <div className="h-px flex-1 bg-accent/30" />
-          </div>
           <div className="space-y-2">
             {pendingItems.map((item, index) => renderItem(item, sentItems.length + index))}
           </div>

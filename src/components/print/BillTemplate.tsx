@@ -41,8 +41,8 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     paymentMethod,
     isParcel,
     coverCount,
-    restaurantName = "Restaurant Name",
-    restaurantAddress = "123 Main Street, City - 400001",
+    restaurantName = "Hotel Aqsa",
+    restaurantAddress = "Juhapura",
     gstin = "27XXXXX1234X1ZX"
   }, ref) => {
     const now = new Date();
@@ -56,7 +56,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
       const itemDiscount = discountAmount > 0 ? (itemTotal / subTotal) * discountAmount : 0;
       const taxableAmount = itemTotal - itemDiscount;
       const gst = taxableAmount * (item.gstRate / 100);
-      
+
       if (!gstBreakdown[item.gstRate]) {
         gstBreakdown[item.gstRate] = { taxableAmount: 0, cgst: 0, sgst: 0 };
       }
@@ -246,7 +246,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
           <div className="bill-restaurant-name">{restaurantName}</div>
           <div className="bill-address">{restaurantAddress}</div>
           <div className="bill-gstin">GSTIN: {gstin}</div>
-          <div className="bill-title">*** TAX INVOICE ***</div>
         </div>
 
         <div className="bill-info">

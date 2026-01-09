@@ -18,17 +18,17 @@ export default function Products() {
   const { products } = useBillingStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
+
   const categories = [...new Set(products.map(p => p.category))];
-  
+
   const filteredProducts = products.filter(product => {
-    const matchesSearch = 
+    const matchesSearch =
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -41,7 +41,7 @@ export default function Products() {
           Add Product
         </Button>
       </div>
-      
+
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="relative flex-1 max-w-sm">
@@ -53,7 +53,7 @@ export default function Products() {
             className="pl-10"
           />
         </div>
-        
+
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant={selectedCategory === null ? "secondary" : "ghost"}
@@ -74,7 +74,7 @@ export default function Products() {
           ))}
         </div>
       </div>
-      
+
       {/* Products Table */}
       <div className="border border-border rounded-lg overflow-hidden">
         <Table>
@@ -93,7 +93,7 @@ export default function Products() {
           <TableBody>
             {filteredProducts.map(product => (
               <TableRow key={product.id}>
-                <TableCell className="font-mono text-muted-foreground">
+                <TableCell className=" text-muted-foreground">
                   {product.code}
                 </TableCell>
                 <TableCell className="font-medium">{product.name}</TableCell>
@@ -109,7 +109,7 @@ export default function Products() {
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right ">
                   ₹{product.portions[0].price}
                   {product.portions.length > 1 && '+'}
                 </TableCell>
@@ -117,11 +117,11 @@ export default function Products() {
                   {product.gstRate}%
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge 
+                  <Badge
                     variant="outline"
                     className={cn(
-                      product.isActive 
-                        ? "border-success/50 text-success" 
+                      product.isActive
+                        ? "border-success/50 text-success"
                         : "border-destructive/50 text-destructive"
                     )}
                   >
@@ -143,7 +143,7 @@ export default function Products() {
           </TableBody>
         </Table>
       </div>
-      
+
       {filteredProducts.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />

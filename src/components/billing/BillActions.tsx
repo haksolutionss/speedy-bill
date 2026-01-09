@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { 
-  Printer, 
-  Receipt, 
+import {
+  Printer,
+  Receipt,
   CreditCard,
   Banknote,
   Smartphone
@@ -17,25 +17,26 @@ import {
 } from '@/components/ui/dialog';
 import { KOTTemplate } from '@/components/print/KOTTemplate';
 import { BillTemplate } from '@/components/print/BillTemplate';
+import { BillSummary } from './BillSummary';
 
 export function BillActions() {
-  const { 
-    cart, 
-    markItemsSentToKitchen, 
-    settleBill, 
+  const {
+    cart,
+    markItemsSentToKitchen,
+    settleBill,
     createNewBill,
     currentBill,
     selectedTable,
     isParcelMode,
   } = useBillingStore();
-  
+
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showKOTPreview, setShowKOTPreview] = useState(false);
   const [showBillPreview, setShowBillPreview] = useState(false);
-  
+  const [totalAmountView, setTotalAmountView] = useState(false)
   const kotRef = useRef<HTMLDivElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
-  
+
   const pendingItems = cart.filter(item => !item.sentToKitchen);
   const hasPendingItems = pendingItems.length > 0;
   const hasItems = cart.length > 0;
@@ -53,20 +54,20 @@ export function BillActions() {
   const sgstAmount = totalGst / 2;
   const totalAmount = subTotal + totalGst;
   const finalAmount = Math.round(totalAmount);
-  
+
   const handlePrintKOT = () => {
     if (!hasPendingItems) {
       toast.info('No new items to send to kitchen');
       return;
     }
-    
+
     setShowKOTPreview(true);
   };
-  
+
   const confirmPrintKOT = () => {
     markItemsSentToKitchen();
     createNewBill();
-    
+
     // Trigger print
     const printContent = kotRef.current;
     if (printContent) {
@@ -80,38 +81,38 @@ export function BillActions() {
         printWindow.close();
       }
     }
-    
+
     setShowKOTPreview(false);
     toast.success(`KOT sent: ${pendingItems.length} item(s)`, {
       description: 'Items marked for kitchen preparation',
     });
   };
-  
+
   const handlePrintBill = () => {
     if (!hasItems) {
       toast.error('Add items to print bill');
       return;
     }
-    
+
     // First send any pending items to kitchen
     if (hasPendingItems) {
       markItemsSentToKitchen();
     }
-    
+
     createNewBill();
     setShowPaymentDialog(true);
   };
-  
+
   const handlePayment = (method: 'cash' | 'card' | 'upi') => {
     // Show bill preview first
     setShowPaymentDialog(false);
     setShowBillPreview(true);
-    
+
     // Delay settlement to allow print
     setTimeout(() => {
       settleBill(method);
       setShowBillPreview(false);
-      
+
       // Trigger print
       const printContent = billRef.current;
       if (printContent) {
@@ -125,18 +126,35 @@ export function BillActions() {
           printWindow.close();
         }
       }
-      
+
       toast.success('Bill settled successfully!', {
         description: `Payment received via ${method.toUpperCase()}`,
       });
     }, 100);
   };
-  
+
+  const handleTotalAmountView = () => {
+    setTotalAmountView(!totalAmountView)
+  }
   return (
     <>
-      <div className="action-bar">
+      {totalAmountView && (
+        <BillSummary />
+      )}
+      <div className="action-bar fixed bottom-0 bg-background right-0 w-[480px]">
         <div className="flex items-center gap-2 ml-auto">
-          <Button 
+          <Button
+            variant='outline'
+          >
+            Loyalty
+          </Button>
+          <Button
+            variant='outline'
+            onClick={handleTotalAmountView}
+          >
+            Total
+          </Button>
+          <Button
             onClick={handlePrintKOT}
             disabled={!hasPendingItems}
             variant="secondary"
@@ -146,7 +164,7 @@ export function BillActions() {
             KOT
             <kbd className="kbd ml-1">F1</kbd>
           </Button>
-          <Button 
+          <Button
             onClick={handlePrintBill}
             disabled={!hasItems}
             className="gap-1.5 bg-success hover:bg-success/90"
@@ -157,14 +175,14 @@ export function BillActions() {
           </Button>
         </div>
       </div>
-      
+
       {/* KOT Preview Dialog */}
       <Dialog open={showKOTPreview} onOpenChange={setShowKOTPreview}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-max max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>KOT Preview</DialogTitle>
           </DialogHeader>
-          <div className="bg-white rounded-lg overflow-hidden">
+          <div className="overflow-hidden">
             <KOTTemplate
               ref={kotRef}
               tableNumber={selectedTable?.number}
@@ -185,7 +203,7 @@ export function BillActions() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Bill Preview Dialog */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
         <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
@@ -214,7 +232,7 @@ export function BillActions() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-md">

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Package, 
-  MapPin, 
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Package,
+  MapPin,
   History,
   Menu,
   X
@@ -26,22 +26,19 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  
+
   // Check if we're on billing page (full screen mode)
   const isBillingPage = location.pathname === '/';
-  
+
   if (isBillingPage) {
     return (
       <div className="min-h-screen bg-background">
         {/* Minimal header for billing */}
         <div className="fixed top-0 left-0 right-0 h-12 bg-sidebar border-b border-sidebar-border z-50 flex items-center px-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <ShoppingCart className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sidebar-foreground">RestoBill</span>
+            <span className="font-semibold text-sidebar-foreground">HotelAqsa</span>
           </div>
-          
+
           <nav className="ml-8 flex items-center gap-1">
             {navItems.map((item) => (
               <NavLink
@@ -60,14 +57,14 @@ export function AppLayout({ children }: AppLayoutProps) {
             ))}
           </nav>
         </div>
-        
+
         <main className="pt-12">
           {children}
         </main>
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
@@ -76,12 +73,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex items-center gap-3 px-6 h-16 border-b border-sidebar-border">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <ShoppingCart className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-sidebar-foreground">RestoBill</span>
+          <span className="font-semibold text-sidebar-foreground">HotelAqsa</span>
         </div>
-        
+
         <nav className="p-4 space-y-1">
           {navItems.map((item) => (
             <NavLink
@@ -101,15 +95,15 @@ export function AppLayout({ children }: AppLayoutProps) {
           ))}
         </nav>
       </aside>
-      
+
       {/* Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
+
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Header */}
@@ -123,7 +117,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <Menu className="h-5 w-5" />
           </Button>
         </header>
-        
+
         {/* Page content */}
         <main className="p-4 lg:p-6">
           {children}

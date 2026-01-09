@@ -2,28 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@font-face {
+  font-family: 'bricola';
+  src: url('./assets/bricola.woff2');
+}
 
 @layer base {
   :root {
-    /* POS Dark Theme - Professional Restaurant Billing */
-    --background: 220 20% 10%;
-    --foreground: 210 20% 95%;
+    --background: 0 0% 100%;
+    --foreground: 220 15% 15%;
 
-    --card: 220 18% 13%;
-    --card-foreground: 210 20% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
 
-    --popover: 220 18% 15%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
 
     --primary: 142 70% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 20%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 220 15% 95%;
+    --secondary-foreground: 220 15% 20%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 10% 45%;
 
     --accent: 35 100% 50%;
     --accent-foreground: 0 0% 100%;
@@ -35,34 +37,31 @@
     --success-foreground: 0 0% 100%;
 
     --warning: 35 100% 50%;
-    --warning-foreground: 0 0% 10%;
+    --warning-foreground: 0 0% 100%;
 
-    --border: 220 15% 22%;
-    --input: 220 15% 18%;
+    --border: 220 15% 88%;
+    --input: 220 15% 95%;
     --ring: 142 70% 45%;
 
     --radius: 0.5rem;
 
-    /* Table States */
     --table-available: 142 70% 45%;
     --table-occupied: 35 100% 50%;
     --table-reserved: 220 70% 55%;
 
-    /* KOT States */
     --kot-sent: 220 70% 55%;
     --kot-pending: 35 100% 50%;
 
-    /* Amount Colors */
     --amount-positive: 142 70% 45%;
     --amount-negative: 0 72% 50%;
 
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 210 20% 90%;
+    --sidebar-background: 220 15% 98%;
+    --sidebar-foreground: 220 15% 20%;
     --sidebar-primary: 142 70% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 15% 18%;
+    --sidebar-accent: 220 15% 94%;
+    --sidebar-accent-foreground: 220 15% 20%;
+    --sidebar-border: 220 15% 90%;
     --sidebar-ring: 142 70% 45%;
   }
 }
@@ -74,20 +73,16 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
-  }
-
-  /* Monospace for codes and numbers */
-  .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'bricola', system-ui, sans-serif;
   }
 }
 
 @layer components {
+
   /* Table button states */
   .table-btn {
     @apply relative flex flex-col items-center justify-center rounded-lg border-2 p-3 transition-all duration-150 font-medium;
-    @apply hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+    @apply hover:scale-105 focus:outline-none focus:ring-0 focus:ring-ring focus:ring-offset-0 focus:ring-offset-background;
   }
 
   .table-btn-available {
@@ -104,7 +99,7 @@
 
   /* Keyboard shortcut badges */
   .kbd {
-    @apply inline-flex items-center justify-center rounded border border-border bg-muted px-2 py-0.5 text-xs font-mono font-medium text-muted-foreground;
+    @apply inline-flex items-center justify-center rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground;
   }
 
   /* Cart item states */
@@ -127,7 +122,7 @@
 
   /* Amount display */
   .amount {
-    @apply font-mono font-semibold tabular-nums;
+    @apply font-semibold tabular-nums;
   }
 
   .amount-positive {
@@ -172,31 +167,6 @@
   }
 }
 
-/* Scrollbar styling */
-@layer utilities {
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 3px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
-  }
-}
 
 /* Print styles for thermal printer */
 @media print {
@@ -220,4 +190,8 @@
   .print-only {
     display: block !important;
   }
+}
+
+::-webkit-scrollbar {
+  display: none;
 }

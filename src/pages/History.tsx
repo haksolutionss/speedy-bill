@@ -20,10 +20,10 @@ export default function History() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'settled' | 'unsettled'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'table' | 'parcel'>('all');
-  
+
   const filteredBills = bills
     .filter(bill => {
-      const matchesSearch = 
+      const matchesSearch =
         bill.billNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         bill.tableNumber?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || bill.status === statusFilter;
@@ -31,7 +31,7 @@ export default function History() {
       return matchesSearch && matchesStatus && matchesType;
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -40,7 +40,7 @@ export default function History() {
           <p className="text-muted-foreground">View and manage past bills</p>
         </div>
       </div>
-      
+
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="relative flex-1 max-w-sm">
@@ -52,7 +52,7 @@ export default function History() {
             className="pl-10"
           />
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant={statusFilter === 'all' ? "secondary" : "ghost"}
@@ -76,7 +76,7 @@ export default function History() {
             Unsettled
           </Button>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant={typeFilter === 'all' ? "secondary" : "ghost"}
@@ -101,7 +101,7 @@ export default function History() {
           </Button>
         </div>
       </div>
-      
+
       {/* Bills Table */}
       <div className="border border-border rounded-lg overflow-hidden">
         <Table>
@@ -121,7 +121,7 @@ export default function History() {
           <TableBody>
             {filteredBills.map(bill => (
               <TableRow key={bill.id}>
-                <TableCell className="font-mono text-sm">
+                <TableCell className=" text-sm">
                   {bill.billNumber}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
@@ -140,7 +140,7 @@ export default function History() {
                 <TableCell className="text-center">
                   {bill.items.length}
                 </TableCell>
-                <TableCell className="text-right font-mono font-semibold text-success">
+                <TableCell className="text-right  font-semibold text-success">
                   ₹{bill.finalAmount}
                 </TableCell>
                 <TableCell>
@@ -153,7 +153,7 @@ export default function History() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge 
+                  <Badge
                     variant="outline"
                     className={cn(
                       bill.status === 'settled' && "status-settled",
@@ -172,18 +172,18 @@ export default function History() {
                       <Printer className="h-4 w-4" />
                     </Button>
                     {bill.status === 'settled' && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={() => revertBill(bill.id)}
                       >
                         <RotateCcw className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-destructive"
                       onClick={() => deleteBill(bill.id)}
                     >
@@ -196,7 +196,7 @@ export default function History() {
           </TableBody>
         </Table>
       </div>
-      
+
       {filteredBills.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />

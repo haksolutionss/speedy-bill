@@ -18,41 +18,41 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
   const [selectedPortion, setSelectedPortion] = useState<ProductPortion | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [step, setStep] = useState<'search' | 'portion' | 'quantity'>('search');
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const { products, addToCart } = useBillingStore();
-  
+
   // Search products
   useEffect(() => {
     if (query.trim() === '') {
       setSuggestions([]);
       return;
     }
-    
+
     const searchLower = query.toLowerCase();
     const filtered = products
       .filter(p => p.isActive)
-      .filter(p => 
+      .filter(p =>
         p.name.toLowerCase().includes(searchLower) ||
         p.code.toLowerCase().includes(searchLower)
       )
       .slice(0, 5);
-    
+
     setSuggestions(filtered);
     setSelectedIndex(0);
   }, [query, products]);
-  
+
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-  
+
   const handleSelectProduct = useCallback((product: Product) => {
     setSelectedProduct(product);
-    
+
     if (product.portions.length === 1) {
       // Single portion, go directly to quantity
       setSelectedPortion(product.portions[0]);
@@ -66,20 +66,20 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
       setSelectedIndex(0);
     }
   }, []);
-  
+
   const handleSelectPortion = useCallback((portion: ProductPortion) => {
     setSelectedPortion(portion);
     setStep('quantity');
     setShowPortionSelect(false);
     setTimeout(() => quantityRef.current?.focus(), 50);
   }, []);
-  
+
   const handleAddItem = useCallback(() => {
     if (!selectedProduct || !selectedPortion) return;
-    
+
     const qty = parseInt(quantity) || 1;
     addToCart(selectedProduct, selectedPortion.size, qty);
-    
+
     // Reset state
     setQuery('');
     setSuggestions([]);
@@ -88,11 +88,11 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
     setQuantity('1');
     setStep('search');
     setShowPortionSelect(false);
-    
+
     inputRef.current?.focus();
     onItemAdded?.();
   }, [selectedProduct, selectedPortion, quantity, addToCart, onItemAdded]);
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (step === 'search') {
       if (e.key === 'ArrowDown') {
@@ -126,7 +126,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
       }
     }
   };
-  
+
   const handleQuantityKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -143,7 +143,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
   // Handle global keyboard for portion selection (when input is disabled)
   useEffect(() => {
     if (step !== 'portion' || !selectedProduct) return;
-    
+
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -161,11 +161,11 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
         inputRef.current?.focus();
       }
     };
-    
+
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [step, selectedProduct, selectedIndex, handleSelectPortion]);
-  
+
   return (
     <div className="relative" ref={containerRef}>
       {/* Search Input */}
@@ -181,7 +181,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
           disabled={step !== 'search'}
         />
       </div>
-      
+
       {/* Suggestions Dropdown */}
       {suggestions.length > 0 && step === 'search' && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
@@ -196,7 +196,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
               onMouseEnter={() => setSelectedIndex(index)}
             >
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs text-muted-foreground w-10">{product.code}</span>
+                <span className=" text-xs text-muted-foreground w-10">{product.code}</span>
                 <span className="font-medium">{product.name}</span>
                 {product.portions.length > 1 && (
                   <span className="text-xs text-muted-foreground">
@@ -204,7 +204,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
                   </span>
                 )}
               </div>
-              <span className="font-mono text-sm text-success">
+              <span className=" text-sm text-success">
                 ₹{product.portions[0].price}
                 {product.portions.length > 1 && '+'}
               </span>
@@ -217,7 +217,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
           </div>
         </div>
       )}
-      
+
       {/* Portion Selection */}
       {showPortionSelect && selectedProduct && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
@@ -238,7 +238,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
               onMouseEnter={() => setSelectedIndex(index)}
             >
               <span className="capitalize font-medium">{portion.size}</span>
-              <span className="font-mono text-sm text-success">₹{portion.price}</span>
+              <span className=" text-sm text-success">₹{portion.price}</span>
             </div>
           ))}
           <div className="px-3 py-2 bg-muted/30 text-xs text-muted-foreground flex items-center justify-between border-t border-border">
@@ -248,7 +248,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
           </div>
         </div>
       )}
-      
+
       {/* Quantity Input */}
       {step === 'quantity' && selectedProduct && selectedPortion && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up p-3">
@@ -257,7 +257,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
               <span className="font-medium">{selectedProduct.name}</span>
               <span className="text-muted-foreground ml-2 capitalize">({selectedPortion.size})</span>
             </div>
-            <span className="font-mono text-success">₹{selectedPortion.price}</span>
+            <span className=" text-success">₹{selectedPortion.price}</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex-1">
@@ -269,12 +269,12 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 onKeyDown={handleQuantityKeyDown}
-                className="bg-secondary font-mono text-center"
+                className="bg-secondary  text-center"
               />
             </div>
             <div className="flex-1">
               <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
-              <div className="h-10 flex items-center justify-center bg-muted rounded-md font-mono text-success">
+              <div className="h-10 flex items-center justify-center bg-muted rounded-md  text-success">
                 ₹{selectedPortion.price * (parseInt(quantity) || 1)}
               </div>
             </div>
@@ -285,7 +285,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
           </div>
         </div>
       )}
-      
+
       {/* Empty State */}
       {query.trim() !== '' && suggestions.length === 0 && step === 'search' && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg p-4 text-center text-muted-foreground">
