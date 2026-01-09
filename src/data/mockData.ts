@@ -83,16 +83,16 @@ export interface Customer {
   loyaltyPoints: number;
 }
 
-// Table Sections with Tables
+// Table Sections with Tables - Including occupied tables with sample bills
 export const tableSections: TableSection[] = [
   {
     id: 'main-hall',
     name: 'MAIN HALL',
     tables: [
       { id: 't1', number: 'T1', capacity: 4, status: 'available' },
-      { id: 't2', number: 'T2', capacity: 4, status: 'occupied', currentBillId: 'bill-001', currentAmount: 1250 },
+      { id: 't2', number: 'T2', capacity: 4, status: 'occupied', currentBillId: 'bill-active-001', currentAmount: 580 },
       { id: 't3', number: 'T3', capacity: 2, status: 'available' },
-      { id: 't4', number: 'T4', capacity: 6, status: 'occupied', currentBillId: 'bill-002', currentAmount: 3420 },
+      { id: 't4', number: 'T4', capacity: 6, status: 'occupied', currentBillId: 'bill-active-002', currentAmount: 1420 },
       { id: 't5', number: 'T5', capacity: 4, status: 'available' },
       { id: 't6', number: 'T6', capacity: 4, status: 'reserved' },
     ],
@@ -102,9 +102,9 @@ export const tableSections: TableSection[] = [
     name: 'GARDEN',
     tables: [
       { id: 't7', number: 'T7', capacity: 4, status: 'available' },
-      { id: 't8', number: 'T8', capacity: 6, status: 'occupied', currentBillId: 'bill-003', currentAmount: 890 },
+      { id: 't8', number: 'T8', capacity: 6, status: 'occupied', currentBillId: 'bill-active-003', currentAmount: 340 },
       { id: 't9', number: 'T9', capacity: 4, status: 'available' },
-      { id: 't10', number: 'T10', capacity: 8, status: 'available' },
+      { id: 't10', number: 'T10', capacity: 8, status: 'occupied', currentBillId: 'bill-active-004', currentAmount: 2150 },
       { id: 't11', number: 'T11', capacity: 4, status: 'available' },
     ],
   },
@@ -113,7 +113,7 @@ export const tableSections: TableSection[] = [
     name: 'PRIVATE ROOMS',
     tables: [
       { id: 'r1', number: 'R-1', capacity: 8, status: 'available' },
-      { id: 'r2', number: 'R-2', capacity: 10, status: 'occupied', currentBillId: 'bill-004', currentAmount: 5680 },
+      { id: 'r2', number: 'R-2', capacity: 10, status: 'occupied', currentBillId: 'bill-active-005', currentAmount: 3680 },
       { id: 'r3', number: 'R-3', capacity: 12, status: 'available' },
     ],
   },
@@ -173,8 +173,136 @@ export const customers: Customer[] = [
   { id: 'c5', name: 'Vikram Singh', phone: '9876543214', loyaltyPoints: 320 },
 ];
 
-// Sample Historical Bills
+// Active Bills for Occupied Tables (includes both KOT sent and pending items)
+export const activeBills: Bill[] = [
+  // T2 - Bill with all items sent to kitchen
+  {
+    id: 'bill-active-001',
+    billNumber: 'BILL-0005',
+    type: 'table',
+    tableId: 't2',
+    tableNumber: 'T2',
+    items: [
+      { id: 'ai1', productId: 'p101', productName: 'Paneer Tikka', productCode: '101', portion: 'full', quantity: 1, unitPrice: 180, gstRate: 5, sentToKitchen: true },
+      { id: 'ai2', productId: 'p302', productName: 'Butter Naan', productCode: '302', portion: 'single', quantity: 4, unitPrice: 40, gstRate: 5, sentToKitchen: true },
+      { id: 'ai3', productId: 'p203', productName: 'Dal Makhani', productCode: '203', portion: 'half', quantity: 1, unitPrice: 100, gstRate: 5, sentToKitchen: true },
+      { id: 'ai4', productId: 'p501', productName: 'Masala Chai', productCode: '501', portion: 'single', quantity: 2, unitPrice: 30, gstRate: 5, sentToKitchen: true },
+    ],
+    subTotal: 500,
+    discountAmount: 0,
+    cgstAmount: 12.5,
+    sgstAmount: 12.5,
+    totalAmount: 525,
+    finalAmount: 580,
+    coverCount: 2,
+    status: 'active',
+    createdAt: new Date(),
+  },
+  // T4 - Bill with mixed KOT status (some sent, some pending)
+  {
+    id: 'bill-active-002',
+    billNumber: 'BILL-0006',
+    type: 'table',
+    tableId: 't4',
+    tableNumber: 'T4',
+    items: [
+      { id: 'ai5', productId: 'p102', productName: 'Chicken Tikka', productCode: '102', portion: 'full', quantity: 2, unitPrice: 220, gstRate: 5, sentToKitchen: true },
+      { id: 'ai6', productId: 'p202', productName: 'Chicken Curry', productCode: '202', portion: 'full', quantity: 1, unitPrice: 260, gstRate: 5, sentToKitchen: true },
+      { id: 'ai7', productId: 'p303', productName: 'Garlic Naan', productCode: '303', portion: 'single', quantity: 6, unitPrice: 50, gstRate: 5, sentToKitchen: true },
+      // Pending items - not yet sent to kitchen
+      { id: 'ai8', productId: 'p602', productName: 'Ice Cream', productCode: '602', portion: 'single', quantity: 4, unitPrice: 90, gstRate: 5, sentToKitchen: false },
+      { id: 'ai9', productId: 'p503', productName: 'Fresh Lime Soda', productCode: '503', portion: 'single', quantity: 2, unitPrice: 50, gstRate: 5, sentToKitchen: false },
+    ],
+    subTotal: 1360,
+    discountAmount: 0,
+    cgstAmount: 34,
+    sgstAmount: 34,
+    totalAmount: 1428,
+    finalAmount: 1420,
+    coverCount: 4,
+    status: 'active',
+    createdAt: new Date(),
+  },
+  // T8 - Small order, all sent
+  {
+    id: 'bill-active-003',
+    billNumber: 'BILL-0007',
+    type: 'table',
+    tableId: 't8',
+    tableNumber: 'T8',
+    items: [
+      { id: 'ai10', productId: 'p501', productName: 'Masala Chai', productCode: '501', portion: 'single', quantity: 4, unitPrice: 30, gstRate: 5, sentToKitchen: true },
+      { id: 'ai11', productId: 'p103', productName: 'Veg Spring Roll', productCode: '103', portion: 'single', quantity: 2, unitPrice: 140, gstRate: 5, sentToKitchen: true },
+    ],
+    subTotal: 400,
+    discountAmount: 0,
+    cgstAmount: 10,
+    sgstAmount: 10,
+    totalAmount: 420,
+    finalAmount: 340,
+    coverCount: 4,
+    status: 'active',
+    createdAt: new Date(),
+  },
+  // T10 - Large order with pending items
+  {
+    id: 'bill-active-004',
+    billNumber: 'BILL-0008',
+    type: 'table',
+    tableId: 't10',
+    tableNumber: 'T10',
+    items: [
+      { id: 'ai12', productId: 'p101', productName: 'Paneer Tikka', productCode: '101', portion: 'full', quantity: 2, unitPrice: 180, gstRate: 5, sentToKitchen: true },
+      { id: 'ai13', productId: 'p105', productName: 'Mushroom Tikka', productCode: '105', portion: 'full', quantity: 1, unitPrice: 160, gstRate: 5, sentToKitchen: true },
+      { id: 'ai14', productId: 'p201', productName: 'Paneer Butter Masala', productCode: '201', portion: 'full', quantity: 2, unitPrice: 240, gstRate: 5, sentToKitchen: true },
+      { id: 'ai15', productId: 'p203', productName: 'Dal Makhani', productCode: '203', portion: 'full', quantity: 1, unitPrice: 180, gstRate: 5, sentToKitchen: true },
+      { id: 'ai16', productId: 'p302', productName: 'Butter Naan', productCode: '302', portion: 'single', quantity: 8, unitPrice: 40, gstRate: 5, sentToKitchen: true },
+      { id: 'ai17', productId: 'p401', productName: 'Plain Rice', productCode: '401', portion: 'single', quantity: 2, unitPrice: 120, gstRate: 5, sentToKitchen: true },
+      // Pending items
+      { id: 'ai18', productId: 'p601', productName: 'Gulab Jamun', productCode: '601', portion: 'single', quantity: 4, unitPrice: 80, gstRate: 5, sentToKitchen: false },
+      { id: 'ai19', productId: 'p504', productName: 'Lassi', productCode: '504', portion: 'single', quantity: 4, unitPrice: 60, gstRate: 5, sentToKitchen: false },
+    ],
+    subTotal: 2060,
+    discountAmount: 0,
+    cgstAmount: 51.5,
+    sgstAmount: 51.5,
+    totalAmount: 2163,
+    finalAmount: 2150,
+    coverCount: 6,
+    status: 'active',
+    createdAt: new Date(),
+  },
+  // R-2 - Private room order, all sent
+  {
+    id: 'bill-active-005',
+    billNumber: 'BILL-0009',
+    type: 'table',
+    tableId: 'r2',
+    tableNumber: 'R-2',
+    items: [
+      { id: 'ai20', productId: 'p102', productName: 'Chicken Tikka', productCode: '102', portion: 'full', quantity: 3, unitPrice: 220, gstRate: 5, sentToKitchen: true },
+      { id: 'ai21', productId: 'p104', productName: 'Fish Tikka', productCode: '104', portion: 'single', quantity: 2, unitPrice: 250, gstRate: 5, sentToKitchen: true },
+      { id: 'ai22', productId: 'p202', productName: 'Chicken Curry', productCode: '202', portion: 'full', quantity: 2, unitPrice: 260, gstRate: 5, sentToKitchen: true },
+      { id: 'ai23', productId: 'p205', productName: 'Mutton Rogan Josh', productCode: '205', portion: 'single', quantity: 2, unitPrice: 320, gstRate: 5, sentToKitchen: true },
+      { id: 'ai24', productId: 'p403', productName: 'Veg Biryani', productCode: '403', portion: 'single', quantity: 3, unitPrice: 180, gstRate: 5, sentToKitchen: true },
+      { id: 'ai25', productId: 'p303', productName: 'Garlic Naan', productCode: '303', portion: 'single', quantity: 10, unitPrice: 50, gstRate: 5, sentToKitchen: true },
+      { id: 'ai26', productId: 'p505', productName: 'Soft Drink', productCode: '505', portion: 'single', quantity: 6, unitPrice: 40, gstRate: 12, sentToKitchen: true },
+    ],
+    subTotal: 3540,
+    discountAmount: 0,
+    cgstAmount: 88.5,
+    sgstAmount: 88.5,
+    totalAmount: 3717,
+    finalAmount: 3680,
+    coverCount: 8,
+    status: 'active',
+    createdAt: new Date(),
+  },
+];
+
+// Sample Historical Bills (settled)
 export const sampleBills: Bill[] = [
+  ...activeBills,
   {
     id: 'bill-h001',
     billNumber: 'BILL-0001',
@@ -256,7 +384,7 @@ export const gstRates = [0, 5, 12, 18, 28];
 export const generateId = () => Math.random().toString(36).substring(2, 11);
 
 // Helper function to generate bill number
-let billCounter = 4;
+let billCounter = 9;
 export const generateBillNumber = () => {
   billCounter++;
   return `BILL-${billCounter.toString().padStart(4, '0')}`;

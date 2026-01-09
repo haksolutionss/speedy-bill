@@ -4,6 +4,7 @@ import {
   tableSections as initialTableSections, 
   products, 
   sampleBills,
+  activeBills,
   generateId, 
   generateBillNumber, 
   generateTokenNumber,
