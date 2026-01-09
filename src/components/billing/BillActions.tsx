@@ -1,12 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
   Printer, 
   Receipt, 
-  ArrowRightLeft, 
-  Merge, 
-  Save, 
-  RotateCcw, 
-  Eye,
   CreditCard,
   Banknote,
   Smartphone
@@ -20,21 +15,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { KOTTemplate } from '@/components/print/KOTTemplate';
+import { BillTemplate } from '@/components/print/BillTemplate';
 
 export function BillActions() {
   const { 
     cart, 
     markItemsSentToKitchen, 
     settleBill, 
-    saveAsUnsettled,
-    createNewBill 
+    createNewBill,
+    currentBill,
+    selectedTable,
+    isParcelMode,
   } = useBillingStore();
   
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showKOTPreview, setShowKOTPreview] = useState(false);
+  const [showBillPreview, setShowBillPreview] = useState(false);
+  
+  const kotRef = useRef<HTMLDivElement>(null);
+  const billRef = useRef<HTMLDivElement>(null);
   
   const pendingItems = cart.filter(item => !item.sentToKitchen);
   const hasPendingItems = pendingItems.length > 0;
   const hasItems = cart.length > 0;
+
+  // Calculate totals for bill template
+  const subTotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+  const gstByRate: Record<number, number> = {};
+  cart.forEach(item => {
+    const itemTotal = item.unitPrice * item.quantity;
+    const gst = itemTotal * (item.gstRate / 100);
+    gstByRate[item.gstRate] = (gstByRate[item.gstRate] || 0) + gst;
+  });
+  const totalGst = Object.values(gstByRate).reduce((sum, gst) => sum + gst, 0);
+  const cgstAmount = totalGst / 2;
+  const sgstAmount = totalGst / 2;
+  const totalAmount = subTotal + totalGst;
+  const finalAmount = Math.round(totalAmount);
   
   const handlePrintKOT = () => {
     if (!hasPendingItems) {
@@ -42,14 +60,31 @@ export function BillActions() {
       return;
     }
     
+    setShowKOTPreview(true);
+  };
+  
+  const confirmPrintKOT = () => {
     markItemsSentToKitchen();
     createNewBill();
+    
+    // Trigger print
+    const printContent = kotRef.current;
+    if (printContent) {
+      const printWindow = window.open('', '_blank', 'width=320,height=600');
+      if (printWindow) {
+        printWindow.document.write('<html><head><title>KOT</title></head><body>');
+        printWindow.document.write(printContent.outerHTML);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+      }
+    }
+    
+    setShowKOTPreview(false);
     toast.success(`KOT sent: ${pendingItems.length} item(s)`, {
       description: 'Items marked for kitchen preparation',
     });
-    
-    // Here you would trigger actual print
-    // For now, we'll just show the toast
   };
   
   const handlePrintBill = () => {
@@ -68,57 +103,38 @@ export function BillActions() {
   };
   
   const handlePayment = (method: 'cash' | 'card' | 'upi') => {
-    settleBill(method);
+    // Show bill preview first
     setShowPaymentDialog(false);
-    toast.success('Bill settled successfully!', {
-      description: `Payment received via ${method.toUpperCase()}`,
-    });
-  };
-  
-  const handleSaveUnsettled = () => {
-    if (!hasItems) {
-      toast.error('Add items first');
-      return;
-    }
+    setShowBillPreview(true);
     
-    saveAsUnsettled();
-    toast.info('Bill saved as unsettled', {
-      description: 'You can retrieve it from Bill History',
-    });
+    // Delay settlement to allow print
+    setTimeout(() => {
+      settleBill(method);
+      setShowBillPreview(false);
+      
+      // Trigger print
+      const printContent = billRef.current;
+      if (printContent) {
+        const printWindow = window.open('', '_blank', 'width=320,height=800');
+        if (printWindow) {
+          printWindow.document.write('<html><head><title>Bill</title></head><body>');
+          printWindow.document.write(printContent.outerHTML);
+          printWindow.document.write('</body></html>');
+          printWindow.document.close();
+          printWindow.print();
+          printWindow.close();
+        }
+      }
+      
+      toast.success('Bill settled successfully!', {
+        description: `Payment received via ${method.toUpperCase()}`,
+      });
+    }, 100);
   };
   
   return (
     <>
-      <div className="action-bar flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" disabled className="gap-1.5">
-            <ArrowRightLeft className="h-3.5 w-3.5" />
-            Transfer
-          </Button>
-          <Button variant="outline" size="sm" disabled className="gap-1.5">
-            <Merge className="h-3.5 w-3.5" />
-            Merge
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleSaveUnsettled}
-            disabled={!hasItems}
-            className="gap-1.5"
-          >
-            <Save className="h-3.5 w-3.5" />
-            Unsettled
-          </Button>
-          <Button variant="outline" size="sm" disabled className="gap-1.5">
-            <Eye className="h-3.5 w-3.5" />
-            View
-          </Button>
-          <Button variant="outline" size="sm" disabled className="gap-1.5">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Revert
-          </Button>
-        </div>
-        
+      <div className="action-bar">
         <div className="flex items-center gap-2 ml-auto">
           <Button 
             onClick={handlePrintKOT}
@@ -142,12 +158,72 @@ export function BillActions() {
         </div>
       </div>
       
+      {/* KOT Preview Dialog */}
+      <Dialog open={showKOTPreview} onOpenChange={setShowKOTPreview}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>KOT Preview</DialogTitle>
+          </DialogHeader>
+          <div className="bg-white rounded-lg overflow-hidden">
+            <KOTTemplate
+              ref={kotRef}
+              tableNumber={selectedTable?.number}
+              tokenNumber={currentBill?.tokenNumber}
+              items={pendingItems}
+              billNumber={currentBill?.billNumber}
+              isParcel={isParcelMode}
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowKOTPreview(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmPrintKOT} className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print & Send to Kitchen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Bill Preview Dialog */}
+      <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bill Preview</DialogTitle>
+          </DialogHeader>
+          <div className="bg-white rounded-lg overflow-hidden">
+            <BillTemplate
+              ref={billRef}
+              billNumber={currentBill?.billNumber || 'BILL-0000'}
+              tableNumber={selectedTable?.number}
+              tokenNumber={currentBill?.tokenNumber}
+              items={cart}
+              subTotal={subTotal}
+              discountAmount={currentBill?.discountAmount || 0}
+              discountType={currentBill?.discountType}
+              discountValue={currentBill?.discountValue}
+              discountReason={currentBill?.discountReason}
+              cgstAmount={cgstAmount}
+              sgstAmount={sgstAmount}
+              totalAmount={totalAmount}
+              finalAmount={finalAmount}
+              isParcel={isParcelMode}
+              coverCount={currentBill?.coverCount}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Select Payment Method</DialogTitle>
           </DialogHeader>
+          <div className="text-center mb-4">
+            <span className="text-3xl font-bold text-success">₹{finalAmount}</span>
+          </div>
           <div className="grid grid-cols-3 gap-4 py-4">
             <Button
               variant="outline"

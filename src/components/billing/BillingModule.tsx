@@ -15,7 +15,6 @@ export function BillingModule() {
     cart,
     markItemsSentToKitchen,
     createNewBill,
-    settleBill
   } = useBillingStore();
   
   const showBillingPanel = selectedTable || isParcelMode;
@@ -50,27 +49,27 @@ export function BillingModule() {
   }, [cart, markItemsSentToKitchen, createNewBill]);
   
   return (
-    <div className="h-screen flex bg-background">
+    <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Panel - Table Selection / Current Table */}
-      <div className="flex-1 flex flex-col border-r border-border">
+      <div className="flex-1 flex flex-col border-r border-border min-w-0 overflow-hidden">
         {/* Header */}
-        <div className="border-b border-border p-4">
+        <div className="border-b border-border p-4 shrink-0">
           <h1 className="text-lg font-semibold">Restaurant Billing</h1>
           <p className="text-sm text-muted-foreground">Select a table or start a parcel order</p>
         </div>
         
         {/* Table Grid */}
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+        <div className="flex-1 overflow-hidden p-4">
           <TableGrid />
         </div>
       </div>
       
       {/* Right Panel - Billing */}
-      <div className="w-[480px] flex flex-col bg-card">
+      <div className="w-[480px] flex flex-col bg-card shrink-0 overflow-hidden">
         {showBillingPanel ? (
           <>
             {/* Current Order Header */}
-            <div className="border-b border-border p-4">
+            <div className="border-b border-border p-4 shrink-0">
               <div className="flex items-center justify-between">
                 <div>
                   {isParcelMode ? (
@@ -108,11 +107,11 @@ export function BillingModule() {
             </div>
             
             {/* Item Search */}
-            <div className="p-4 border-b border-border">
+            <div className="p-4 border-b border-border shrink-0">
               <ItemSearch />
             </div>
             
-            {/* Cart */}
+            {/* Cart - scrollable */}
             <Cart />
             
             {/* Bill Summary */}

@@ -3,6 +3,7 @@ import { Search, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useBillingStore } from '@/store/billingStore';
 import type { Product, ProductPortion } from '@/data/mockData';
+import { cn } from '@/lib/utils';
 
 interface ItemSearchProps {
   onItemAdded?: () => void;
@@ -20,6 +21,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
   
   const inputRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const { products, addToCart } = useBillingStore();
   
@@ -137,9 +139,35 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
       inputRef.current?.focus();
     }
   };
+
+  // Handle global keyboard for portion selection (when input is disabled)
+  useEffect(() => {
+    if (step !== 'portion' || !selectedProduct) return;
+    
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, selectedProduct.portions.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSelectPortion(selectedProduct.portions[selectedIndex]);
+      } else if (e.key === 'Escape') {
+        setStep('search');
+        setShowPortionSelect(false);
+        setSelectedProduct(null);
+        inputRef.current?.focus();
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [step, selectedProduct, selectedIndex, handleSelectPortion]);
   
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       {/* Search Input */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -160,9 +188,12 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
           {suggestions.map((product, index) => (
             <div
               key={product.id}
-              data-selected={index === selectedIndex}
-              className="suggestion-item"
+              className={cn(
+                "suggestion-item cursor-pointer transition-colors",
+                index === selectedIndex && "bg-accent/30 border-l-2 border-l-accent"
+              )}
               onClick={() => handleSelectProduct(product)}
+              onMouseEnter={() => setSelectedIndex(index)}
             >
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs text-muted-foreground w-10">{product.code}</span>
@@ -179,27 +210,42 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
               </span>
             </div>
           ))}
+          <div className="px-3 py-2 bg-muted/30 text-xs text-muted-foreground flex items-center justify-between border-t border-border">
+            <span><kbd className="kbd">↑↓</kbd> Navigate</span>
+            <span><kbd className="kbd">Enter</kbd> Select</span>
+            <span><kbd className="kbd">Esc</kbd> Cancel</span>
+          </div>
         </div>
       )}
       
       {/* Portion Selection */}
       {showPortionSelect && selectedProduct && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
-          <div className="px-3 py-2 border-b border-border bg-muted/50">
-            <span className="text-sm font-medium">{selectedProduct.name}</span>
-            <span className="text-xs text-muted-foreground ml-2">Select portion</span>
+          <div className="px-3 py-2 border-b border-border bg-muted/50 flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-accent">{selectedProduct.name}</span>
+              <span className="text-xs text-muted-foreground ml-2">Select portion</span>
+            </div>
           </div>
           {selectedProduct.portions.map((portion, index) => (
             <div
               key={portion.size}
-              data-selected={index === selectedIndex}
-              className="suggestion-item"
+              className={cn(
+                "suggestion-item cursor-pointer transition-colors",
+                index === selectedIndex && "bg-accent/30 border-l-2 border-l-accent"
+              )}
               onClick={() => handleSelectPortion(portion)}
+              onMouseEnter={() => setSelectedIndex(index)}
             >
-              <span className="capitalize">{portion.size}</span>
+              <span className="capitalize font-medium">{portion.size}</span>
               <span className="font-mono text-sm text-success">₹{portion.price}</span>
             </div>
           ))}
+          <div className="px-3 py-2 bg-muted/30 text-xs text-muted-foreground flex items-center justify-between border-t border-border">
+            <span><kbd className="kbd">↑↓</kbd> Navigate</span>
+            <span><kbd className="kbd">Enter</kbd> Select</span>
+            <span><kbd className="kbd">Esc</kbd> Cancel</span>
+          </div>
         </div>
       )}
       
