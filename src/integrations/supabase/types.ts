@@ -14,13 +14,483 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bill_items: {
+        Row: {
+          bill_id: string
+          created_at: string
+          gst_rate: number
+          id: string
+          kot_printed_at: string | null
+          notes: string | null
+          portion: string
+          product_code: string
+          product_id: string
+          product_name: string
+          quantity: number
+          sent_to_kitchen: boolean
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          bill_id: string
+          created_at?: string
+          gst_rate: number
+          id?: string
+          kot_printed_at?: string | null
+          notes?: string | null
+          portion: string
+          product_code: string
+          product_id: string
+          product_name: string
+          quantity?: number
+          sent_to_kitchen?: boolean
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          bill_id?: string
+          created_at?: string
+          gst_rate?: number
+          id?: string
+          kot_printed_at?: string | null
+          notes?: string | null
+          portion?: string
+          product_code?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          sent_to_kitchen?: boolean
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_items_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bills: {
+        Row: {
+          bill_number: string
+          cgst_amount: number
+          cover_count: number | null
+          created_at: string
+          customer_id: string | null
+          discount_amount: number
+          discount_reason: string | null
+          discount_type: string | null
+          discount_value: number | null
+          final_amount: number
+          id: string
+          payment_method: string | null
+          settled_at: string | null
+          sgst_amount: number
+          status: string
+          sub_total: number
+          table_id: string | null
+          table_number: string | null
+          token_number: number | null
+          total_amount: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          bill_number: string
+          cgst_amount?: number
+          cover_count?: number | null
+          created_at?: string
+          customer_id?: string | null
+          discount_amount?: number
+          discount_reason?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          final_amount?: number
+          id?: string
+          payment_method?: string | null
+          settled_at?: string | null
+          sgst_amount?: number
+          status?: string
+          sub_total?: number
+          table_id?: string | null
+          table_number?: string | null
+          token_number?: number | null
+          total_amount?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          bill_number?: string
+          cgst_amount?: number
+          cover_count?: number | null
+          created_at?: string
+          customer_id?: string | null
+          discount_amount?: number
+          discount_reason?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          final_amount?: number
+          id?: string
+          payment_method?: string | null
+          settled_at?: string | null
+          sgst_amount?: number
+          status?: string
+          sub_total?: number
+          table_id?: string | null
+          table_number?: string | null
+          token_number?: number | null
+          total_amount?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bills_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          loyalty_points: number
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          loyalty_points?: number
+          name: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          loyalty_points?: number
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kot_history: {
+        Row: {
+          bill_id: string
+          id: string
+          kot_number: string
+          printed_at: string
+          table_number: string | null
+          token_number: number | null
+        }
+        Insert: {
+          bill_id: string
+          id?: string
+          kot_number: string
+          printed_at?: string
+          table_number?: string | null
+          token_number?: number | null
+        }
+        Update: {
+          bill_id?: string
+          id?: string
+          kot_number?: string
+          printed_at?: string
+          table_number?: string | null
+          token_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kot_history_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_details: {
+        Row: {
+          amount: number
+          bill_id: string
+          created_at: string
+          id: string
+          method: string
+        }
+        Insert: {
+          amount: number
+          bill_id: string
+          created_at?: string
+          id?: string
+          method: string
+        }
+        Update: {
+          amount?: number
+          bill_id?: string
+          created_at?: string
+          id?: string
+          method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_details_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_portions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          price: number
+          product_id: string
+          size: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          price: number
+          product_id: string
+          size: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          price?: number
+          product_id?: string
+          size?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_portions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category_id: string
+          code: string
+          created_at: string
+          description: string | null
+          display_order: number
+          gst_rate: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          code: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          gst_rate?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          gst_rate?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      table_sections: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tables: {
+        Row: {
+          capacity: number
+          created_at: string
+          current_amount: number | null
+          current_bill_id: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          number: string
+          section_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          current_amount?: number | null
+          current_bill_id?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          number: string
+          section_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          current_amount?: number | null
+          current_bill_id?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          number?: string
+          section_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tables_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "table_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_bill_number: { Args: never; Returns: string }
+      generate_kot_number: { Args: never; Returns: string }
+      generate_token_number: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
