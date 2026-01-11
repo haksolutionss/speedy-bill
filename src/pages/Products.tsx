@@ -19,13 +19,13 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const categories = [...new Set(products.map(p => p.category))];
+  const categories = [...new Set(products.map(p => p.category?.name).filter(Boolean))];
 
   const filteredProducts = products.filter(product => {
     const matchesSearch =
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.code.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory || product.category === selectedCategory;
+    const matchesCategory = !selectedCategory || product.category?.name === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -67,7 +67,7 @@ export default function Products() {
               key={cat}
               variant={selectedCategory === cat ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => setSelectedCategory(cat || null)}
             >
               {cat}
             </Button>
@@ -98,7 +98,7 @@ export default function Products() {
                 </TableCell>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{product.category}</Badge>
+                  <Badge variant="outline">{product.category?.name || 'Uncategorized'}</Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -110,22 +110,22 @@ export default function Products() {
                   </div>
                 </TableCell>
                 <TableCell className="text-right ">
-                  ₹{product.portions[0].price}
+                  ₹{product.portions[0]?.price || 0}
                   {product.portions.length > 1 && '+'}
                 </TableCell>
                 <TableCell className="text-center text-sm text-muted-foreground">
-                  {product.gstRate}%
+                  {product.gst_rate}%
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge
                     variant="outline"
                     className={cn(
-                      product.isActive
+                      product.is_active
                         ? "border-success/50 text-success"
                         : "border-destructive/50 text-destructive"
                     )}
                   >
-                    {product.isActive ? 'Active' : 'Inactive'}
+                    {product.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
                 <TableCell>

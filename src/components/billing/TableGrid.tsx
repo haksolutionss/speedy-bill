@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Input } from '../ui/input';
+import { useState, useMemo } from 'react';
+import type { DbTable } from '@/types/database';
 
 interface TableGridProps {
   onTableSelect?: () => void;
@@ -20,10 +22,40 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
     saveAsUnsettled
   } = useBillingStore();
 
+  const [searchQuery, setSearchQuery] = useState('');
   const hasItems = cart.length > 0;
 
+  // Filter tables based on search
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return tableSections;
+    
+    const query = searchQuery.toLowerCase();
+    return tableSections
+      .map(section => ({
+        ...section,
+        tables: section.tables.filter(table => 
+          table.number.toLowerCase().includes(query)
+        ),
+      }))
+      .filter(section => section.tables.length > 0);
+  }, [tableSections, searchQuery]);
+
   const handleTableClick = (table: typeof tableSections[0]['tables'][0]) => {
-    selectTable(table);
+    // Convert local table type to DbTable for selectTable
+    const dbTable: DbTable = {
+      id: table.id,
+      number: table.number,
+      capacity: table.capacity,
+      status: table.status,
+      current_bill_id: table.currentBillId || null,
+      current_amount: table.currentAmount || null,
+      section_id: '',
+      display_order: 0,
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+    };
+    selectTable(dbTable);
     onTableSelect?.();
   };
 
@@ -45,7 +77,12 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
       <div className="flex-1 overflow-y-auto scrollbar-thin space-y-4 pb-4">
         {/* Parcel Mode Toggle */}
         <div className="flex items-center gap-4 sticky top-0 bg-background z-10 pb-2">
-          <Input placeholder='search table...' className='w-96 border-border' />
+          <Input 
+            placeholder='Search table...' 
+            className='w-96 border-border'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
           <Button
             variant='outline'
             onClick={() => setParcelMode(true)}
@@ -70,7 +107,7 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
         </div>
 
         {/* Table Sections */}
-        {!isParcelMode && tableSections.map((section) => (
+        {!isParcelMode && filteredSections.map((section) => (
           <div key={section.id}>
             <div className="section-header">
               <div className="h-[0.1px] flex-1 bg-border border-border" />
@@ -103,6 +140,13 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
             </div>
           </div>
         ))}
+
+        {/* Empty state when no tables match search */}
+        {!isParcelMode && filteredSections.length === 0 && searchQuery && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No tables found matching "{searchQuery}"</p>
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-6 text-xs text-muted-foreground pt-4 border-t border-border">

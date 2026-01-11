@@ -2,19 +2,22 @@ import { AlertCircle, RefreshCw, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-interface QueryErrorHandlerProps {
+export interface QueryErrorHandlerProps {
   error: unknown;
   refetch?: () => void;
+  onRetry?: () => void;
   title?: string;
   className?: string;
 }
 
 export function QueryErrorHandler({ 
   error, 
-  refetch, 
+  refetch,
+  onRetry, 
   title = 'Error loading data',
   className = ''
 }: QueryErrorHandlerProps) {
+  const handleRetry = refetch || onRetry;
   const errorMessage = error instanceof Error 
     ? error.message 
     : typeof error === 'object' && error !== null && 'message' in error
@@ -34,9 +37,9 @@ export function QueryErrorHandler({
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription className="flex flex-col gap-3">
         <span>{errorMessage}</span>
-        {refetch && (
+        {handleRetry && (
           <Button 
-            onClick={refetch} 
+            onClick={handleRetry} 
             variant="outline" 
             size="sm" 
             className="w-fit"

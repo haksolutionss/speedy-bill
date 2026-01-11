@@ -5,9 +5,6 @@ import {
   useCreateBillMutation,
   useUpdateBillMutation,
   useUpdateTableMutation,
-  useAddBillItemMutation,
-  useUpdateBillItemMutation,
-  useDeleteBillItemMutation,
   useMarkItemsAsKOTMutation,
   useAddPaymentDetailsMutation,
 } from '@/store/redux/api/billingApi';
@@ -27,14 +24,12 @@ export function useBillingOperations() {
     resetBillingState,
     markItemsSentToKitchen,
     getNextToken,
+    setCurrentBillId,
   } = useUIStore();
 
   const [createBill] = useCreateBillMutation();
   const [updateBill] = useUpdateBillMutation();
   const [updateTable] = useUpdateTableMutation();
-  const [addBillItem] = useAddBillItemMutation();
-  const [updateBillItem] = useUpdateBillItemMutation();
-  const [deleteBillItem] = useDeleteBillItemMutation();
   const [markItemsAsKOT] = useMarkItemsAsKOTMutation();
   const [addPaymentDetails] = useAddPaymentDetailsMutation();
 
@@ -113,6 +108,9 @@ export function useBillingOperations() {
           }).unwrap();
         }
 
+        // Update current bill ID in store
+        setCurrentBillId(result.id);
+
         return result.id;
       }
     } catch (error) {
@@ -133,6 +131,7 @@ export function useBillingOperations() {
     updateBill,
     updateTable,
     getNextToken,
+    setCurrentBillId,
   ]);
 
   const printKOT = useCallback(async () => {
