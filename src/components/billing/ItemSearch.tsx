@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useBillingStore } from '@/store/billingStore';
-import type { Product, ProductPortion } from '@/data/mockData';
+import type { ProductWithPortions, DbProductPortion } from '@/types/database';
 import { cn } from '@/lib/utils';
 
 interface ItemSearchProps {
@@ -11,11 +11,11 @@ interface ItemSearchProps {
 
 export function ItemSearch({ onItemAdded }: ItemSearchProps) {
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<Product[]>([]);
+  const [suggestions, setSuggestions] = useState<ProductWithPortions[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showPortionSelect, setShowPortionSelect] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedPortion, setSelectedPortion] = useState<ProductPortion | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductWithPortions | null>(null);
+  const [selectedPortion, setSelectedPortion] = useState<DbProductPortion | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [step, setStep] = useState<'search' | 'portion' | 'quantity'>('search');
 
@@ -34,7 +34,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
 
     const searchLower = query.toLowerCase();
     const filtered = products
-      .filter(p => p.isActive)
+      .filter(p => p.is_active)
       .filter(p =>
         p.name.toLowerCase().includes(searchLower) ||
         p.code.toLowerCase().includes(searchLower)
@@ -50,7 +50,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
     inputRef.current?.focus();
   }, []);
 
-  const handleSelectProduct = useCallback((product: Product) => {
+  const handleSelectProduct = useCallback((product: ProductWithPortions) => {
     setSelectedProduct(product);
 
     if (product.portions.length === 1) {
@@ -67,7 +67,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
     }
   }, []);
 
-  const handleSelectPortion = useCallback((portion: ProductPortion) => {
+  const handleSelectPortion = useCallback((portion: DbProductPortion) => {
     setSelectedPortion(portion);
     setStep('quantity');
     setShowPortionSelect(false);
@@ -205,7 +205,7 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
                 )}
               </div>
               <span className=" text-sm text-success">
-                ₹{product.portions[0].price}
+                ₹{product.portions[0]?.price || 0}
                 {product.portions.length > 1 && '+'}
               </span>
             </div>
