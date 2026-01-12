@@ -160,43 +160,50 @@ export default function Tables() {
   return (
     <ErrorBoundary>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Tables & Locations</h1>
-            <p className="text-muted-foreground">Manage your restaurant layout</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tables..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-48 border-border"
-              />
+        {/* Header */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Tables & Sections</h1>
+              <p className="text-muted-foreground">Manage your restaurant layout</p>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditingSection(null);
-                setIsSectionModalOpen(true);
-              }}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Section
-            </Button>
-            <Button
-              onClick={() => {
-                setEditingTable(null);
-                setIsTableModalOpen(true);
-              }}
-              className="gap-2"
-              disabled={flatSections.length === 0}
-            >
-              <Plus className="h-4 w-4" />
-              Add Table
-            </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingSection(null);
+                  setIsSectionModalOpen(true);
+                }}
+                className="gap-2 flex-1 sm:flex-none"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Section</span>
+                <span className="sm:hidden">Section</span>
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingTable(null);
+                  setIsTableModalOpen(true);
+                }}
+                className="gap-2 flex-1 sm:flex-none"
+                disabled={flatSections.length === 0}
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Table</span>
+                <span className="sm:hidden">Table</span>
+              </Button>
+            </div>
+          </div>
+          
+          {/* Search */}
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tables..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 border-border"
+            />
           </div>
         </div>
 
@@ -316,7 +323,7 @@ export default function Tables() {
             ))}
 
             {/* Legend */}
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-4 sm:gap-6 text-sm text-muted-foreground flex-wrap">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded bg-success/50" />
                 <span>Available</span>
