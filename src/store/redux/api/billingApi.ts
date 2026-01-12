@@ -1,5 +1,6 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { supabase } from '@/integrations/supabase/client';
+import { parseSupabaseError } from '@/lib/errorUtils';
 import type {
   DbTableSection,
   DbTable,
@@ -72,7 +73,7 @@ export const billingApi = createApi({
           if (error) throw error;
           return { data: data as DbTableSection };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'section', fieldName: 'name' }) } };
         }
       },
       invalidatesTags: ['TableSections'],
@@ -91,7 +92,7 @@ export const billingApi = createApi({
           if (error) throw error;
           return { data: data as DbTableSection };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'section', fieldName: 'name' }) } };
         }
       },
       invalidatesTags: ['TableSections'],
@@ -128,7 +129,7 @@ export const billingApi = createApi({
           if (error) throw error;
           return { data: data as DbTable };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'table', fieldName: 'number' }) } };
         }
       },
       invalidatesTags: ['Tables', 'TableSections'],
@@ -146,7 +147,7 @@ export const billingApi = createApi({
           if (error) throw error;
           return { data: data as DbTable };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'table', fieldName: 'number' }) } };
         }
       },
       invalidatesTags: ['Tables', 'TableSections'],
@@ -195,7 +196,7 @@ export const billingApi = createApi({
           if (error) throw error;
           return { data: data as DbCategory };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'category', fieldName: 'name' }) } };
         }
       },
       invalidatesTags: ['Categories', 'Products'],
@@ -213,7 +214,7 @@ export const billingApi = createApi({
           if (error) throw error;
           return { data: data as DbCategory };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'category', fieldName: 'name' }) } };
         }
       },
       invalidatesTags: ['Categories', 'Products'],
@@ -295,7 +296,7 @@ export const billingApi = createApi({
 
           return { data: newProduct as DbProduct };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'product' }) } };
         }
       },
       invalidatesTags: ['Products'],
@@ -339,7 +340,7 @@ export const billingApi = createApi({
 
           return { data: updatedProduct as DbProduct };
         } catch (error) {
-          return { error: { message: (error as Error).message } };
+          return { error: { message: parseSupabaseError(error, { entityType: 'product' }) } };
         }
       },
       invalidatesTags: ['Products'],
