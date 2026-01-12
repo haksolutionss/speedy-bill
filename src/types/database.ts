@@ -53,6 +53,7 @@ export interface DbProductPortion {
   product_id: string;
   size: string;
   price: number;
+  section_prices: Record<string, number>;
   is_active: boolean;
   created_at: string;
   updated_at: string;

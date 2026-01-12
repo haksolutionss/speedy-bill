@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Search, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useBillingStore } from '@/store/billingStore';
@@ -9,7 +9,11 @@ interface ItemSearchProps {
   onItemAdded?: () => void;
 }
 
-export function ItemSearch({ onItemAdded }: ItemSearchProps) {
+export interface ItemSearchRef {
+  focus: () => void;
+}
+
+export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAdded }, ref) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<ProductWithPortions[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -295,4 +299,6 @@ export function ItemSearch({ onItemAdded }: ItemSearchProps) {
       )}
     </div>
   );
-}
+});
+
+ItemSearch.displayName = 'ItemSearch';
