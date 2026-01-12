@@ -1,14 +1,11 @@
 import { LucideIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ReactNode } from 'react';
 
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  action?: ReactNode;
   className?: string;
 }
 
@@ -26,11 +23,7 @@ export function EmptyState({
       </div>
       <h3 className="text-lg font-medium text-foreground mb-1">{title}</h3>
       <p className="text-sm text-muted-foreground max-w-sm mb-4">{description}</p>
-      {action && (
-        <Button onClick={action.onClick} variant="outline" size="sm">
-          {action.label}
-        </Button>
-      )}
+      {action}
     </div>
   );
 }
