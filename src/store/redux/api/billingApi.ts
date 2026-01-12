@@ -15,10 +15,17 @@ import type {
   BillWithItems,
 } from '@/types/database';
 
+// Cache time: 1 hour in seconds
+const ONE_HOUR = 60 * 60;
+
 export const billingApi = createApi({
   reducerPath: 'billingApi',
   baseQuery: fakeBaseQuery(),
   tagTypes: ['TableSections', 'Tables', 'Categories', 'Products', 'Bills', 'BillItems', 'Customers'],
+  // Keep unused data for 1 hour before refetching
+  keepUnusedDataFor: ONE_HOUR,
+  // Refetch on mount after 1 hour
+  refetchOnMountOrArgChange: ONE_HOUR,
   endpoints: (builder) => ({
     // ============ TABLE SECTIONS ============
     getTableSections: builder.query<TableSectionWithTables[], void>({
@@ -90,6 +97,23 @@ export const billingApi = createApi({
       invalidatesTags: ['TableSections'],
     }),
 
+    deleteTableSection: builder.mutation<void, string>({
+      queryFn: async (id) => {
+        try {
+          // Soft delete - set is_active to false
+          const { error } = await supabase
+            .from('table_sections')
+            .update({ is_active: false })
+            .eq('id', id);
+          if (error) throw error;
+          return { data: undefined };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      invalidatesTags: ['TableSections', 'Tables'],
+    }),
+
     // ============ TABLES ============
     updateTable: builder.mutation<DbTable, { id: string; updates: Partial<DbTable> }>({
       queryFn: async ({ id, updates }) => {
@@ -110,7 +134,7 @@ export const billingApi = createApi({
       invalidatesTags: ['Tables', 'TableSections'],
     }),
 
-    createTable: builder.mutation<DbTable, { section_id: string; number: string; capacity?: number }>({
+    createTable: builder.mutation<DbTable, { section_id: string; number: string; capacity?: number; status?: string }>({
       queryFn: async (table) => {
         try {
           const { data, error } = await supabase
@@ -131,7 +155,11 @@ export const billingApi = createApi({
     deleteTable: builder.mutation<void, string>({
       queryFn: async (id) => {
         try {
-          const { error } = await supabase.from('tables').delete().eq('id', id);
+          // Soft delete - set is_active to false
+          const { error } = await supabase
+            .from('tables')
+            .update({ is_active: false })
+            .eq('id', id);
           if (error) throw error;
           return { data: undefined };
         } catch (error) {
@@ -170,7 +198,42 @@ export const billingApi = createApi({
           return { error: { message: (error as Error).message } };
         }
       },
-      invalidatesTags: ['Categories'],
+      invalidatesTags: ['Categories', 'Products'],
+    }),
+
+    updateCategory: builder.mutation<DbCategory, { id: string; updates: Partial<DbCategory> }>({
+      queryFn: async ({ id, updates }) => {
+        try {
+          const { data, error } = await supabase
+            .from('categories')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+          if (error) throw error;
+          return { data: data as DbCategory };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      invalidatesTags: ['Categories', 'Products'],
+    }),
+
+    deleteCategory: builder.mutation<void, string>({
+      queryFn: async (id) => {
+        try {
+          // Soft delete
+          const { error } = await supabase
+            .from('categories')
+            .update({ is_active: false })
+            .eq('id', id);
+          if (error) throw error;
+          return { data: undefined };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      invalidatesTags: ['Categories', 'Products'],
     }),
 
     // ============ PRODUCTS ============
@@ -208,6 +271,102 @@ export const billingApi = createApi({
         }
       },
       providesTags: ['Products', 'Categories'],
+    }),
+
+    createProduct: builder.mutation<DbProduct, { 
+      product: { name: string; code: string; category_id: string; description?: string; gst_rate: number }; 
+      portions: { size: string; price: number }[] 
+    }>({
+      queryFn: async ({ product, portions }) => {
+        try {
+          const { data: newProduct, error: productError } = await supabase
+            .from('products')
+            .insert([product])
+            .select()
+            .single();
+
+          if (productError) throw productError;
+
+          if (portions.length > 0) {
+            const portionsWithProductId = portions.map((p) => ({ ...p, product_id: newProduct.id }));
+            const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId as any);
+            if (portionsError) throw portionsError;
+          }
+
+          return { data: newProduct as DbProduct };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      invalidatesTags: ['Products'],
+    }),
+
+    updateProduct: builder.mutation<DbProduct, { 
+      id: string; 
+      product: Partial<DbProduct>; 
+      portions?: { id?: string; size: string; price: number }[] 
+    }>({
+      queryFn: async ({ id, product, portions }) => {
+        try {
+          const { data: updatedProduct, error: productError } = await supabase
+            .from('products')
+            .update(product)
+            .eq('id', id)
+            .select()
+            .single();
+
+          if (productError) throw productError;
+
+          if (portions) {
+            // Soft delete existing portions
+            await supabase
+              .from('product_portions')
+              .update({ is_active: false })
+              .eq('product_id', id);
+
+            // Insert new portions
+            if (portions.length > 0) {
+              const portionsWithProductId = portions.map((p) => ({ 
+                size: p.size, 
+                price: p.price, 
+                product_id: id,
+                is_active: true
+              }));
+              const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId as any);
+              if (portionsError) throw portionsError;
+            }
+          }
+
+          return { data: updatedProduct as DbProduct };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      invalidatesTags: ['Products'],
+    }),
+
+    deleteProduct: builder.mutation<void, string>({
+      queryFn: async (id) => {
+        try {
+          // Soft delete product
+          const { error: productError } = await supabase
+            .from('products')
+            .update({ is_active: false })
+            .eq('id', id);
+          if (productError) throw productError;
+
+          // Soft delete portions
+          await supabase
+            .from('product_portions')
+            .update({ is_active: false })
+            .eq('product_id', id);
+
+          return { data: undefined };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      invalidatesTags: ['Products'],
     }),
 
     // ============ BILLS ============
@@ -381,12 +540,18 @@ export const {
   useGetTableSectionsQuery,
   useCreateTableSectionMutation,
   useUpdateTableSectionMutation,
+  useDeleteTableSectionMutation,
   useUpdateTableMutation,
   useCreateTableMutation,
   useDeleteTableMutation,
   useGetCategoriesQuery,
   useCreateCategoryMutation,
+  useUpdateCategoryMutation,
+  useDeleteCategoryMutation,
   useGetProductsQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
   useGetBillsQuery,
   useGetActiveBillsQuery,
   useCreateBillMutation,
