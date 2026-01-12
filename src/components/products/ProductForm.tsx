@@ -40,7 +40,7 @@ interface ProductFormProps {
   isLoading?: boolean;
 }
 
-const PORTION_SIZES = ['full', 'half', 'quarter', 'single', 'small', 'medium', 'large'];
+const PORTION_SIZES = ['full', 'half', 'small', 'medium', 'large'];
 
 export function ProductForm({ categories, initialData, onSubmit, isLoading }: ProductFormProps) {
   const {
@@ -54,25 +54,25 @@ export function ProductForm({ categories, initialData, onSubmit, isLoading }: Pr
     resolver: zodResolver(productSchema),
     defaultValues: initialData
       ? {
-          name: initialData.name,
-          code: initialData.code,
-          category_id: initialData.category_id,
-          description: initialData.description || '',
-          gst_rate: Number(initialData.gst_rate),
-          portions: initialData.portions.map((p) => ({
-            id: p.id,
-            size: p.size,
-            price: Number(p.price),
-          })),
-        }
+        name: initialData.name,
+        code: initialData.code,
+        category_id: initialData.category_id,
+        description: initialData.description || '',
+        gst_rate: Number(initialData.gst_rate),
+        portions: initialData.portions.map((p) => ({
+          id: p.id,
+          size: p.size,
+          price: Number(p.price),
+        })),
+      }
       : {
-          name: '',
-          code: '',
-          category_id: '',
-          description: '',
-          gst_rate: 5,
-          portions: [{ size: 'full', price: 0 }],
-        },
+        name: '',
+        code: '',
+        category_id: '',
+        description: '',
+        gst_rate: 5,
+        portions: [{ size: 'full', price: 0 }],
+      },
   });
 
   const { fields, append, remove } = useFieldArray({
