@@ -4,14 +4,17 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Input } from '../ui/input';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { DbTable } from '@/types/database';
+import { TransferTableModal } from './TransferTableModal';
+import { MergeTableModal } from './MergeTableModal';
 
 interface TableGridProps {
   onTableSelect?: () => void;
+  searchInputRef?: React.RefObject<HTMLInputElement>;
 }
 
-export function TableGrid({ onTableSelect }: TableGridProps) {
+export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const {
     tableSections,
     selectedTable,
@@ -23,7 +26,13 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
   } = useBillingStore();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = searchInputRef || internalInputRef;
+  
   const hasItems = cart.length > 0;
+  const hasOccupiedTables = tableSections.some(s => s.tables.some(t => t.status === 'occupied'));
 
   // Filter tables based on search
   const filteredSections = useMemo(() => {
@@ -40,7 +49,19 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
       .filter(section => section.tables.length > 0);
   }, [tableSections, searchQuery]);
 
+  // Find section_id for a table
+  const findSectionForTable = (tableId: string): string | undefined => {
+    for (const section of tableSections) {
+      if (section.tables.find(t => t.id === tableId)) {
+        return section.id;
+      }
+    }
+    return undefined;
+  };
+
   const handleTableClick = (table: typeof tableSections[0]['tables'][0]) => {
+    const sectionId = findSectionForTable(table.id);
+    
     // Convert local table type to DbTable for selectTable
     const dbTable: DbTable = {
       id: table.id,
@@ -49,7 +70,7 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
       status: table.status,
       current_bill_id: table.currentBillId || null,
       current_amount: table.currentAmount || null,
-      section_id: '',
+      section_id: sectionId || '',
       display_order: 0,
       is_active: true,
       created_at: '',
@@ -57,6 +78,34 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
     };
     selectTable(dbTable);
     onTableSelect?.();
+  };
+
+  // Handle Enter key to select table by number
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      // Find exact match first, then partial match
+      let matchedTable: typeof tableSections[0]['tables'][0] | null = null;
+      
+      for (const section of tableSections) {
+        const exactMatch = section.tables.find(t => t.number.toLowerCase() === query);
+        if (exactMatch) {
+          matchedTable = exactMatch;
+          break;
+        }
+        if (!matchedTable) {
+          const partialMatch = section.tables.find(t => t.number.toLowerCase().includes(query));
+          if (partialMatch) matchedTable = partialMatch;
+        }
+      }
+      
+      if (matchedTable) {
+        handleTableClick(matchedTable);
+        setSearchQuery('');
+      } else {
+        toast.error(`Table "${searchQuery}" not found`);
+      }
+    }
   };
 
   const handleSaveUnsettled = () => {
@@ -78,10 +127,12 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
         {/* Parcel Mode Toggle */}
         <div className="flex items-center gap-4 sticky top-0 bg-background z-10 pb-2">
           <Input 
-            placeholder='Search table...' 
+            ref={inputRef}
+            placeholder='Search table... (Press Enter to select)' 
             className='w-96 border-border'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
           <Button
             variant='outline'
@@ -131,7 +182,7 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
                   <span className="text-lg font-bold">{table.number}</span>
                   <span className="text-[10px] opacity-70">{table.capacity} seats</span>
                   {table.currentAmount && (
-                    <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-[10px]  font-bold px-1.5 py-0.5 rounded-full">
+                    <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                       ₹{table.currentAmount}
                     </span>
                   )}
@@ -166,12 +217,24 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
       </div>
 
       {/* Fixed Action Buttons at Bottom */}
-      <div className="flex items-center gap-2 py-3 fixed bottom-0">
-        <Button variant="outline" size="sm" disabled className="gap-1.5">
+      <div className="flex items-center gap-2 py-3 border-t border-border bg-background">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="gap-1.5"
+          disabled={!hasOccupiedTables}
+          onClick={() => setShowTransferModal(true)}
+        >
           <ArrowRightLeft className="h-3.5 w-3.5" />
           Transfer
         </Button>
-        <Button variant="outline" size="sm" disabled className="gap-1.5">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="gap-1.5"
+          disabled={!hasOccupiedTables}
+          onClick={() => setShowMergeModal(true)}
+        >
           <Merge className="h-3.5 w-3.5" />
           Merge
         </Button>
@@ -194,6 +257,16 @@ export function TableGrid({ onTableSelect }: TableGridProps) {
           Revert
         </Button>
       </div>
+
+      {/* Modals */}
+      <TransferTableModal 
+        isOpen={showTransferModal} 
+        onClose={() => setShowTransferModal(false)} 
+      />
+      <MergeTableModal 
+        isOpen={showMergeModal} 
+        onClose={() => setShowMergeModal(false)} 
+      />
     </div>
   );
 }

@@ -304,6 +304,7 @@ export type Database = {
           is_active: boolean
           price: number
           product_id: string
+          section_prices: Json | null
           size: string
           updated_at: string
         }
@@ -313,6 +314,7 @@ export type Database = {
           is_active?: boolean
           price: number
           product_id: string
+          section_prices?: Json | null
           size: string
           updated_at?: string
         }
@@ -322,6 +324,7 @@ export type Database = {
           is_active?: boolean
           price?: number
           product_id?: string
+          section_prices?: Json | null
           size?: string
           updated_at?: string
         }
