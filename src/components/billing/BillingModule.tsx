@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Users, Hash, Package } from 'lucide-react';
 import { useBillingStore } from '@/store/billingStore';
 import { useGetTableSectionsQuery, useGetProductsQuery, useGetActiveBillsQuery } from '@/store/redux/api/billingApi';
 import { TableGrid } from './TableGrid';
-import { ItemSearch } from './ItemSearch';
+import { ItemSearch, ItemSearchRef } from './ItemSearch';
 import { Cart } from './Cart';
 import { BillActions } from './BillActions';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -23,6 +23,10 @@ export function BillingModule() {
     setBills,
     coverCount,
   } = useBillingStore();
+
+  // Refs for focus management
+  const itemSearchRef = useRef<ItemSearchRef>(null);
+  const tableSearchRef = useRef<HTMLInputElement>(null);
 
   // RTK Query hooks
   const { 
@@ -115,6 +119,22 @@ export function BillingModule() {
   const showBillingPanel = selectedTable || isParcelMode;
   const isLoading = sectionsLoading || productsLoading;
 
+  // Focus management: focus item search when table selected, table search when no table
+  useEffect(() => {
+    if (isLoading) return;
+    
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      if (showBillingPanel) {
+        itemSearchRef.current?.focus();
+      } else {
+        tableSearchRef.current?.focus();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [showBillingPanel, isLoading, selectedTable?.id]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -144,6 +164,13 @@ export function BillingModule() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cart, markItemsSentToKitchen, createNewBill]);
 
+  // Handle table selection callback to focus item search
+  const handleTableSelect = () => {
+    setTimeout(() => {
+      itemSearchRef.current?.focus();
+    }, 100);
+  };
+
   // Handle errors
   if (sectionsError) {
     return <QueryErrorHandler error={sectionsError} onRetry={refetchSections} />;
@@ -161,7 +188,14 @@ export function BillingModule() {
         {/* Table Grid */}
         <div className="flex-1 overflow-hidden p-4">
           <ErrorBoundary fallback={<div className="text-destructive p-4">Error loading tables</div>}>
-            {isLoading ? <TableGridSkeleton /> : <TableGrid />}
+            {isLoading ? (
+              <TableGridSkeleton />
+            ) : (
+              <TableGrid 
+                onTableSelect={handleTableSelect} 
+                searchInputRef={tableSearchRef}
+              />
+            )}
           </ErrorBoundary>
         </div>
       </div>
@@ -214,7 +248,7 @@ export function BillingModule() {
                 {productsLoading ? (
                   <div className="h-10 bg-muted animate-pulse rounded" />
                 ) : (
-                  <ItemSearch />
+                  <ItemSearch ref={itemSearchRef} />
                 )}
               </ErrorBoundary>
             </div>

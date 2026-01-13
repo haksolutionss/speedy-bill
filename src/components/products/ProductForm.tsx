@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,13 +13,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
-import type { DbCategory, ProductWithPortions } from '@/types/database';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Plus, Trash2, Loader2, MapPin } from 'lucide-react';
+import type { DbCategory, ProductWithPortions, DbTableSection } from '@/types/database';
+
+const sectionPriceSchema = z.object({
+  sectionId: z.string(),
+  sectionName: z.string(),
+  price: z.number().min(0).optional(),
+});
 
 const portionSchema = z.object({
   id: z.string().optional(),
   size: z.string().min(1, 'Size is required'),
   price: z.number().min(0.01, 'Price must be greater than 0'),
+  sectionPrices: z.array(sectionPriceSchema).optional(),
 });
 
 const productSchema = z.object({
@@ -35,6 +48,7 @@ export type ProductFormData = z.infer<typeof productSchema>;
 
 interface ProductFormProps {
   categories: DbCategory[];
+  sections?: DbTableSection[];
   initialData?: ProductWithPortions | null;
   onSubmit: (data: ProductFormData) => void;
   isLoading?: boolean;
@@ -42,7 +56,7 @@ interface ProductFormProps {
 
 const PORTION_SIZES = ['full', 'half', 'small', 'medium', 'large'];
 
-export function ProductForm({ categories, initialData, onSubmit, isLoading }: ProductFormProps) {
+export function ProductForm({ categories, sections = [], initialData, onSubmit, isLoading }: ProductFormProps) {
   const {
     register,
     handleSubmit,
@@ -63,6 +77,11 @@ export function ProductForm({ categories, initialData, onSubmit, isLoading }: Pr
           id: p.id,
           size: p.size,
           price: Number(p.price),
+          sectionPrices: sections.map(s => ({
+            sectionId: s.id,
+            sectionName: s.name,
+            price: p.section_prices?.[s.id] ? Number(p.section_prices[s.id]) : undefined,
+          })),
         })),
       }
       : {
@@ -71,7 +90,15 @@ export function ProductForm({ categories, initialData, onSubmit, isLoading }: Pr
         category_id: '',
         description: '',
         gst_rate: 5,
-        portions: [{ size: 'full', price: 0 }],
+        portions: [{ 
+          size: 'full', 
+          price: 0,
+          sectionPrices: sections.map(s => ({
+            sectionId: s.id,
+            sectionName: s.name,
+            price: undefined,
+          })),
+        }],
       },
   });
 
@@ -81,6 +108,34 @@ export function ProductForm({ categories, initialData, onSubmit, isLoading }: Pr
   });
 
   const selectedCategory = watch('category_id');
+
+  // Update section prices when sections change (for new products)
+  useEffect(() => {
+    if (!initialData && sections.length > 0) {
+      fields.forEach((_, index) => {
+        const currentSectionPrices = watch(`portions.${index}.sectionPrices`) || [];
+        if (currentSectionPrices.length === 0) {
+          setValue(`portions.${index}.sectionPrices`, sections.map(s => ({
+            sectionId: s.id,
+            sectionName: s.name,
+            price: undefined,
+          })));
+        }
+      });
+    }
+  }, [sections, initialData, fields, setValue, watch]);
+
+  const handleAddPortion = () => {
+    append({ 
+      size: 'half', 
+      price: 0,
+      sectionPrices: sections.map(s => ({
+        sectionId: s.id,
+        sectionName: s.name,
+        price: undefined,
+      })),
+    });
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -177,7 +232,7 @@ export function ProductForm({ categories, initialData, onSubmit, isLoading }: Pr
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => append({ size: 'half', price: 0 })}
+            onClick={handleAddPortion}
             className="gap-1"
           >
             <Plus className="h-4 w-4" />
@@ -185,57 +240,97 @@ export function ProductForm({ categories, initialData, onSubmit, isLoading }: Pr
           </Button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-4">
           {fields.map((field, index) => (
-            <div key={field.id} className="flex items-start gap-3">
-              <div className="flex-1">
-                <Select
-                  value={watch(`portions.${index}.size`)}
-                  onValueChange={(value) => setValue(`portions.${index}.size`, value)}
-                >
-                  <SelectTrigger className="border-border">
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PORTION_SIZES.map((size) => (
-                      <SelectItem key={size} value={size}>
-                        {size.charAt(0).toUpperCase() + size.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.portions?.[index]?.size && (
-                  <p className="text-sm text-destructive mt-1">
-                    {errors.portions[index]?.size?.message}
-                  </p>
+            <div key={field.id} className="border border-border rounded-lg p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Size</Label>
+                  <Select
+                    value={watch(`portions.${index}.size`)}
+                    onValueChange={(value) => setValue(`portions.${index}.size`, value)}
+                  >
+                    <SelectTrigger className="border-border">
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PORTION_SIZES.map((size) => (
+                        <SelectItem key={size} value={size}>
+                          {size.charAt(0).toUpperCase() + size.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.portions?.[index]?.size && (
+                    <p className="text-sm text-destructive mt-1">
+                      {errors.portions[index]?.size?.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Default Price (₹)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Price"
+                    {...register(`portions.${index}.price`, { valueAsNumber: true })}
+                    className="border-border"
+                  />
+                  {errors.portions?.[index]?.price && (
+                    <p className="text-sm text-destructive mt-1">
+                      {errors.portions[index]?.price?.message}
+                    </p>
+                  )}
+                </div>
+
+                {fields.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    className="text-destructive hover:text-destructive/90 mt-5"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
 
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Price"
-                  {...register(`portions.${index}.price`, { valueAsNumber: true })}
-                  className="border-border"
-                />
-                {errors.portions?.[index]?.price && (
-                  <p className="text-sm text-destructive mt-1">
-                    {errors.portions[index]?.price?.message}
-                  </p>
-                )}
-              </div>
-
-              {fields.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => remove(index)}
-                  className="text-destructive hover:text-destructive/90"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              {/* Section-specific pricing */}
+              {sections.length > 0 && (
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="section-prices" className="border-none">
+                    <AccordionTrigger className="py-2 text-sm text-muted-foreground hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Section-specific prices (optional)
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        {sections.map((section, sectionIndex) => (
+                          <div key={section.id} className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{section.name}</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder={`Same as default`}
+                              {...register(`portions.${index}.sectionPrices.${sectionIndex}.price`, { 
+                                valueAsNumber: true,
+                                setValueAs: v => v === '' ? undefined : parseFloat(v)
+                              })}
+                              className="border-border h-9"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Leave empty to use the default price for that section.
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               )}
             </div>
           ))}

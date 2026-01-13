@@ -220,16 +220,38 @@ export const useBillingStore = create<BillingState>()(
       }),
       
       selectTable: (table) => {
+        const { bills } = get();
+        
         if (table?.status === 'occupied' && table.current_bill_id) {
-          get().openExistingBill(table.current_bill_id);
-          set({ selectedTable: table });
+          // Find the bill in our synced bills array
+          const existingBill = bills.find(b => b.id === table.current_bill_id);
+          
+          if (existingBill) {
+            // Load cart from existing bill
+            set({ 
+              selectedTable: table, 
+              isParcelMode: false,
+              cart: existingBill.items,
+              currentBill: existingBill,
+              currentBillId: existingBill.id,
+              coverCount: existingBill.coverCount || 1,
+              discountType: existingBill.discountType || null,
+              discountValue: existingBill.discountValue || null,
+              discountReason: existingBill.discountReason || null,
+            });
+          } else {
+            // Bill not in local state, try to open it
+            get().openExistingBill(table.current_bill_id);
+            set({ selectedTable: table });
+          }
         } else {
+          // Available table - clear cart and start fresh
           set({ 
             selectedTable: table, 
             isParcelMode: false,
             cart: [],
             currentBill: null,
-            currentBillId: table?.current_bill_id || null,
+            currentBillId: null,
             coverCount: 1,
             discountType: null,
             discountValue: null,
@@ -239,8 +261,19 @@ export const useBillingStore = create<BillingState>()(
       },
       
       addToCart: (product, portion, quantity) => {
+        const { selectedTable, tableSections } = get();
         const portionData = product.portions.find(p => p.size === portion);
         if (!portionData) return;
+        
+        // Determine the price based on section
+        let price = portionData.price;
+        
+        if (selectedTable?.section_id && portionData.section_prices) {
+          const sectionPrice = portionData.section_prices[selectedTable.section_id];
+          if (sectionPrice !== undefined && sectionPrice > 0) {
+            price = sectionPrice;
+          }
+        }
         
         const existingItem = get().cart.find(
           item => item.productId === product.id && item.portion === portion && !item.sentToKitchen
@@ -262,7 +295,7 @@ export const useBillingStore = create<BillingState>()(
             productCode: product.code,
             portion,
             quantity,
-            unitPrice: portionData.price,
+            unitPrice: price,
             gstRate: product.gst_rate,
             sentToKitchen: false,
           };
