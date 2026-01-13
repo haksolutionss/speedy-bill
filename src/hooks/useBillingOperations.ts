@@ -11,6 +11,28 @@ import {
 } from '@/store/redux/api/billingApi';
 import type { DbBillItem } from '@/types/database';
 
+// Helper function to clear cart items from Supabase
+async function clearCartFromSupabase(tableId: string) {
+  if (!tableId) return;
+  
+  console.log('[BillingOps] Clearing cart from Supabase for table:', tableId);
+  
+  try {
+    const { error } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('table_id', tableId);
+    
+    if (error) {
+      console.error('[BillingOps] Error clearing cart:', error);
+    } else {
+      console.log('[BillingOps] Cart cleared successfully');
+    }
+  } catch (err) {
+    console.error('[BillingOps] Error clearing cart:', err);
+  }
+}
+
 export function useBillingOperations() {
   const {
     selectedTable,
@@ -107,6 +129,9 @@ export function useBillingOperations() {
               current_amount: totals.finalAmount,
             },
           }).unwrap();
+          
+          // Clear cart items from Supabase since they're now in bill_items
+          await clearCartFromSupabase(selectedTable.id);
         }
 
         // Update current bill ID in store
@@ -199,7 +224,7 @@ export function useBillingOperations() {
           }).unwrap();
         }
 
-        // Free up the table
+        // Free up the table and clear cart from Supabase
         if (selectedTable) {
           await updateTable({
             id: selectedTable.id,
@@ -209,6 +234,9 @@ export function useBillingOperations() {
               current_amount: null,
             },
           }).unwrap();
+          
+          // Clear any remaining cart items from Supabase
+          await clearCartFromSupabase(selectedTable.id);
         }
 
         // Reset local state
@@ -240,6 +268,11 @@ export function useBillingOperations() {
         updates: { status: 'unsettled' },
       }).unwrap();
 
+      // Clear cart from Supabase when saving as unsettled
+      if (selectedTable) {
+        await clearCartFromSupabase(selectedTable.id);
+      }
+
       resetBillingState();
       toast.success('Bill saved as unsettled');
       return true;
@@ -248,7 +281,7 @@ export function useBillingOperations() {
       toast.error('Failed to save bill');
       return false;
     }
-  }, [cart, saveOrUpdateBill, updateBill, resetBillingState]);
+  }, [cart, selectedTable, saveOrUpdateBill, updateBill, resetBillingState]);
 
   return {
     saveOrUpdateBill,
