@@ -118,12 +118,10 @@ export function useCartSync() {
         return;
       }
       
-      // Insert new cart items (only items that haven't been sent to kitchen yet, 
-      // as KOT items are already in bill_items)
-      const pendingItems = cartItems.filter(item => !item.sentToKitchen);
-      
-      if (pendingItems.length > 0) {
-        const itemsToInsert = pendingItems.map(item => ({
+      // Insert ALL cart items - this is temporary storage for items not yet in a bill
+      // Once a bill is created (KOT printed), these will be moved to bill_items
+      if (cartItems.length > 0) {
+        const itemsToInsert = cartItems.map(item => ({
           id: item.id,
           table_id: tableId,
           product_id: item.productId,
