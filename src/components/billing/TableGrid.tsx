@@ -1,6 +1,6 @@
 import { useUIStore } from '@/store/uiStore';
 import { useGetTableSectionsQuery, useUpdateTableMutation, useUpdateBillMutation } from '@/store/redux/api/billingApi';
-import { Package, ArrowRightLeft, Merge, Save, Eye, RotateCcw } from 'lucide-react';
+import { Package, ArrowRightLeft, Merge, Save, Eye, RotateCcw, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -33,19 +33,19 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const [showMergeModal, setShowMergeModal] = useState(false);
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = searchInputRef || internalInputRef;
-  
+
   const hasItems = cart.length > 0;
   const hasOccupiedTables = tableSections.some(s => s.tables.some(t => t.status === 'occupied'));
 
   // Filter tables based on search
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) return tableSections;
-    
+
     const query = searchQuery.toLowerCase();
     return tableSections
       .map(section => ({
         ...section,
-        tables: section.tables.filter(table => 
+        tables: section.tables.filter(table =>
           table.number.toLowerCase().includes(query)
         ),
       }))
@@ -75,7 +75,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
       const query = searchQuery.toLowerCase();
       // Find exact match first, then partial match
       let matchedTable: DbTable | null = null;
-      
+
       for (const section of tableSections) {
         const exactMatch = section.tables.find(t => t.number.toLowerCase() === query);
         if (exactMatch) {
@@ -87,7 +87,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
           if (partialMatch) matchedTable = partialMatch;
         }
       }
-      
+
       if (matchedTable) {
         handleTableClick(matchedTable);
         setSearchQuery('');
@@ -112,9 +112,9 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
       <div className="flex-1 overflow-y-auto scrollbar-thin space-y-4 pb-4">
         {/* Parcel Mode Toggle */}
         <div className="flex items-center gap-4 sticky top-0 bg-background z-10 pb-2">
-          <Input 
+          <Input
             ref={inputRef}
-            placeholder='Search table... (Press Enter to select)' 
+            placeholder='Search table... (Press Enter to select)'
             className='w-96 border-border'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -158,13 +158,17 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
                   key={table.id}
                   onClick={() => handleTableClick(table)}
                   className={cn(
-                    "table-btn min-h-[80px]",
+                    "table-btn min-h-[80px] relative",
                     table.status === 'available' && "table-btn-available",
                     table.status === 'occupied' && "table-btn-occupied",
                     table.status === 'reserved' && "table-btn-reserved",
-                    selectedTable?.id === table.id && "ring-2 ring-ring ring-offset-2 ring-offset-background scale-105"
                   )}
                 >
+                  {selectedTable?.id === table.id && (
+                    <div className='absolute -top-2 -right-2 bg-accent text-accent-foreground p-2 rounded-full'>
+                      <Check />
+                    </div>
+                  )}
                   <span className="text-lg font-bold">{table.number}</span>
                   <span className="text-[10px] opacity-70">{table.capacity} seats</span>
                   {table.current_amount && (
@@ -204,9 +208,9 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
 
       {/* Fixed Action Buttons at Bottom */}
       <div className="flex items-center gap-2 py-3 border-t border-border bg-background">
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="gap-1.5"
           disabled={!hasOccupiedTables}
           onClick={() => setShowTransferModal(true)}
@@ -214,9 +218,9 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
           <ArrowRightLeft className="h-3.5 w-3.5" />
           Transfer
         </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="gap-1.5"
           disabled={!hasOccupiedTables}
           onClick={() => setShowMergeModal(true)}
@@ -245,13 +249,13 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
       </div>
 
       {/* Modals */}
-      <TransferTableModal 
-        isOpen={showTransferModal} 
-        onClose={() => setShowTransferModal(false)} 
+      <TransferTableModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
       />
-      <MergeTableModal 
-        isOpen={showMergeModal} 
-        onClose={() => setShowMergeModal(false)} 
+      <MergeTableModal
+        isOpen={showMergeModal}
+        onClose={() => setShowMergeModal(false)}
       />
     </div>
   );

@@ -44,7 +44,7 @@ const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="bg-background border-border max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-y-auto">
                 {title && (
                     <DialogHeader>
                         <DialogTitle className="">{title}</DialogTitle>

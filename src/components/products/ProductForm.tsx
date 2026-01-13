@@ -90,8 +90,8 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         category_id: '',
         description: '',
         gst_rate: 5,
-        portions: [{ 
-          size: 'full', 
+        portions: [{
+          size: 'full',
           price: 0,
           sectionPrices: sections.map(s => ({
             sectionId: s.id,
@@ -126,8 +126,8 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
   }, [sections, initialData, fields, setValue, watch]);
 
   const handleAddPortion = () => {
-    append({ 
-      size: 'half', 
+    append({
+      size: 'half',
       price: 0,
       sectionPrices: sections.map(s => ({
         sectionId: s.id,
@@ -207,21 +207,6 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
             <p className="text-sm text-destructive">{errors.gst_rate.message}</p>
           )}
         </div>
-      </div>
-
-      {/* Description */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          {...register('description')}
-          placeholder="Optional product description"
-          className="border-border"
-          rows={2}
-        />
-        {errors.description && (
-          <p className="text-sm text-destructive">{errors.description.message}</p>
-        )}
       </div>
 
       {/* Portions */}
@@ -316,7 +301,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
                               type="number"
                               step="0.01"
                               placeholder={`Same as default`}
-                              {...register(`portions.${index}.sectionPrices.${sectionIndex}.price`, { 
+                              {...register(`portions.${index}.sectionPrices.${sectionIndex}.price`, {
                                 valueAsNumber: true,
                                 setValueAs: v => v === '' ? undefined : parseFloat(v)
                               })}
@@ -337,6 +322,22 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         </div>
         {errors.portions && !Array.isArray(errors.portions) && (
           <p className="text-sm text-destructive">{errors.portions.message}</p>
+        )}
+      </div>
+
+
+      {/* Description */}
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          {...register('description')}
+          placeholder="Optional product description"
+          className="border-border"
+          rows={2}
+        />
+        {errors.description && (
+          <p className="text-sm text-destructive">{errors.description.message}</p>
         )}
       </div>
 

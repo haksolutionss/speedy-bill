@@ -26,13 +26,13 @@ import {
 
 export default function Tables() {
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modal states
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<DbTableSection | null>(null);
   const [editingTable, setEditingTable] = useState<DbTable | null>(null);
-  
+
   // Delete confirmation states
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
@@ -117,6 +117,7 @@ export default function Tables() {
       setIsTableModalOpen(false);
       setEditingTable(null);
     } catch (error: any) {
+      console.log(error)
       toast.error(error?.message || 'Failed to save table');
     }
   };
@@ -194,7 +195,7 @@ export default function Tables() {
               </Button>
             </div>
           </div>
-          
+
           {/* Search */}
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

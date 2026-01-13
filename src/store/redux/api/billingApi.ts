@@ -145,8 +145,10 @@ export const billingApi = createApi({
             .single();
 
           if (error) throw error;
+          console.log("error", error)
           return { data: data as DbTable };
         } catch (error) {
+          console.log("error", error)
           return { error: { message: parseSupabaseError(error, { entityType: 'table', fieldName: 'number' }) } };
         }
       },
@@ -274,9 +276,9 @@ export const billingApi = createApi({
       providesTags: ['Products', 'Categories'],
     }),
 
-    createProduct: builder.mutation<DbProduct, { 
-      product: { name: string; code: string; category_id: string; description?: string; gst_rate: number }; 
-      portions: { size: string; price: number; section_prices?: Record<string, number> }[] 
+    createProduct: builder.mutation<DbProduct, {
+      product: { name: string; code: string; category_id: string; description?: string; gst_rate: number };
+      portions: { size: string; price: number; section_prices?: Record<string, number> }[]
     }>({
       queryFn: async ({ product, portions }) => {
         try {
@@ -289,11 +291,11 @@ export const billingApi = createApi({
           if (productError) throw productError;
 
           if (portions.length > 0) {
-            const portionsWithProductId = portions.map((p) => ({ 
+            const portionsWithProductId = portions.map((p) => ({
               size: p.size,
               price: p.price,
               section_prices: p.section_prices || {},
-              product_id: newProduct.id 
+              product_id: newProduct.id
             }));
             const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId as any);
             if (portionsError) throw portionsError;
@@ -307,10 +309,10 @@ export const billingApi = createApi({
       invalidatesTags: ['Products'],
     }),
 
-    updateProduct: builder.mutation<DbProduct, { 
-      id: string; 
-      product: Partial<DbProduct>; 
-      portions?: { id?: string; size: string; price: number; section_prices?: Record<string, number> }[] 
+    updateProduct: builder.mutation<DbProduct, {
+      id: string;
+      product: Partial<DbProduct>;
+      portions?: { id?: string; size: string; price: number; section_prices?: Record<string, number> }[]
     }>({
       queryFn: async ({ id, product, portions }) => {
         try {
@@ -332,8 +334,8 @@ export const billingApi = createApi({
 
             // Insert new portions
             if (portions.length > 0) {
-              const portionsWithProductId = portions.map((p) => ({ 
-                size: p.size, 
+              const portionsWithProductId = portions.map((p) => ({
+                size: p.size,
                 price: p.price,
                 section_prices: p.section_prices || {},
                 product_id: id,
