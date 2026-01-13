@@ -27,7 +27,14 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   const quantityRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { products, addToCart } = useBillingStore();
+  const { products, addToCart, selectedTable } = useBillingStore();
+
+  // Expose focus method via ref
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    }
+  }));
 
   // Search products
   useEffect(() => {
@@ -49,10 +56,16 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     setSelectedIndex(0);
   }, [query, products]);
 
-  // Focus input on mount
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  // Helper to get section-based price
+  const getSectionPrice = useCallback((portion: DbProductPortion): number => {
+    if (selectedTable?.section_id && portion.section_prices) {
+      const sectionPrice = portion.section_prices[selectedTable.section_id];
+      if (sectionPrice !== undefined && sectionPrice > 0) {
+        return sectionPrice;
+      }
+    }
+    return portion.price;
+  }, [selectedTable?.section_id]);
 
   const handleSelectProduct = useCallback((product: ProductWithPortions) => {
     setSelectedProduct(product);
@@ -209,7 +222,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
                 )}
               </div>
               <span className=" text-sm text-success">
-                ₹{product.portions[0]?.price || 0}
+                ₹{product.portions[0] ? getSectionPrice(product.portions[0]) : 0}
                 {product.portions.length > 1 && '+'}
               </span>
             </div>
@@ -242,7 +255,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
               onMouseEnter={() => setSelectedIndex(index)}
             >
               <span className="capitalize font-medium">{portion.size}</span>
-              <span className=" text-sm text-success">₹{portion.price}</span>
+              <span className=" text-sm text-success">₹{getSectionPrice(portion)}</span>
             </div>
           ))}
           <div className="px-3 py-2 bg-muted/30 text-xs text-muted-foreground flex items-center justify-between border-t border-border">
@@ -261,7 +274,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
               <span className="font-medium">{selectedProduct.name}</span>
               <span className="text-muted-foreground ml-2 capitalize">({selectedPortion.size})</span>
             </div>
-            <span className=" text-success">₹{selectedPortion.price}</span>
+            <span className=" text-success">₹{getSectionPrice(selectedPortion)}</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex-1">
@@ -279,7 +292,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
             <div className="flex-1">
               <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
               <div className="h-10 flex items-center justify-center bg-muted rounded-md  text-success">
-                ₹{selectedPortion.price * (parseInt(quantity) || 1)}
+                ₹{getSectionPrice(selectedPortion) * (parseInt(quantity) || 1)}
               </div>
             </div>
           </div>

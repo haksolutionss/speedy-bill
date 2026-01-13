@@ -25,6 +25,7 @@ import type { DbCategory, ProductWithPortions } from '@/types/database';
 import {
   useGetProductsQuery,
   useGetCategoriesQuery,
+  useGetTableSectionsQuery,
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
@@ -50,6 +51,17 @@ export default function Products() {
   // RTK Query hooks
   const { data: products = [], isLoading: isLoadingProducts, error: productsError, refetch: refetchProducts } = useGetProductsQuery();
   const { data: categories = [], isLoading: isLoadingCategories, error: categoriesError, refetch: refetchCategories } = useGetCategoriesQuery();
+  const { data: tableSections = [] } = useGetTableSectionsQuery();
+
+  // Get flat list of sections for the form
+  const sections = useMemo(() => tableSections.map(s => ({ 
+    id: s.id, 
+    name: s.name,
+    display_order: s.display_order,
+    is_active: s.is_active,
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+  })), [tableSections]);
 
   // Mutations
   const [createProduct, { isLoading: isCreatingProduct }] = useCreateProductMutation();
@@ -73,11 +85,22 @@ export default function Products() {
   // Handlers
   const handleProductSubmit = async (data: ProductFormData) => {
     try {
-      const portionsData = data.portions.map((p) => ({
-        id: p.id,
-        size: p.size,
-        price: p.price,
-      }));
+      // Build section_prices object from sectionPrices array
+      const portionsData = data.portions.map((p) => {
+        const sectionPrices: Record<string, number> = {};
+        p.sectionPrices?.forEach(sp => {
+          if (sp.price !== undefined && sp.price > 0) {
+            sectionPrices[sp.sectionId] = sp.price;
+          }
+        });
+        
+        return {
+          id: p.id,
+          size: p.size,
+          price: p.price,
+          section_prices: Object.keys(sectionPrices).length > 0 ? sectionPrices : undefined,
+        };
+      });
 
       if (editingProduct) {
         await updateProduct({
@@ -393,6 +416,7 @@ export default function Products() {
         >
           <ProductForm
             categories={categories}
+            sections={sections}
             initialData={editingProduct}
             onSubmit={handleProductSubmit}
             isLoading={isCreatingProduct || isUpdatingProduct}
