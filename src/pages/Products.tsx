@@ -255,45 +255,60 @@ export default function Products() {
         ) : (
           <>
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-sm">
+            <div className="flex flex-col items-start gap-4">
+              <div className="relative w-full sm:max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or code..."
+                  placeholder="Search by name or code…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border-border"
+                  className="pl-10"
                 />
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  variant={selectedCategory === null ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(null)}
-                >
-                  All
-                </Button>
-                {categories.map((cat) => (
-                  <Button
-                    key={cat.id}
-                    variant={selectedCategory === cat.id ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className="group relative"
+              <div className="relative -mx-1">
+                <div className="flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
+
+                  <button
+                    onClick={() => setSelectedCategory(null)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-sm whitespace-nowrap border transition',
+                      selectedCategory === null
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background border-border hover:bg-muted'
+                    )}
                   >
-                    {cat.name}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditCategory(cat);
-                      }}
-                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                  </Button>
-                ))}
+                    All
+                  </button>
+
+                  {categories.map((cat) => (
+                    <div key={cat.id} className="relative group">
+                      <button
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-sm whitespace-nowrap border transition',
+                          selectedCategory === cat.id
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background border-border hover:bg-muted'
+                        )}
+                      >
+                        {cat.name}
+                      </button>
+
+                      {/* Edit icon – overlay, not layout-breaking */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditCategory(cat);
+                        }}
+                        className="absolute -top-1 -right-1 hidden group-hover:flex h-5 w-5 items-center justify-center rounded-full bg-background border shadow"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                </div>
               </div>
             </div>
 

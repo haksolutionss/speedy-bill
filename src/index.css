@@ -18,7 +18,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 15%;
 
-    --primary: 142 70% 45%;
+    /* Dark Teal (replacing green) */
+    --primary: 172 65% 35%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 15% 95%;
@@ -27,43 +28,56 @@
     --muted: 220 15% 96%;
     --muted-foreground: 220 10% 45%;
 
-    --accent: 35 100% 50%;
+    /* Teal (replacing orange) */
+    --accent: 188 70% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 70% 45%;
+    /* Dark Teal */
+    --success: 172 65% 35%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 35 100% 50%;
+    /* Teal */
+    --warning: 188 70% 45%;
     --warning-foreground: 0 0% 100%;
 
     --border: 220 15% 88%;
     --input: 220 15% 95%;
-    --ring: 142 70% 45%;
+
+    /* Dark Teal */
+    --ring: 172 65% 35%;
 
     --radius: 0.5rem;
 
-    --table-available: 142 70% 45%;
-    --table-occupied: 35 100% 50%;
+    /* Tables */
+    --table-available: 172 65% 35%;
+    /* dark teal */
+    --table-occupied: 188 70% 45%;
+    /* teal */
     --table-reserved: 220 70% 55%;
 
+    /* KOT */
     --kot-sent: 220 70% 55%;
-    --kot-pending: 35 100% 50%;
+    --kot-pending: 188 70% 45%;
+    /* teal */
 
-    --amount-positive: 142 70% 45%;
+    /* Amounts */
+    --amount-positive: 172 65% 35%;
     --amount-negative: 0 72% 50%;
 
+    /* Sidebar */
     --sidebar-background: 220 15% 98%;
     --sidebar-foreground: 220 15% 20%;
-    --sidebar-primary: 142 70% 45%;
+    --sidebar-primary: 172 65% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 15% 94%;
     --sidebar-accent-foreground: 220 15% 20%;
     --sidebar-border: 220 15% 90%;
-    --sidebar-ring: 142 70% 45%;
+    --sidebar-ring: 172 65% 35%;
   }
+
 }
 
 @layer base {
