@@ -63,9 +63,8 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   };
 
   const handleTableClick = (table: DbTable) => {
-    // Check if table has an active bill - set loadFromBill flag
-    const hasActiveBill = !!table.current_bill_id;
-    setSelectedTable(table, hasActiveBill);
+    // Simply select the table - useCartSync handles loading cart data
+    setSelectedTable(table);
     onTableSelect?.();
   };
 

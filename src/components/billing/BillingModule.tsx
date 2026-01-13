@@ -18,7 +18,6 @@ export function BillingModule() {
     currentBillId,
     cart,
     markItemsSentToKitchen,
-    loadCartFromBill,
     coverCount,
   } = useUIStore();
 
@@ -44,19 +43,7 @@ export function BillingModule() {
     refetch: refetchProducts 
   } = useGetProductsQuery();
   
-  const { 
-    data: activeBills, 
-  } = useGetActiveBillsQuery();
-
-  // Load cart from active bill when table with bill is selected
-  useEffect(() => {
-    if (selectedTable?.current_bill_id && activeBills) {
-      const bill = activeBills.find(b => b.id === selectedTable.current_bill_id);
-      if (bill) {
-        loadCartFromBill(bill);
-      }
-    }
-  }, [selectedTable?.current_bill_id, activeBills, loadCartFromBill]);
+  // Note: Active bills are now loaded via useCartSync
 
   const showBillingPanel = selectedTable || isParcelMode;
   const isLoading = sectionsLoading || productsLoading;
