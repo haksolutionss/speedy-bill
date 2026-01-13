@@ -1,28 +1,29 @@
 import { useEffect, useRef } from 'react';
 import { Users, Hash, Package } from 'lucide-react';
-import { useBillingStore } from '@/store/billingStore';
+import { useUIStore } from '@/store/uiStore';
 import { useGetTableSectionsQuery, useGetProductsQuery, useGetActiveBillsQuery } from '@/store/redux/api/billingApi';
+import { useCartSync } from '@/hooks/useCartSync';
 import { TableGrid } from './TableGrid';
 import { ItemSearch, ItemSearchRef } from './ItemSearch';
 import { Cart } from './Cart';
 import { BillActions } from './BillActions';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { QueryErrorHandler } from '@/components/common/QueryErrorHandler';
-import { TableGridSkeleton, CartSkeleton } from '@/components/common/skeletons';
+import { TableGridSkeleton } from '@/components/common/skeletons';
 
 export function BillingModule() {
   const {
     selectedTable,
     isParcelMode,
-    currentBill,
+    currentBillId,
     cart,
     markItemsSentToKitchen,
-    createNewBill,
-    setTableSections,
-    setProducts,
-    setBills,
+    loadCartFromBill,
     coverCount,
-  } = useBillingStore();
+  } = useUIStore();
+
+  // Cart sync hook for Supabase persistence
+  const { forceSync } = useCartSync();
 
   // Refs for focus management
   const itemSearchRef = useRef<ItemSearchRef>(null);
@@ -45,76 +46,17 @@ export function BillingModule() {
   
   const { 
     data: activeBills, 
-    isLoading: billsLoading, 
-    error: billsError,
-    refetch: refetchBills 
   } = useGetActiveBillsQuery();
 
-  // Sync RTK data to Zustand store
+  // Load cart from active bill when table with bill is selected
   useEffect(() => {
-    if (tableSections) {
-      const mapped = tableSections.map(section => ({
-        id: section.id,
-        name: section.name,
-        tables: section.tables.map(t => ({
-          id: t.id,
-          number: t.number,
-          capacity: t.capacity,
-          status: t.status as 'available' | 'occupied' | 'reserved',
-          currentBillId: t.current_bill_id || undefined,
-          currentAmount: t.current_amount ? Number(t.current_amount) : undefined,
-        })),
-      }));
-      setTableSections(mapped);
+    if (selectedTable?.current_bill_id && activeBills) {
+      const bill = activeBills.find(b => b.id === selectedTable.current_bill_id);
+      if (bill) {
+        loadCartFromBill(bill);
+      }
     }
-  }, [tableSections, setTableSections]);
-
-  useEffect(() => {
-    if (products) {
-      setProducts(products);
-    }
-  }, [products, setProducts]);
-
-  useEffect(() => {
-    if (activeBills) {
-      const mapped = activeBills.map(bill => ({
-        id: bill.id,
-        billNumber: bill.bill_number,
-        type: bill.type as 'table' | 'parcel',
-        tableId: bill.table_id || undefined,
-        tableNumber: bill.table_number || undefined,
-        tokenNumber: bill.token_number || undefined,
-        items: bill.items.map(item => ({
-          id: item.id,
-          productId: item.product_id,
-          productName: item.product_name,
-          productCode: item.product_code,
-          portion: item.portion,
-          quantity: item.quantity,
-          unitPrice: Number(item.unit_price),
-          gstRate: Number(item.gst_rate),
-          notes: item.notes || undefined,
-          sentToKitchen: item.sent_to_kitchen,
-        })),
-        subTotal: Number(bill.sub_total),
-        discountType: bill.discount_type as 'percentage' | 'fixed' | undefined,
-        discountValue: bill.discount_value ? Number(bill.discount_value) : undefined,
-        discountReason: bill.discount_reason || undefined,
-        discountAmount: Number(bill.discount_amount),
-        cgstAmount: Number(bill.cgst_amount),
-        sgstAmount: Number(bill.sgst_amount),
-        totalAmount: Number(bill.total_amount),
-        finalAmount: Number(bill.final_amount),
-        coverCount: bill.cover_count || undefined,
-        customerId: bill.customer_id || undefined,
-        status: bill.status as 'active' | 'settled' | 'unsettled',
-        paymentMethod: bill.payment_method as 'cash' | 'card' | 'upi' | 'split' | undefined,
-        createdAt: new Date(bill.created_at),
-        settledAt: bill.settled_at ? new Date(bill.settled_at) : undefined,
-      }));
-      setBills(mapped);
-    }
-  }, [activeBills, setBills]);
+  }, [selectedTable?.current_bill_id, activeBills, loadCartFromBill]);
 
   const showBillingPanel = selectedTable || isParcelMode;
   const isLoading = sectionsLoading || productsLoading;
@@ -162,21 +104,14 @@ export function BillingModule() {
         const pendingItems = cart.filter(item => !item.sentToKitchen);
         if (pendingItems.length > 0) {
           markItemsSentToKitchen();
-          createNewBill();
-        }
-      }
-
-      if (e.key === 'F2') {
-        e.preventDefault();
-        if (cart.length > 0) {
-          // Would open payment dialog in full implementation
+          forceSync();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, markItemsSentToKitchen, createNewBill]);
+  }, [cart, markItemsSentToKitchen, forceSync]);
 
   // Handle table selection callback to focus item search
   const handleTableSelect = () => {
@@ -226,11 +161,6 @@ export function BillingModule() {
                     <div className="flex items-center gap-2">
                       <Package className="h-5 w-5 text-accent" />
                       <span className="text-lg font-semibold">Parcel Order</span>
-                      {currentBill?.tokenNumber && (
-                        <span className="ml-2 px-2 py-0.5 bg-accent/20 text-accent rounded text-sm ">
-                          Token #{currentBill.tokenNumber}
-                        </span>
-                      )}
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
@@ -249,9 +179,9 @@ export function BillingModule() {
                   </div>
                 )}
               </div>
-              {currentBill?.billNumber && (
-                <p className="text-xs text-muted-foreground mt-1 ">
-                  {currentBill.billNumber}
+              {currentBillId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bill ID: {currentBillId.slice(0, 8)}...
                 </p>
               )}
             </div>

@@ -34,9 +34,10 @@ interface UIState {
   tokenCounter: number;
   
   // Actions
-  setSelectedTable: (table: DbTable | null) => void;
+  setSelectedTable: (table: DbTable | null, loadFromBill?: boolean) => void;
   setParcelMode: (mode: boolean) => void;
   setCurrentBillId: (billId: string | null) => void;
+  setCart: (cart: CartItem[]) => void;
   
   // Cart actions
   addToCart: (product: ProductWithPortions, portion: string, quantity: number) => void;
@@ -72,17 +73,30 @@ export const useUIStore = create<UIState>()(
       discountReason: null,
       tokenCounter: 1,
       
-      setSelectedTable: (table) => {
-        set({
-          selectedTable: table,
-          isParcelMode: false,
-          cart: [],
-          currentBillId: table?.current_bill_id || null,
-          coverCount: 1,
-          discountType: null,
-          discountValue: null,
-          discountReason: null,
-        });
+      setSelectedTable: (table, loadFromBill = false) => {
+        // If loadFromBill is true, don't clear the cart (it will be loaded separately)
+        if (loadFromBill) {
+          set({
+            selectedTable: table,
+            isParcelMode: false,
+            currentBillId: table?.current_bill_id || null,
+            coverCount: 1,
+            discountType: null,
+            discountValue: null,
+            discountReason: null,
+          });
+        } else {
+          set({
+            selectedTable: table,
+            isParcelMode: false,
+            cart: [],
+            currentBillId: table?.current_bill_id || null,
+            coverCount: 1,
+            discountType: null,
+            discountValue: null,
+            discountReason: null,
+          });
+        }
       },
       
       setParcelMode: (mode) => {
@@ -99,6 +113,8 @@ export const useUIStore = create<UIState>()(
       },
       
       setCurrentBillId: (billId) => set({ currentBillId: billId }),
+      
+      setCart: (cart) => set({ cart }),
       
       addToCart: (product, portion, quantity) => {
         const portionData = product.portions.find((p) => p.size === portion);

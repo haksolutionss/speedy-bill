@@ -1,13 +1,15 @@
-import { useBillingStore } from '@/store/billingStore';
+import { useUIStore } from '@/store/uiStore';
+import { useGetTableSectionsQuery, useUpdateTableMutation, useUpdateBillMutation } from '@/store/redux/api/billingApi';
 import { Package, ArrowRightLeft, Merge, Save, Eye, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Input } from '../ui/input';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { DbTable } from '@/types/database';
 import { TransferTableModal } from './TransferTableModal';
 import { MergeTableModal } from './MergeTableModal';
+import { useBillingOperations } from '@/hooks/useBillingOperations';
 
 interface TableGridProps {
   onTableSelect?: () => void;
@@ -16,14 +18,15 @@ interface TableGridProps {
 
 export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const {
-    tableSections,
     selectedTable,
-    selectTable,
+    setSelectedTable,
     isParcelMode,
     setParcelMode,
     cart,
-    saveAsUnsettled
-  } = useBillingStore();
+  } = useUIStore();
+
+  const { data: tableSections = [] } = useGetTableSectionsQuery();
+  const { saveAsUnsettled } = useBillingOperations();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -59,24 +62,10 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
     return undefined;
   };
 
-  const handleTableClick = (table: typeof tableSections[0]['tables'][0]) => {
-    const sectionId = findSectionForTable(table.id);
-    
-    // Convert local table type to DbTable for selectTable
-    const dbTable: DbTable = {
-      id: table.id,
-      number: table.number,
-      capacity: table.capacity,
-      status: table.status,
-      current_bill_id: table.currentBillId || null,
-      current_amount: table.currentAmount || null,
-      section_id: sectionId || '',
-      display_order: 0,
-      is_active: true,
-      created_at: '',
-      updated_at: '',
-    };
-    selectTable(dbTable);
+  const handleTableClick = (table: DbTable) => {
+    // Check if table has an active bill - set loadFromBill flag
+    const hasActiveBill = !!table.current_bill_id;
+    setSelectedTable(table, hasActiveBill);
     onTableSelect?.();
   };
 
@@ -85,7 +74,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
     if (e.key === 'Enter' && searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       // Find exact match first, then partial match
-      let matchedTable: typeof tableSections[0]['tables'][0] | null = null;
+      let matchedTable: DbTable | null = null;
       
       for (const section of tableSections) {
         const exactMatch = section.tables.find(t => t.number.toLowerCase() === query);
@@ -108,16 +97,13 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
     }
   };
 
-  const handleSaveUnsettled = () => {
+  const handleSaveUnsettled = async () => {
     if (!hasItems) {
       toast.error('Add items first');
       return;
     }
 
-    saveAsUnsettled();
-    toast.info('Bill saved as unsettled', {
-      description: 'You can retrieve it from Bill History',
-    });
+    await saveAsUnsettled();
   };
 
   return (
@@ -181,9 +167,9 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
                 >
                   <span className="text-lg font-bold">{table.number}</span>
                   <span className="text-[10px] opacity-70">{table.capacity} seats</span>
-                  {table.currentAmount && (
+                  {table.current_amount && (
                     <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      ₹{table.currentAmount}
+                      ₹{table.current_amount}
                     </span>
                   )}
                 </button>

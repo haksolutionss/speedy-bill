@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Search, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useBillingStore } from '@/store/billingStore';
+import { useUIStore } from '@/store/uiStore';
+import { useGetProductsQuery } from '@/store/redux/api/billingApi';
 import type { ProductWithPortions, DbProductPortion } from '@/types/database';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +28,8 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   const quantityRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { products, addToCart, selectedTable } = useBillingStore();
+  const { addToCart, selectedTable } = useUIStore();
+  const { data: products = [] } = useGetProductsQuery();
 
   // Expose focus method via ref
   useImperativeHandle(ref, () => ({

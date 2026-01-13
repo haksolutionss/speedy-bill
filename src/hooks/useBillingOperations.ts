@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useUIStore, calculateBillTotals, type CartItem } from '@/store/uiStore';
+import { supabase } from '@/integrations/supabase/client';
 import {
   useCreateBillMutation,
   useUpdateBillMutation,
