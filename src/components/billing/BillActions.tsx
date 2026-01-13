@@ -7,7 +7,8 @@ import {
   Smartphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useBillingStore } from '@/store/billingStore';
+import { useUIStore } from '@/store/uiStore';
+import { useBillingOperations } from '@/hooks/useBillingOperations';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -23,12 +24,12 @@ export function BillActions() {
   const {
     cart,
     markItemsSentToKitchen,
-    settleBill,
-    createNewBill,
-    currentBill,
+    currentBillId,
     selectedTable,
     isParcelMode,
-  } = useBillingStore();
+  } = useUIStore();
+
+  const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showKOTPreview, setShowKOTPreview] = useState(false);
@@ -64,31 +65,12 @@ export function BillActions() {
     setShowKOTPreview(true);
   };
 
-  const confirmPrintKOT = () => {
-    markItemsSentToKitchen();
-    createNewBill();
-
-    // Trigger print
-    const printContent = kotRef.current;
-    if (printContent) {
-      const printWindow = window.open('', '_blank', 'width=320,height=600');
-      if (printWindow) {
-        printWindow.document.write('<html><head><title>KOT</title></head><body>');
-        printWindow.document.write(printContent.outerHTML);
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-      }
-    }
-
+  const confirmPrintKOT = async () => {
+    await printKOT();
     setShowKOTPreview(false);
-    toast.success(`KOT sent: ${pendingItems.length} item(s)`, {
-      description: 'Items marked for kitchen preparation',
-    });
   };
 
-  const handlePrintBill = () => {
+  const handlePrintBill = async () => {
     if (!hasItems) {
       toast.error('Add items to print bill');
       return;
@@ -96,40 +78,22 @@ export function BillActions() {
 
     // First send any pending items to kitchen
     if (hasPendingItems) {
-      markItemsSentToKitchen();
+      await printKOT();
+    } else {
+      await saveOrUpdateBill();
     }
 
-    createNewBill();
     setShowPaymentDialog(true);
   };
 
-  const handlePayment = (method: 'cash' | 'card' | 'upi') => {
-    // Show bill preview first
+  const handlePayment = async (method: 'cash' | 'card' | 'upi') => {
     setShowPaymentDialog(false);
     setShowBillPreview(true);
 
     // Delay settlement to allow print
-    setTimeout(() => {
-      settleBill(method);
+    setTimeout(async () => {
+      await settleBill(method);
       setShowBillPreview(false);
-
-      // Trigger print
-      const printContent = billRef.current;
-      if (printContent) {
-        const printWindow = window.open('', '_blank', 'width=320,height=800');
-        if (printWindow) {
-          printWindow.document.write('<html><head><title>Bill</title></head><body>');
-          printWindow.document.write(printContent.outerHTML);
-          printWindow.document.write('</body></html>');
-          printWindow.document.close();
-          printWindow.print();
-          printWindow.close();
-        }
-      }
-
-      toast.success('Bill settled successfully!', {
-        description: `Payment received via ${method.toUpperCase()}`,
-      });
     }, 100);
   };
 
@@ -186,9 +150,7 @@ export function BillActions() {
             <KOTTemplate
               ref={kotRef}
               tableNumber={selectedTable?.number}
-              tokenNumber={currentBill?.tokenNumber}
               items={pendingItems}
-              billNumber={currentBill?.billNumber}
               isParcel={isParcelMode}
             />
           </div>
@@ -213,21 +175,16 @@ export function BillActions() {
           <div className="bg-white rounded-lg overflow-hidden">
             <BillTemplate
               ref={billRef}
-              billNumber={currentBill?.billNumber || 'BILL-0000'}
+              billNumber={currentBillId?.slice(0, 8) || 'BILL-0000'}
               tableNumber={selectedTable?.number}
-              tokenNumber={currentBill?.tokenNumber}
               items={cart}
               subTotal={subTotal}
-              discountAmount={currentBill?.discountAmount || 0}
-              discountType={currentBill?.discountType}
-              discountValue={currentBill?.discountValue}
-              discountReason={currentBill?.discountReason}
+              discountAmount={0}
               cgstAmount={cgstAmount}
               sgstAmount={sgstAmount}
               totalAmount={totalAmount}
               finalAmount={finalAmount}
               isParcel={isParcelMode}
-              coverCount={currentBill?.coverCount}
             />
           </div>
         </DialogContent>

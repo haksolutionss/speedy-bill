@@ -1,12 +1,12 @@
 import { Minus, Plus, Trash2, MessageSquare } from 'lucide-react';
-import { useBillingStore } from '@/store/billingStore';
+import { useUIStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
 export function Cart() {
-  const { cart, updateCartItemQuantity, removeFromCart, updateCartItemNotes } = useBillingStore();
+  const { cart, updateCartItem, removeFromCart } = useUIStore();
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState('');
 
@@ -16,9 +16,17 @@ export function Cart() {
   };
 
   const handleSaveNotes = (itemId: string) => {
-    updateCartItemNotes(itemId, noteValue);
+    updateCartItem(itemId, { notes: noteValue });
     setEditingNotes(null);
     setNoteValue('');
+  };
+
+  const handleQuantityChange = (itemId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(itemId);
+    } else {
+      updateCartItem(itemId, { quantity: newQuantity });
+    }
   };
 
   // Separate items by KOT status
@@ -110,7 +118,7 @@ export function Cart() {
               size="icon"
               variant="ghost"
               className="h-7 w-7"
-              onClick={() => updateCartItemQuantity(item.id, item.quantity - 1)}
+              onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
             >
               <Minus className="h-3 w-3" />
             </Button>
@@ -119,7 +127,7 @@ export function Cart() {
               size="icon"
               variant="ghost"
               className="h-7 w-7"
-              onClick={() => updateCartItemQuantity(item.id, item.quantity + 1)}
+              onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
             >
               <Plus className="h-3 w-3" />
             </Button>
