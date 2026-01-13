@@ -148,6 +148,8 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddItem();
+      // Focus back to search input after adding item
+      setTimeout(() => inputRef.current?.focus(), 50);
     } else if (e.key === 'Escape') {
       setStep('search');
       setSelectedProduct(null);

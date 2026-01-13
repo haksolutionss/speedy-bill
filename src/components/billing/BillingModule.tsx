@@ -138,7 +138,21 @@ export function BillingModule() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
+      // F3 - Focus on table search bar (works even in inputs)
+      if (e.key === 'F3') {
+        e.preventDefault();
+        tableSearchRef.current?.focus();
+        return;
+      }
+
+      // F4 - Focus on product search bar (works even in inputs)
+      if (e.key === 'F4') {
+        e.preventDefault();
+        itemSearchRef.current?.focus();
+        return;
+      }
+
+      // Ignore other shortcuts if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }

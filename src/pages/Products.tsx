@@ -124,7 +124,7 @@ export default function Products() {
             description: data.description,
             gst_rate: data.gst_rate,
           },
-          portions: portionsData.map(({ size, price }) => ({ size, price })),
+          portions: portionsData,
         }).unwrap();
         toast.success('Product created successfully');
       }
