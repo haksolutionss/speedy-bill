@@ -34,7 +34,7 @@ interface UIState {
   tokenCounter: number;
   
   // Actions
-  setSelectedTable: (table: DbTable | null, loadFromBill?: boolean) => void;
+  setSelectedTable: (table: DbTable | null) => void;
   setParcelMode: (mode: boolean) => void;
   setCurrentBillId: (billId: string | null) => void;
   setCart: (cart: CartItem[]) => void;
@@ -73,30 +73,19 @@ export const useUIStore = create<UIState>()(
       discountReason: null,
       tokenCounter: 1,
       
-      setSelectedTable: (table, loadFromBill = false) => {
-        // If loadFromBill is true, don't clear the cart (it will be loaded separately)
-        if (loadFromBill) {
-          set({
-            selectedTable: table,
-            isParcelMode: false,
-            currentBillId: table?.current_bill_id || null,
-            coverCount: 1,
-            discountType: null,
-            discountValue: null,
-            discountReason: null,
-          });
-        } else {
-          set({
-            selectedTable: table,
-            isParcelMode: false,
-            cart: [],
-            currentBillId: table?.current_bill_id || null,
-            coverCount: 1,
-            discountType: null,
-            discountValue: null,
-            discountReason: null,
-          });
-        }
+      setSelectedTable: (table) => {
+        // Always clear cart first - useCartSync will load the correct data
+        // This prevents stale cart data from showing briefly
+        set({
+          selectedTable: table,
+          isParcelMode: false,
+          cart: [], // Always clear - useCartSync handles loading
+          currentBillId: null, // Clear - useCartSync sets this if there's an active bill
+          coverCount: 1,
+          discountType: null,
+          discountValue: null,
+          discountReason: null,
+        });
       },
       
       setParcelMode: (mode) => {

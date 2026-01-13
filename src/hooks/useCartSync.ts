@@ -25,7 +25,7 @@ interface DbCartItem {
 /**
  * Hook to sync cart data with Supabase for persistence across sessions and devices
  * - Debounces cart updates before syncing to reduce database writes
- * - Loads cart from Supabase when table is selected
+ * - Loads cart from Supabase when table is selected (from cart_items or bill_items)
  * - Clears cart items from Supabase when bill is created
  * - Handles real-time updates from other devices
  */
@@ -34,22 +34,63 @@ export function useCartSync() {
     selectedTable,
     cart,
     currentBillId,
-    setSelectedTable,
+    setCurrentBillId,
   } = useUIStore();
   
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSyncedCartRef = useRef<string>('');
   const isLoadingRef = useRef(false);
+  const lastLoadedTableRef = useRef<string | null>(null);
 
-  // Load cart items from Supabase when table is selected
-  const loadCartFromSupabase = useCallback(async (table: DbTable) => {
+  // Load cart items - first check for active bill, then check cart_items table
+  const loadCartForTable = useCallback(async (table: DbTable) => {
     if (!table?.id || isLoadingRef.current) return;
     
     isLoadingRef.current = true;
+    lastLoadedTableRef.current = table.id;
     
     try {
-      console.log('[CartSync] Loading cart for table:', table.id);
+      console.log('[CartSync] Loading cart for table:', table.id, 'current_bill_id:', table.current_bill_id);
       
+      // First check if table has an active bill - load from bill_items
+      if (table.current_bill_id) {
+        const { data: billItems, error: billError } = await supabase
+          .from('bill_items')
+          .select('*')
+          .eq('bill_id', table.current_bill_id)
+          .order('created_at', { ascending: true });
+        
+        if (billError) {
+          console.error('[CartSync] Error loading bill items:', billError);
+        } else if (billItems && billItems.length > 0) {
+          console.log('[CartSync] Found', billItems.length, 'items in active bill');
+          
+          const mappedItems: CartItem[] = billItems.map((item) => ({
+            id: item.id,
+            productId: item.product_id,
+            productName: item.product_name,
+            productCode: item.product_code,
+            portion: item.portion,
+            quantity: item.quantity,
+            unitPrice: Number(item.unit_price),
+            gstRate: Number(item.gst_rate),
+            notes: item.notes || undefined,
+            sentToKitchen: item.sent_to_kitchen,
+          }));
+          
+          // Update store with loaded items and set bill ID
+          const store = useUIStore.getState();
+          if (store.selectedTable?.id === table.id) {
+            useUIStore.setState({ cart: mappedItems });
+            setCurrentBillId(table.current_bill_id);
+            lastSyncedCartRef.current = JSON.stringify(mappedItems);
+          }
+          isLoadingRef.current = false;
+          return;
+        }
+      }
+      
+      // No active bill - check cart_items for unsaved cart data
       const { data: cartItems, error } = await supabase
         .from('cart_items')
         .select('*')
@@ -58,11 +99,12 @@ export function useCartSync() {
       
       if (error) {
         console.error('[CartSync] Error loading cart:', error);
+        isLoadingRef.current = false;
         return;
       }
       
       if (cartItems && cartItems.length > 0) {
-        console.log('[CartSync] Found', cartItems.length, 'items in cart');
+        console.log('[CartSync] Found', cartItems.length, 'items in cart_items');
         
         const mappedItems: CartItem[] = cartItems.map((item: DbCartItem) => ({
           id: item.id,
@@ -79,20 +121,25 @@ export function useCartSync() {
         
         // Update store with loaded items
         const store = useUIStore.getState();
-        // Only update if we're still on the same table
         if (store.selectedTable?.id === table.id) {
           useUIStore.setState({ cart: mappedItems });
           lastSyncedCartRef.current = JSON.stringify(mappedItems);
         }
       } else {
         console.log('[CartSync] No cart items found for table');
+        // Clear cart if table has no items
+        const store = useUIStore.getState();
+        if (store.selectedTable?.id === table.id && store.cart.length > 0) {
+          useUIStore.setState({ cart: [] });
+          lastSyncedCartRef.current = '';
+        }
       }
     } catch (err) {
       console.error('[CartSync] Error loading cart:', err);
     } finally {
       isLoadingRef.current = false;
     }
-  }, []);
+  }, [setCurrentBillId]);
 
   // Sync cart to Supabase (debounced)
   const syncCartToSupabase = useCallback(async (tableId: string, cartItems: CartItem[]) => {
@@ -178,22 +225,20 @@ export function useCartSync() {
 
   // Load cart when table is selected
   useEffect(() => {
-    if (selectedTable?.id && !currentBillId) {
-      // Only load from cart_items if there's no active bill
-      // (bills with items are loaded separately)
-      loadCartFromSupabase(selectedTable);
-    }
-    
-    // Clear local tracking when table changes
-    if (!selectedTable) {
+    if (selectedTable?.id) {
+      loadCartForTable(selectedTable);
+    } else {
+      // Clear local tracking when no table selected
       lastSyncedCartRef.current = '';
+      lastLoadedTableRef.current = null;
     }
-  }, [selectedTable?.id, currentBillId, loadCartFromSupabase]);
+  }, [selectedTable?.id, loadCartForTable]);
 
-  // Debounced sync cart to Supabase when cart changes
+  // Debounced sync cart to Supabase when cart changes (only for non-bill carts)
   useEffect(() => {
-    if (!selectedTable?.id || currentBillId) {
-      // Don't sync if no table selected or if we have an active bill
+    // Don't sync if no table selected or if we have an active bill
+    // Bills are synced via bill_items, not cart_items
+    if (!selectedTable?.id || currentBillId || isLoadingRef.current) {
       return;
     }
     
@@ -236,7 +281,8 @@ export function useCartSync() {
             // Debounce to avoid rapid reloads
             setTimeout(() => {
               if (selectedTable?.id) {
-                loadCartFromSupabase(selectedTable);
+                lastLoadedTableRef.current = null; // Reset to allow reload
+                loadCartForTable(selectedTable);
               }
             }, 500);
           }
@@ -247,7 +293,7 @@ export function useCartSync() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedTable?.id, loadCartFromSupabase]);
+  }, [selectedTable?.id, loadCartForTable]);
 
   // Force sync on unmount or table change
   useEffect(() => {
@@ -264,7 +310,7 @@ export function useCartSync() {
   }, [syncCartToSupabase]);
 
   return {
-    loadCartFromSupabase,
+    loadCartForTable,
     syncCartToSupabase,
     clearCartFromSupabase,
     forceSync: useCallback(() => {
@@ -275,5 +321,8 @@ export function useCartSync() {
         syncCartToSupabase(selectedTable.id, cart);
       }
     }, [selectedTable?.id, currentBillId, cart, syncCartToSupabase]),
+    resetLoadedTable: useCallback(() => {
+      lastLoadedTableRef.current = null;
+    }, []),
   };
 }
