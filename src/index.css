@@ -118,6 +118,11 @@
     @apply ring-4 ring-accent/40 border-accent scale-[1.06] z-10;
   }
 
+  /* Keyboard focus state for tables */
+  .table-btn-focused {
+    @apply ring-2 ring-accent ring-offset-2 ring-offset-background scale-[1.02] z-10;
+    box-shadow: 0 0 0 3px hsl(var(--accent) / 0.3);
+  }
 
   /* Keyboard shortcut badges */
   .kbd {
@@ -126,7 +131,7 @@
 
   /* Cart item states */
   .cart-item {
-    @apply flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors;
+    @apply flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all;
   }
 
   .cart-item-sent {
@@ -135,6 +140,11 @@
 
   .cart-item-pending {
     @apply border-l-4 border-l-accent bg-accent/5;
+  }
+
+  /* Cart item keyboard focus */
+  .cart-item-focused {
+    @apply ring-2 ring-accent ring-offset-1 ring-offset-background bg-accent/10;
   }
 
   /* Section headers */
@@ -186,6 +196,16 @@
 
   .status-unsettled {
     @apply bg-accent/20 text-accent;
+  }
+
+  /* Strong focus-visible styles for accessibility */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-background;
   }
 }
 

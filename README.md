@@ -1,73 +1,141 @@
-# Welcome to your Lovable project
+# HotelAqsa POS - Restaurant Billing System
 
-## Project info
+A fast, keyboard-first restaurant billing system built with React, TypeScript, and Supabase.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+### Core Billing
+- **Table Management** - Visual table grid with status indicators (available/occupied/reserved)
+- **Quick Item Search** - Search products by name or code with keyboard navigation
+- **Cart Management** - Add, edit, and remove items with quantity controls
+- **KOT (Kitchen Order Ticket)** - Print kitchen orders with item notes
+- **Bill Generation** - GST-compliant bills with multiple payment methods
+- **Bill History** - View, search, filter, and manage past bills with pagination
 
-There are several ways of editing your application.
+### Keyboard-First Design
+The entire billing flow is usable with keyboard only:
 
-**Use Lovable**
+| Shortcut | Action |
+|----------|--------|
+| `F1` | Print KOT (Kitchen Order Ticket) |
+| `F2` | Generate Final Bill |
+| `F3` | Focus table search |
+| `F4` | Focus item search |
+| `↑↓←→` | Navigate table grid |
+| `Enter` | Select focused table |
+| `Esc` | Clear focus / Return to search |
+| `Ctrl+↑↓` | Navigate cart items |
+| `Ctrl+←→` | Decrease/Increase item quantity |
+| `Ctrl+Del` | Remove cart item (pending only) |
+| `Tab/Shift+Tab` | Navigate action buttons |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### KOT Management
+- **Incremental Printing** - Only new items or added quantities are printed
+- **Immutable Printed Items** - Sent items cannot be edited or deleted
+- **Notes on KOT** - Item notes are prominently displayed on kitchen tickets
 
-Changes made via Lovable will be committed automatically to this repo.
+### Progressive Web App (PWA)
+- Install directly from browser to home screen
+- Works offline with cached data
+- Fast loading with service worker
 
-**Use your preferred IDE**
+## Tech Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS, shadcn/ui
+- **State Management**: Redux Toolkit (RTK Query), Zustand
+- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
+- **PWA**: vite-plugin-pwa
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Getting Started
 
-Follow these steps:
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+### Installation
+
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Navigate to project directory
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+The app connects to Supabase. Environment variables are managed through Lovable's Supabase integration.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project Structure
 
-## What technologies are used for this project?
+```
+src/
+├── components/
+│   ├── billing/          # Billing module components
+│   │   ├── BillingModule.tsx
+│   │   ├── TableGrid.tsx
+│   │   ├── Cart.tsx
+│   │   ├── ItemSearch.tsx
+│   │   ├── BillActions.tsx
+│   │   └── ...
+│   ├── common/           # Shared components
+│   ├── layout/           # Layout components
+│   ├── print/            # Print templates (KOT, Bill)
+│   └── ui/               # shadcn/ui components
+├── hooks/                # Custom React hooks
+├── pages/                # Page components
+├── store/                # State management (Redux, Zustand)
+├── integrations/         # Supabase client
+└── types/                # TypeScript types
+```
 
-This project is built with:
+## Keyboard Navigation Details
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Table Grid
+- Arrow keys navigate between table cards in grid order
+- `Enter` selects the focused table
+- Visual focus ring indicates current selection
+- `Esc` returns focus to search input
 
-## How can I deploy this project?
+### Cart Items
+- Use `Ctrl+↑/↓` to navigate between cart items
+- `Ctrl+←` decreases quantity, `Ctrl+→` increases
+- `Ctrl+Delete` removes item (only for unprintedItems)
+- Printed items show a lock icon and are read-only
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+### Action Buttons
+- `Tab` navigates between bottom action buttons
+- Strong focus indicators show current selection
 
-## Can I connect a custom domain to my Lovable project?
+## PWA Installation
 
-Yes, you can!
+### Desktop (Chrome/Edge)
+1. Visit the app URL
+2. Click the install icon in the address bar
+3. Click "Install"
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Mobile
+- **Android**: Tap the "Add to Home Screen" prompt or use browser menu
+- **iOS**: Tap Share → "Add to Home Screen"
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Deployment
+
+Deploy via Lovable by clicking Share → Publish, or use any static hosting:
+
+```bash
+npm run build
+# Deploy the 'dist' folder
+```
+
+## License
+
+This project is proprietary software for HotelAqsa.
