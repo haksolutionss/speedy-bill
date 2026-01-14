@@ -93,23 +93,31 @@
 
 @layer components {
 
-  /* Table button states */
+  /* Table button base */
   .table-btn {
-    @apply relative flex flex-col items-center justify-center rounded-lg border-2 p-3 transition-all duration-150 font-medium;
-    @apply hover:scale-105 focus:outline-none focus:ring-0 focus:ring-ring focus:ring-offset-0 focus:ring-offset-background;
+    @apply relative flex flex-col items-center justify-center rounded-lg border-2 p-3 font-medium transition-all duration-150 hover:scale-[1.04] focus:outline-none;
   }
 
+  /* AVAILABLE — calm */
   .table-btn-available {
-    @apply border-success/50 bg-success/10 text-success hover:bg-success/20 hover:border-success;
+    @apply border-success bg-success/10 text-success hover:bg-success/20;
   }
 
   .table-btn-occupied {
-    @apply border-red-500/50 bg-red-500 text-red-500 hover:bg-red-500 hover:border-red-500;
+    @apply relative border-transparent;
+    animation: occupied-border 1.8s ease-in-out infinite;
   }
 
+  /* RESERVED — dashed informational */
   .table-btn-reserved {
-    @apply border-blue-500/50 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500;
+    @apply border-2 border-blue-500 border-dashed bg-blue-500/10 text-blue-600 hover:bg-blue-500/20;
   }
+
+  /* ACTIVE / SELECTED — overrides all */
+  .table-btn-active {
+    @apply ring-4 ring-accent/40 border-accent scale-[1.06] z-10;
+  }
+
 
   /* Keyboard shortcut badges */
   .kbd {
@@ -208,4 +216,24 @@
 
 ::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes occupied-border {
+  0% {
+    box-shadow:
+      0 0 0 2px hsl(var(--accent)),
+      0 0 10px hsl(var(--accent) / 0.6);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px hsl(220 70% 55%),
+      0 0 14px hsl(220 70% 55% / 0.7);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 2px hsl(var(--accent)),
+      0 0 10px hsl(var(--accent) / 0.6);
+  }
 }

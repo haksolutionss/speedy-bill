@@ -166,17 +166,14 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
                   )}
                 >
                   {selectedTable?.id === table.id && (
-                    <div className='absolute -top-2 -right-2 bg-accent text-accent-foreground p-2 rounded-full'>
-                      <Check />
+                    <div className="absolute -top-2 -right-2 bg-background border-2 border-accent text-accent p-1.5 rounded-full shadow-md">
+                      <Check className="h-4 w-4" />
                     </div>
                   )}
+
                   <span className="text-lg font-bold">{table.number}</span>
                   <span className="text-[10px] opacity-70">{table.capacity} seats</span>
-                  {table.current_amount && (
-                    <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      ₹{table.current_amount}
-                    </span>
-                  )}
+
                 </button>
               ))}
             </div>
