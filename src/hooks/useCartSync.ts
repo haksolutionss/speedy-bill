@@ -154,9 +154,10 @@ export function useCartSync() {
         return;
       }
       
-      // Insert ALL cart items (let database generate UUID)
+      // Insert ALL cart items
       if (cartItems.length > 0) {
         const itemsToInsert = cartItems.map(item => ({
+          id: item.id,
           table_id: tableId,
           product_id: item.productId,
           product_name: item.productName,
@@ -167,6 +168,7 @@ export function useCartSync() {
           gst_rate: item.gstRate,
           notes: item.notes || null,
           sent_to_kitchen: item.sentToKitchen,
+          kot_printed_at: null,
         }));
         
         const { error: insertError } = await supabase
