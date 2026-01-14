@@ -187,6 +187,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [step, selectedProduct, selectedIndex, handleSelectPortion]);
 
+  console.log("step", step)
   return (
     <div className="relative" ref={containerRef}>
       {/* Search Input */}
