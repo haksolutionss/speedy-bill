@@ -26,10 +26,10 @@ const App = () => (
   <ReduxProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RealtimeSubscription />
         <Toaster />
         <Sonner position="top-right" />
         <BrowserRouter>
+          <RealtimeSubscription />
           <AppLayout>
             <Routes>
               <Route path="/" element={<Index />} />

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useRef } from 'react';
 import { Provider } from 'react-redux';
 import { store } from '@/store/redux/store';
 
@@ -7,5 +7,8 @@ interface ReduxProviderProps {
 }
 
 export function ReduxProvider({ children }: ReduxProviderProps) {
-  return <Provider store={store}>{children}</Provider>;
+  // Use ref to ensure store reference is stable across HMR
+  const storeRef = useRef(store);
+  
+  return <Provider store={storeRef.current}>{children}</Provider>;
 }
