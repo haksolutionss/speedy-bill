@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Users, Hash, Package } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
-import { useGetTableSectionsQuery, useGetProductsQuery, useGetActiveBillsQuery } from '@/store/redux/api/billingApi';
+import { useGetTableSectionsQuery, useGetProductsQuery } from '@/store/redux/api/billingApi';
 import { useCartSync } from '@/hooks/useCartSync';
 import { TableGrid } from './TableGrid';
 import { ItemSearch, ItemSearchRef } from './ItemSearch';
@@ -17,7 +17,6 @@ export function BillingModule() {
     isParcelMode,
     currentBillId,
     cart,
-    markItemsSentToKitchen,
     coverCount,
   } = useUIStore();
 
@@ -64,7 +63,7 @@ export function BillingModule() {
     return () => clearTimeout(timer);
   }, [showBillingPanel, isLoading, selectedTable?.id]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - F3 and F4 for focus
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // F3 - Focus on table search bar (works even in inputs)
@@ -80,25 +79,11 @@ export function BillingModule() {
         itemSearchRef.current?.focus();
         return;
       }
-
-      // Ignore other shortcuts if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      if (e.key === 'F1') {
-        e.preventDefault();
-        const pendingItems = cart.filter(item => !item.sentToKitchen);
-        if (pendingItems.length > 0) {
-          markItemsSentToKitchen();
-          forceSync();
-        }
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, markItemsSentToKitchen, forceSync]);
+  }, []);
 
   // Handle table selection callback to focus item search
   const handleTableSelect = () => {

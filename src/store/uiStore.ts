@@ -13,6 +13,8 @@ export interface CartItem {
   gstRate: number;
   notes?: string;
   sentToKitchen: boolean;
+  // Track printed quantity for incremental KOT printing
+  printedQuantity: number;
 }
 
 interface UIState {
@@ -56,6 +58,9 @@ interface UIState {
 
   // Reset
   resetBillingState: () => void;
+  
+  // Get items that need to be printed on KOT (only new/added quantities)
+  getKOTItems: () => CartItem[];
 }
 
 const generateId = () => crypto.randomUUID();
@@ -107,44 +112,87 @@ export const useUIStore = create<UIState>()(
         const portionData = product.portions.find((p) => p.size === portion);
         if (!portionData) return;
 
-        const existingItem = get().cart.find(
+        // Find existing item that hasn't been sent to kitchen yet
+        const existingPendingItem = get().cart.find(
           (item) => item.productId === product.id && item.portion === portion && !item.sentToKitchen
         );
 
-        if (existingItem) {
+        if (existingPendingItem) {
+          // Add to existing pending item
           set({
             cart: get().cart.map((item) =>
-              item.id === existingItem.id
+              item.id === existingPendingItem.id
                 ? { ...item, quantity: item.quantity + quantity }
                 : item
             ),
           });
         } else {
-          const newItem: CartItem = {
-            id: generateId(),
-            productId: product.id,
-            productName: product.name,
-            productCode: product.code,
-            portion,
-            quantity,
-            unitPrice: portionData.price,
-            gstRate: product.gst_rate,
-            sentToKitchen: false,
-          };
-          set({ cart: [...get().cart, newItem] });
+          // Check if there's a sent item we should add to instead
+          const existingSentItem = get().cart.find(
+            (item) => item.productId === product.id && item.portion === portion && item.sentToKitchen
+          );
+
+          if (existingSentItem) {
+            // Add quantity to sent item - the difference will be printed in next KOT
+            set({
+              cart: get().cart.map((item) =>
+                item.id === existingSentItem.id
+                  ? { ...item, quantity: item.quantity + quantity }
+                  : item
+              ),
+            });
+          } else {
+            // Create new item
+            const newItem: CartItem = {
+              id: generateId(),
+              productId: product.id,
+              productName: product.name,
+              productCode: product.code,
+              portion,
+              quantity,
+              unitPrice: portionData.price,
+              gstRate: product.gst_rate,
+              sentToKitchen: false,
+              printedQuantity: 0,
+            };
+            set({ cart: [...get().cart, newItem] });
+          }
         }
       },
 
       updateCartItem: (itemId, updates) => {
+        const item = get().cart.find((i) => i.id === itemId);
+        
+        // Prevent updates to printed items (except quantity increase)
+        if (item?.sentToKitchen) {
+          // Only allow quantity increase for printed items
+          if (updates.quantity !== undefined && updates.quantity > item.quantity) {
+            set({
+              cart: get().cart.map((i) =>
+                i.id === itemId ? { ...i, quantity: updates.quantity! } : i
+              ),
+            });
+          }
+          // Ignore other updates for printed items
+          return;
+        }
+
         set({
-          cart: get().cart.map((item) =>
-            item.id === itemId ? { ...item, ...updates } : item
+          cart: get().cart.map((i) =>
+            i.id === itemId ? { ...i, ...updates } : i
           ),
         });
       },
 
       removeFromCart: (itemId) => {
-        set({ cart: get().cart.filter((item) => item.id !== itemId) });
+        const item = get().cart.find((i) => i.id === itemId);
+        
+        // Prevent removal of printed items
+        if (item?.sentToKitchen) {
+          return;
+        }
+
+        set({ cart: get().cart.filter((i) => i.id !== itemId) });
       },
 
       clearCart: () => set({ cart: [] }),
@@ -161,6 +209,8 @@ export const useUIStore = create<UIState>()(
           gstRate: Number(item.gst_rate),
           notes: item.notes || undefined,
           sentToKitchen: item.sent_to_kitchen,
+          // If sent to kitchen, all quantity was printed
+          printedQuantity: item.sent_to_kitchen ? item.quantity : 0,
         }));
 
         set({
@@ -175,7 +225,12 @@ export const useUIStore = create<UIState>()(
 
       markItemsSentToKitchen: () => {
         set({
-          cart: get().cart.map((item) => ({ ...item, sentToKitchen: true })),
+          cart: get().cart.map((item) => ({ 
+            ...item, 
+            sentToKitchen: true,
+            // Update printed quantity to current quantity
+            printedQuantity: item.quantity,
+          })),
         });
       },
 
@@ -206,6 +261,27 @@ export const useUIStore = create<UIState>()(
           discountValue: null,
           discountReason: null,
         });
+      },
+
+      // Get items for KOT - only new items or increased quantities
+      getKOTItems: () => {
+        const cart = get().cart;
+        const kotItems: CartItem[] = [];
+
+        for (const item of cart) {
+          if (!item.sentToKitchen) {
+            // New item, not yet sent to kitchen
+            kotItems.push(item);
+          } else if (item.quantity > item.printedQuantity) {
+            // Existing item with increased quantity - only print the difference
+            kotItems.push({
+              ...item,
+              quantity: item.quantity - item.printedQuantity,
+            });
+          }
+        }
+
+        return kotItems;
       },
     }),
     {

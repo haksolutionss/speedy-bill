@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import type { CartItem } from '@/data/mockData';
+import type { CartItem } from '@/store/uiStore';
 
 interface KOTTemplateProps {
   tableNumber?: string;
@@ -110,10 +110,14 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
             color: #666;
           }
           .kot-item-notes {
-            font-size: 10px;
+            font-size: 11px;
             font-style: italic;
             padding-left: 8px;
             color: #333;
+            margin-top: 2px;
+            background: #f5f5f5;
+            padding: 4px 8px;
+            border-left: 3px solid #333;
           }
           .kot-footer {
             text-align: center;
@@ -162,10 +166,14 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
                 <div className="kot-item-qty">x{item.quantity}</div>
               </div>
               {item.notes && (
-                <div className="kot-item-notes">Note: {item.notes}</div>
+                <div className="kot-item-notes">📝 {item.notes}</div>
               )}
             </div>
           ))}
+        </div>
+
+        <div className="kot-count">
+          Total Items: {items.reduce((sum, item) => sum + item.quantity, 0)}
         </div>
       </div>
     );
