@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Printer,
   Receipt,
@@ -27,6 +27,7 @@ export function BillActions() {
     currentBillId,
     selectedTable,
     isParcelMode,
+    getKOTItems,
   } = useUIStore();
 
   const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
@@ -34,12 +35,13 @@ export function BillActions() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showKOTPreview, setShowKOTPreview] = useState(false);
   const [showBillPreview, setShowBillPreview] = useState(false);
-  const [totalAmountView, setTotalAmountView] = useState(false)
+  const [totalAmountView, setTotalAmountView] = useState(false);
   const kotRef = useRef<HTMLDivElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
 
-  const pendingItems = cart.filter(item => !item.sentToKitchen);
-  const hasPendingItems = pendingItems.length > 0;
+  // Get items that need to be printed (new items or added quantities only)
+  const kotItems = getKOTItems();
+  const hasPendingItems = kotItems.length > 0;
   const hasItems = cart.length > 0;
 
   // Calculate totals for bill template
@@ -55,6 +57,41 @@ export function BillActions() {
   const sgstAmount = totalGst / 2;
   const totalAmount = subTotal + totalGst;
   const finalAmount = Math.round(totalAmount);
+
+  // Keyboard shortcuts - F1 for KOT, F2 for Bill
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F1 - Print KOT
+      if (e.key === 'F1') {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (hasPendingItems) {
+          setShowKOTPreview(true);
+        } else {
+          toast.info('No new items to send to kitchen');
+        }
+        return false;
+      }
+
+      // F2 - Print Bill
+      if (e.key === 'F2') {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (hasItems) {
+          handlePrintBill();
+        } else {
+          toast.error('Add items to print bill');
+        }
+        return false;
+      }
+    };
+
+    // Use capture phase to intercept before browser handles F1
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [hasPendingItems, hasItems, cart]);
 
   const handlePrintKOT = () => {
     if (!hasPendingItems) {
@@ -98,8 +135,9 @@ export function BillActions() {
   };
 
   const handleTotalAmountView = () => {
-    setTotalAmountView(!totalAmountView)
-  }
+    setTotalAmountView(!totalAmountView);
+  };
+
   return (
     <>
       {totalAmountView && (
@@ -150,7 +188,7 @@ export function BillActions() {
             <KOTTemplate
               ref={kotRef}
               tableNumber={selectedTable?.number}
-              items={pendingItems}
+              items={kotItems}
               isParcel={isParcelMode}
             />
           </div>

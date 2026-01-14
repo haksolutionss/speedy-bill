@@ -77,6 +77,7 @@ export function useCartSync() {
             gstRate: Number(item.gst_rate),
             notes: item.notes || undefined,
             sentToKitchen: item.sent_to_kitchen,
+            printedQuantity: item.sent_to_kitchen ? item.quantity : 0,
           }));
 
           setCart(mappedItems);
@@ -114,6 +115,7 @@ export function useCartSync() {
           gstRate: Number(item.gst_rate),
           notes: item.notes || undefined,
           sentToKitchen: item.sent_to_kitchen,
+          printedQuantity: item.sent_to_kitchen ? item.quantity : 0,
         }));
 
         setCart(mappedItems);
