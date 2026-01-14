@@ -67,41 +67,41 @@ interface BillingState {
   isParcelMode: boolean;
   currentBill: Bill | null;
   currentBillId: string | null;
-  
+
   // Local cart state
   cart: CartItem[];
-  
+
   // Table sections (mapped from RTK data)
   tableSections: TableSection[];
-  
+
   // Products (mapped from RTK data)  
   products: ProductWithPortions[];
-  
+
   // Bills history
   bills: Bill[];
-  
+
   // Bill info
   coverCount: number;
   discountType: 'percentage' | 'fixed' | null;
   discountValue: number | null;
   discountReason: string | null;
-  
+
   // Token counter
   tokenCounter: number;
-  
+
   // Actions - Selection
   setParcelMode: (mode: boolean) => void;
   selectTable: (table: DbTable | null) => void;
-  
+
   // Actions - Table sections sync
   setTableSections: (sections: TableSection[]) => void;
-  
+
   // Actions - Products sync
   setProducts: (products: ProductWithPortions[]) => void;
-  
+
   // Actions - Bills sync
   setBills: (bills: Bill[]) => void;
-  
+
   // Cart Actions
   addToCart: (product: ProductWithPortions, portion: string, quantity: number) => void;
   updateCartItemQuantity: (itemId: string, quantity: number) => void;
@@ -109,10 +109,10 @@ interface BillingState {
   updateCartItemNotes: (itemId: string, notes: string) => void;
   clearCart: () => void;
   loadCartFromBill: (bill: BillWithItems) => void;
-  
+
   // KOT Actions
   markItemsSentToKitchen: () => void;
-  
+
   // Bill Actions
   createNewBill: () => Bill | undefined;
   settleBill: (paymentMethod: 'cash' | 'card' | 'upi' | 'split', paymentDetails?: PaymentDetail[]) => void;
@@ -120,28 +120,28 @@ interface BillingState {
   applyDiscount: (type: 'percentage' | 'fixed', value: number, reason?: string) => void;
   removeDiscount: () => void;
   setCoverCount: (count: number) => void;
-  
+
   // Table Actions
   updateTableStatus: (tableId: string, status: 'available' | 'occupied' | 'reserved') => void;
   openExistingBill: (billId: string) => void;
-  
+
   // Product Actions
   addProduct: (product: Omit<ProductWithPortions, 'id'>) => void;
   updateProduct: (id: string, product: Partial<ProductWithPortions>) => void;
   deleteProduct: (id: string) => void;
-  
+
   // Bill History Actions
   revertBill: (billId: string) => void;
   deleteBill: (billId: string) => void;
-  
+
   // Token
   getNextToken: () => number;
-  
+
   // Reset
   resetBillingState: () => void;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+const generateId = () => crypto.randomUUID();
 
 const generateBillNumber = () => {
   const now = new Date();
@@ -154,16 +154,16 @@ const generateBillNumber = () => {
 
 const calculateBillTotals = (items: CartItem[], discountType?: 'percentage' | 'fixed', discountValue?: number) => {
   const subTotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-  
+
   let discountAmount = 0;
   if (discountType && discountValue) {
-    discountAmount = discountType === 'percentage' 
-      ? (subTotal * discountValue / 100) 
+    discountAmount = discountType === 'percentage'
+      ? (subTotal * discountValue / 100)
       : discountValue;
   }
-  
+
   const afterDiscount = subTotal - discountAmount;
-  
+
   // Calculate GST by rate
   const gstByRate: Record<number, number> = {};
   items.forEach(item => {
@@ -173,14 +173,14 @@ const calculateBillTotals = (items: CartItem[], discountType?: 'percentage' | 'f
     const gst = taxableAmount * (item.gstRate / 100);
     gstByRate[item.gstRate] = (gstByRate[item.gstRate] || 0) + gst;
   });
-  
+
   const totalGst = Object.values(gstByRate).reduce((sum, gst) => sum + gst, 0);
   const cgstAmount = totalGst / 2;
   const sgstAmount = totalGst / 2;
-  
+
   const totalAmount = afterDiscount + totalGst;
   const finalAmount = Math.round(totalAmount);
-  
+
   return { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount, finalAmount };
 };
 
@@ -200,15 +200,15 @@ export const useBillingStore = create<BillingState>()(
       discountValue: null,
       discountReason: null,
       tokenCounter: 1,
-      
+
       setTableSections: (sections) => set({ tableSections: sections }),
-      
+
       setProducts: (products) => set({ products }),
-      
+
       setBills: (bills) => set({ bills }),
-      
-      setParcelMode: (mode) => set({ 
-        isParcelMode: mode, 
+
+      setParcelMode: (mode) => set({
+        isParcelMode: mode,
         selectedTable: mode ? null : get().selectedTable,
         cart: [],
         currentBill: null,
@@ -218,18 +218,18 @@ export const useBillingStore = create<BillingState>()(
         discountValue: null,
         discountReason: null,
       }),
-      
+
       selectTable: (table) => {
         const { bills } = get();
-        
+
         if (table?.status === 'occupied' && table.current_bill_id) {
           // Find the bill in our synced bills array
           const existingBill = bills.find(b => b.id === table.current_bill_id);
-          
+
           if (existingBill) {
             // Load cart from existing bill
-            set({ 
-              selectedTable: table, 
+            set({
+              selectedTable: table,
               isParcelMode: false,
               cart: existingBill.items,
               currentBill: existingBill,
@@ -246,8 +246,8 @@ export const useBillingStore = create<BillingState>()(
           }
         } else {
           // Available table - clear cart and start fresh
-          set({ 
-            selectedTable: table, 
+          set({
+            selectedTable: table,
             isParcelMode: false,
             cart: [],
             currentBill: null,
@@ -259,26 +259,26 @@ export const useBillingStore = create<BillingState>()(
           });
         }
       },
-      
+
       addToCart: (product, portion, quantity) => {
         const { selectedTable, tableSections } = get();
         const portionData = product.portions.find(p => p.size === portion);
         if (!portionData) return;
-        
+
         // Determine the price based on section
         let price = portionData.price;
-        
+
         if (selectedTable?.section_id && portionData.section_prices) {
           const sectionPrice = portionData.section_prices[selectedTable.section_id];
           if (sectionPrice !== undefined && sectionPrice > 0) {
             price = sectionPrice;
           }
         }
-        
+
         const existingItem = get().cart.find(
           item => item.productId === product.id && item.portion === portion && !item.sentToKitchen
         );
-        
+
         if (existingItem) {
           set({
             cart: get().cart.map(item =>
@@ -302,7 +302,7 @@ export const useBillingStore = create<BillingState>()(
           set({ cart: [...get().cart, newItem] });
         }
       },
-      
+
       updateCartItemQuantity: (itemId, quantity) => {
         if (quantity <= 0) {
           get().removeFromCart(itemId);
@@ -314,19 +314,19 @@ export const useBillingStore = create<BillingState>()(
           ),
         });
       },
-      
+
       removeFromCart: (itemId) => set({
         cart: get().cart.filter(item => item.id !== itemId),
       }),
-      
+
       updateCartItemNotes: (itemId, notes) => set({
         cart: get().cart.map(item =>
           item.id === itemId ? { ...item, notes } : item
         ),
       }),
-      
+
       clearCart: () => set({ cart: [], currentBill: null, currentBillId: null }),
-      
+
       loadCartFromBill: (bill) => {
         const cartItems: CartItem[] = bill.items.map((item) => ({
           id: item.id,
@@ -340,7 +340,7 @@ export const useBillingStore = create<BillingState>()(
           notes: item.notes || undefined,
           sentToKitchen: item.sent_to_kitchen,
         }));
-        
+
         set({
           cart: cartItems,
           currentBillId: bill.id,
@@ -350,21 +350,21 @@ export const useBillingStore = create<BillingState>()(
           discountReason: bill.discount_reason,
         });
       },
-      
+
       markItemsSentToKitchen: () => set({
         cart: get().cart.map(item => ({ ...item, sentToKitchen: true })),
       }),
-      
+
       createNewBill: () => {
         const { cart, selectedTable, isParcelMode, currentBill, discountType, discountValue, discountReason, coverCount, tokenCounter } = get();
         if (cart.length === 0) return;
-        
+
         const totals = calculateBillTotals(
           cart,
           discountType || undefined,
           discountValue || undefined
         );
-        
+
         const bill: Bill = {
           id: currentBill?.id || generateId(),
           billNumber: currentBill?.billNumber || generateBillNumber(),
@@ -382,13 +382,13 @@ export const useBillingStore = create<BillingState>()(
           status: 'active',
           createdAt: currentBill?.createdAt || new Date(),
         };
-        
+
         if (isParcelMode && !currentBill?.tokenNumber) {
           set({ tokenCounter: tokenCounter + 1 });
         }
-        
+
         set({ currentBill: bill, currentBillId: bill.id });
-        
+
         // Update table status if table billing
         if (selectedTable) {
           get().updateTableStatus(selectedTable.id, 'occupied');
@@ -403,14 +403,14 @@ export const useBillingStore = create<BillingState>()(
             })),
           });
         }
-        
+
         return bill;
       },
-      
+
       settleBill: (paymentMethod, paymentDetails) => {
         const { currentBill, selectedTable, cart, bills } = get();
         if (!currentBill && cart.length === 0) return;
-        
+
         const totals = calculateBillTotals(cart);
         const bill: Bill = currentBill ? {
           ...currentBill,
@@ -438,15 +438,15 @@ export const useBillingStore = create<BillingState>()(
           createdAt: new Date(),
           settledAt: new Date(),
         };
-        
+
         // Update bills history
         const existingIndex = bills.findIndex(b => b.id === bill.id);
-        const newBills = existingIndex >= 0 
+        const newBills = existingIndex >= 0
           ? bills.map(b => b.id === bill.id ? bill : b)
           : [...bills, bill];
-        
+
         set({ bills: newBills, cart: [], currentBill: null, currentBillId: null });
-        
+
         // Free up table
         if (selectedTable) {
           set({
@@ -462,11 +462,11 @@ export const useBillingStore = create<BillingState>()(
           });
         }
       },
-      
+
       saveAsUnsettled: () => {
         const { cart, selectedTable, currentBill, bills } = get();
         if (cart.length === 0) return;
-        
+
         const totals = calculateBillTotals(cart);
         const bill: Bill = currentBill ? {
           ...currentBill,
@@ -488,22 +488,22 @@ export const useBillingStore = create<BillingState>()(
           status: 'unsettled',
           createdAt: new Date(),
         };
-        
+
         const existingIndex = bills.findIndex(b => b.id === bill.id);
-        const newBills = existingIndex >= 0 
+        const newBills = existingIndex >= 0
           ? bills.map(b => b.id === bill.id ? bill : b)
           : [...bills, bill];
-        
+
         set({ bills: newBills, cart: [], currentBill: null, currentBillId: null, selectedTable: null });
       },
-      
+
       applyDiscount: (type, value, reason) => {
         set({
           discountType: type,
           discountValue: value,
           discountReason: reason || null,
         });
-        
+
         // Recalculate current bill if exists
         const { cart, currentBill } = get();
         if (currentBill) {
@@ -519,14 +519,14 @@ export const useBillingStore = create<BillingState>()(
           });
         }
       },
-      
+
       removeDiscount: () => {
         set({
           discountType: null,
           discountValue: null,
           discountReason: null,
         });
-        
+
         // Recalculate current bill if exists
         const { cart, currentBill } = get();
         if (currentBill) {
@@ -542,7 +542,7 @@ export const useBillingStore = create<BillingState>()(
           });
         }
       },
-      
+
       setCoverCount: (count) => {
         set({ coverCount: count });
         if (get().currentBill) {
@@ -554,7 +554,7 @@ export const useBillingStore = create<BillingState>()(
           });
         }
       },
-      
+
       updateTableStatus: (tableId, status) => set({
         tableSections: get().tableSections.map(section => ({
           ...section,
@@ -563,15 +563,15 @@ export const useBillingStore = create<BillingState>()(
           ),
         })),
       }),
-      
+
       openExistingBill: (billId) => {
         const bill = get().bills.find(b => b.id === billId);
         if (!bill) return;
-        
+
         const table = get().tableSections
           .flatMap(s => s.tables)
           .find(t => t.id === bill.tableId);
-        
+
         set({
           currentBill: bill,
           currentBillId: bill.id,
@@ -596,37 +596,37 @@ export const useBillingStore = create<BillingState>()(
           coverCount: bill.coverCount || 1,
         });
       },
-      
+
       addProduct: (product) => set({
         products: [...get().products, { ...product, id: generateId() } as ProductWithPortions],
       }),
-      
+
       updateProduct: (id, updates) => set({
         products: get().products.map(p => p.id === id ? { ...p, ...updates } : p),
       }),
-      
+
       deleteProduct: (id) => set({
         products: get().products.filter(p => p.id !== id),
       }),
-      
+
       revertBill: (billId) => {
         set({
-          bills: get().bills.map(b => 
+          bills: get().bills.map(b =>
             b.id === billId ? { ...b, status: 'unsettled' as const, settledAt: undefined } : b
           ),
         });
       },
-      
+
       deleteBill: (billId) => set({
         bills: get().bills.filter(b => b.id !== billId),
       }),
-      
+
       getNextToken: () => {
         const token = get().tokenCounter;
         set({ tokenCounter: token + 1 });
         return token;
       },
-      
+
       resetBillingState: () => {
         set({
           selectedTable: null,

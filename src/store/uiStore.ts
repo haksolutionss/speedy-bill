@@ -20,25 +20,25 @@ interface UIState {
   selectedTable: DbTable | null;
   isParcelMode: boolean;
   currentBillId: string | null;
-  
+
   // Local cart state (for optimistic updates)
   cart: CartItem[];
-  
+
   // Bill info
   coverCount: number;
   discountType: 'percentage' | 'fixed' | null;
   discountValue: number | null;
   discountReason: string | null;
-  
+
   // Token counter for parcel orders (local)
   tokenCounter: number;
-  
+
   // Actions
   setSelectedTable: (table: DbTable | null) => void;
   setParcelMode: (mode: boolean) => void;
   setCurrentBillId: (billId: string | null) => void;
   setCart: (cart: CartItem[]) => void;
-  
+
   // Cart actions
   addToCart: (product: ProductWithPortions, portion: string, quantity: number) => void;
   updateCartItem: (itemId: string, updates: Partial<CartItem>) => void;
@@ -46,19 +46,19 @@ interface UIState {
   clearCart: () => void;
   loadCartFromBill: (bill: BillWithItems) => void;
   markItemsSentToKitchen: () => void;
-  
+
   // Discount actions
   setDiscount: (type: 'percentage' | 'fixed' | null, value: number | null, reason?: string | null) => void;
   setCoverCount: (count: number) => void;
-  
+
   // Token
   getNextToken: () => number;
-  
+
   // Reset
   resetBillingState: () => void;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+const generateId = () => crypto.randomUUID();
 
 export const useUIStore = create<UIState>()(
   persist(
@@ -72,22 +72,20 @@ export const useUIStore = create<UIState>()(
       discountValue: null,
       discountReason: null,
       tokenCounter: 1,
-      
+
       setSelectedTable: (table) => {
-        // Always clear cart first - useCartSync will load the correct data
-        // This prevents stale cart data from showing briefly
         set({
           selectedTable: table,
           isParcelMode: false,
-          cart: [], // Always clear - useCartSync handles loading
-          currentBillId: null, // Clear - useCartSync sets this if there's an active bill
+          cart: [],
+          currentBillId: null,
           coverCount: 1,
           discountType: null,
           discountValue: null,
           discountReason: null,
         });
       },
-      
+
       setParcelMode: (mode) => {
         set({
           isParcelMode: mode,
@@ -100,19 +98,19 @@ export const useUIStore = create<UIState>()(
           discountReason: null,
         });
       },
-      
+
       setCurrentBillId: (billId) => set({ currentBillId: billId }),
-      
+
       setCart: (cart) => set({ cart }),
-      
+
       addToCart: (product, portion, quantity) => {
         const portionData = product.portions.find((p) => p.size === portion);
         if (!portionData) return;
-        
+
         const existingItem = get().cart.find(
           (item) => item.productId === product.id && item.portion === portion && !item.sentToKitchen
         );
-        
+
         if (existingItem) {
           set({
             cart: get().cart.map((item) =>
@@ -136,7 +134,7 @@ export const useUIStore = create<UIState>()(
           set({ cart: [...get().cart, newItem] });
         }
       },
-      
+
       updateCartItem: (itemId, updates) => {
         set({
           cart: get().cart.map((item) =>
@@ -144,13 +142,13 @@ export const useUIStore = create<UIState>()(
           ),
         });
       },
-      
+
       removeFromCart: (itemId) => {
         set({ cart: get().cart.filter((item) => item.id !== itemId) });
       },
-      
+
       clearCart: () => set({ cart: [] }),
-      
+
       loadCartFromBill: (bill) => {
         const cartItems: CartItem[] = bill.items.map((item) => ({
           id: item.id,
@@ -164,7 +162,7 @@ export const useUIStore = create<UIState>()(
           notes: item.notes || undefined,
           sentToKitchen: item.sent_to_kitchen,
         }));
-        
+
         set({
           cart: cartItems,
           currentBillId: bill.id,
@@ -174,13 +172,13 @@ export const useUIStore = create<UIState>()(
           discountReason: bill.discount_reason,
         });
       },
-      
+
       markItemsSentToKitchen: () => {
         set({
           cart: get().cart.map((item) => ({ ...item, sentToKitchen: true })),
         });
       },
-      
+
       setDiscount: (type, value, reason = null) => {
         set({
           discountType: type,
@@ -188,15 +186,15 @@ export const useUIStore = create<UIState>()(
           discountReason: reason,
         });
       },
-      
+
       setCoverCount: (count) => set({ coverCount: count }),
-      
+
       getNextToken: () => {
         const token = get().tokenCounter;
         set({ tokenCounter: token + 1 });
         return token;
       },
-      
+
       resetBillingState: () => {
         set({
           selectedTable: null,
@@ -226,16 +224,16 @@ export const calculateBillTotals = (
   discountValue?: number | null
 ) => {
   const subTotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  
+
   let discountAmount = 0;
   if (discountType && discountValue) {
-    discountAmount = discountType === 'percentage' 
-      ? (subTotal * discountValue) / 100 
+    discountAmount = discountType === 'percentage'
+      ? (subTotal * discountValue) / 100
       : discountValue;
   }
-  
+
   const afterDiscount = subTotal - discountAmount;
-  
+
   // Calculate GST by rate
   const gstByRate: Record<number, number> = {};
   items.forEach((item) => {
@@ -245,13 +243,13 @@ export const calculateBillTotals = (
     const gst = taxableAmount * (item.gstRate / 100);
     gstByRate[item.gstRate] = (gstByRate[item.gstRate] || 0) + gst;
   });
-  
+
   const totalGst = Object.values(gstByRate).reduce((sum, gst) => sum + gst, 0);
   const cgstAmount = totalGst / 2;
   const sgstAmount = totalGst / 2;
-  
+
   const totalAmount = afterDiscount + totalGst;
   const finalAmount = Math.round(totalAmount);
-  
+
   return { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount, finalAmount };
 };

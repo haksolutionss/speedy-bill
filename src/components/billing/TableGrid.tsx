@@ -28,7 +28,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
 
   const { data: tableSections = [] } = useGetTableSectionsQuery();
   const { saveAsUnsettled } = useBillingOperations();
-  const { syncBeforeTableChange } = useCartSync();
+  // const { syncBeforeTableChange } = useCartSync();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -65,9 +65,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   };
 
   const handleTableClick = async (table: DbTable) => {
-    // Sync current cart before switching tables
-    await syncBeforeTableChange();
-    // Select the table - useCartSync handles loading cart data
+    // await syncBeforeTableChange();
     setSelectedTable(table);
     onTableSelect?.();
   };

@@ -37,7 +37,7 @@ export function useCartSync() {
     setCart,
     setCurrentBillId,
   } = useUIStore();
-  
+
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSyncedCartRef = useRef<string>('');
   const isLoadingRef = useRef(false);
@@ -46,13 +46,13 @@ export function useCartSync() {
   // Load cart items - first check for active bill, then check cart_items table
   const loadCartForTable = useCallback(async (table: DbTable) => {
     if (!table?.id) return;
-    
+
     // Reset loading state for new table
     isLoadingRef.current = true;
-    
+
     try {
       console.log('[CartSync] Loading cart for table:', table.id, 'current_bill_id:', table.current_bill_id);
-      
+
       // First check if table has an active bill - load from bill_items
       if (table.current_bill_id) {
         const { data: billItems, error: billError } = await supabase
@@ -60,12 +60,12 @@ export function useCartSync() {
           .select('*')
           .eq('bill_id', table.current_bill_id)
           .order('created_at', { ascending: true });
-        
+
         if (billError) {
           console.error('[CartSync] Error loading bill items:', billError);
         } else if (billItems && billItems.length > 0) {
           console.log('[CartSync] Found', billItems.length, 'items in active bill');
-          
+
           const mappedItems: CartItem[] = billItems.map((item) => ({
             id: item.id,
             productId: item.product_id,
@@ -78,7 +78,7 @@ export function useCartSync() {
             notes: item.notes || undefined,
             sentToKitchen: item.sent_to_kitchen,
           }));
-          
+
           setCart(mappedItems);
           setCurrentBillId(table.current_bill_id);
           lastSyncedCartRef.current = JSON.stringify(mappedItems);
@@ -86,23 +86,23 @@ export function useCartSync() {
           return;
         }
       }
-      
+
       // No active bill - check cart_items for unsaved cart data
       const { data: cartItems, error } = await supabase
         .from('cart_items')
         .select('*')
         .eq('table_id', table.id)
         .order('created_at', { ascending: true });
-      
+
       if (error) {
         console.error('[CartSync] Error loading cart:', error);
         isLoadingRef.current = false;
         return;
       }
-      
+
       if (cartItems && cartItems.length > 0) {
         console.log('[CartSync] Found', cartItems.length, 'items in cart_items');
-        
+
         const mappedItems: CartItem[] = cartItems.map((item: DbCartItem) => ({
           id: item.id,
           productId: item.product_id,
@@ -115,7 +115,7 @@ export function useCartSync() {
           notes: item.notes || undefined,
           sentToKitchen: item.sent_to_kitchen,
         }));
-        
+
         setCart(mappedItems);
         lastSyncedCartRef.current = JSON.stringify(mappedItems);
       } else {
@@ -131,33 +131,35 @@ export function useCartSync() {
   // Sync cart to Supabase
   const syncCartToSupabase = useCallback(async (tableId: string, cartItems: CartItem[]) => {
     if (!tableId || isSyncingRef.current) return;
-    
+
     const cartJson = JSON.stringify(cartItems);
     if (cartJson === lastSyncedCartRef.current) {
       console.log('[CartSync] Cart unchanged, skipping sync');
       return;
     }
-    
+
     isSyncingRef.current = true;
     console.log('[CartSync] Syncing', cartItems.length, 'items to Supabase for table:', tableId);
-    
+
     try {
       // Delete existing cart items for this table
       const { error: deleteError } = await supabase
         .from('cart_items')
         .delete()
         .eq('table_id', tableId);
-      
+
       if (deleteError) {
         console.error('[CartSync] Error deleting old cart items:', deleteError);
         isSyncingRef.current = false;
         return;
       }
-      
-      // Insert ALL cart items
+
+      // Insert ALL cart items with NEW UUIDs for database
       if (cartItems.length > 0) {
         const itemsToInsert = cartItems.map(item => ({
-          id: item.id,
+          // Generate a NEW UUID for the database record
+          // Don't reuse item.id as it might conflict with existing records
+          id: crypto.randomUUID(),
           table_id: tableId,
           product_id: item.productId,
           product_name: item.productName,
@@ -170,18 +172,18 @@ export function useCartSync() {
           sent_to_kitchen: item.sentToKitchen,
           kot_printed_at: null,
         }));
-        
+
         const { error: insertError } = await supabase
           .from('cart_items')
           .insert(itemsToInsert);
-        
+
         if (insertError) {
           console.error('[CartSync] Error inserting cart items:', insertError);
           isSyncingRef.current = false;
           return;
         }
       }
-      
+
       lastSyncedCartRef.current = cartJson;
       console.log('[CartSync] Cart synced successfully');
     } catch (err) {
@@ -194,15 +196,15 @@ export function useCartSync() {
   // Clear cart items from Supabase when bill is created/settled
   const clearCartFromSupabase = useCallback(async (tableId: string) => {
     if (!tableId) return;
-    
+
     console.log('[CartSync] Clearing cart from Supabase for table:', tableId);
-    
+
     try {
       const { error } = await supabase
         .from('cart_items')
         .delete()
         .eq('table_id', tableId);
-      
+
       if (error) {
         console.error('[CartSync] Error clearing cart:', error);
       } else {
@@ -231,17 +233,17 @@ export function useCartSync() {
     if (!selectedTable?.id || isLoadingRef.current || currentBillId) {
       return;
     }
-    
+
     // Cancel any pending sync
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
-    
+
     // Schedule new sync with shorter delay
     syncTimeoutRef.current = setTimeout(() => {
       syncCartToSupabase(selectedTable.id, cart);
     }, SYNC_DELAY_MS);
-    
+
     return () => {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
