@@ -3,18 +3,20 @@ import { useUIStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function Cart() {
   const { cart, updateCartItem, removeFromCart } = useUIStore();
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState('');
+  const [focusedItemIndex, setFocusedItemIndex] = useState<number>(-1);
+  
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleStartEditNotes = (itemId: string, currentNotes?: string, isSent?: boolean) => {
-    // Prevent editing notes for items sent to kitchen
     if (isSent) return;
-    
     setEditingNotes(itemId);
     setNoteValue(currentNotes || '');
   };
@@ -27,11 +29,9 @@ export function Cart() {
 
   const handleQuantityChange = (itemId: string, newQuantity: number, isSent: boolean, currentQuantity: number, printedQuantity: number) => {
     if (isSent) {
-      // For sent items, only allow increasing quantity
       if (newQuantity > printedQuantity) {
         updateCartItem(itemId, { quantity: newQuantity });
       }
-      // Prevent decreasing below printed quantity
       return;
     }
     
@@ -43,10 +43,103 @@ export function Cart() {
   };
 
   const handleRemove = (itemId: string, isSent: boolean) => {
-    // Prevent removal of items sent to kitchen
     if (isSent) return;
     removeFromCart(itemId);
   };
+
+  // Keyboard navigation for cart items
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (
+      e.target instanceof HTMLInputElement || 
+      e.target instanceof HTMLTextAreaElement ||
+      cart.length === 0
+    ) {
+      return;
+    }
+
+    const currentItem = focusedItemIndex >= 0 ? cart[focusedItemIndex] : null;
+
+    switch (e.key) {
+      case 'ArrowUp':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          if (focusedItemIndex > 0) {
+            setFocusedItemIndex(focusedItemIndex - 1);
+            itemRefs.current.get(focusedItemIndex - 1)?.scrollIntoView({ block: 'nearest' });
+          }
+        }
+        break;
+      case 'ArrowDown':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          if (focusedItemIndex < cart.length - 1) {
+            setFocusedItemIndex(focusedItemIndex + 1);
+            itemRefs.current.get(focusedItemIndex + 1)?.scrollIntoView({ block: 'nearest' });
+          }
+        }
+        break;
+      case 'ArrowLeft':
+        if ((e.ctrlKey || e.metaKey) && currentItem && focusedItemIndex >= 0) {
+          e.preventDefault();
+          if (!currentItem.sentToKitchen || currentItem.quantity > currentItem.printedQuantity) {
+            handleQuantityChange(
+              currentItem.id,
+              currentItem.quantity - 1,
+              currentItem.sentToKitchen,
+              currentItem.quantity,
+              currentItem.printedQuantity
+            );
+          }
+        }
+        break;
+      case 'ArrowRight':
+        if ((e.ctrlKey || e.metaKey) && currentItem && focusedItemIndex >= 0) {
+          e.preventDefault();
+          handleQuantityChange(
+            currentItem.id,
+            currentItem.quantity + 1,
+            currentItem.sentToKitchen,
+            currentItem.quantity,
+            currentItem.printedQuantity
+          );
+        }
+        break;
+      case 'Delete':
+      case 'Backspace':
+        if ((e.ctrlKey || e.metaKey) && currentItem && focusedItemIndex >= 0) {
+          e.preventDefault();
+          if (!currentItem.sentToKitchen) {
+            handleRemove(currentItem.id, currentItem.sentToKitchen);
+            // Adjust focus after deletion
+            if (focusedItemIndex >= cart.length - 1) {
+              setFocusedItemIndex(Math.max(0, cart.length - 2));
+            }
+          }
+        }
+        break;
+    }
+  }, [focusedItemIndex, cart, updateCartItem, removeFromCart]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Reset focused item when cart changes
+  useEffect(() => {
+    if (focusedItemIndex >= cart.length) {
+      setFocusedItemIndex(cart.length - 1);
+    }
+  }, [cart.length, focusedItemIndex]);
+
+  // Store ref for each cart item
+  const setItemRef = useCallback((index: number, el: HTMLDivElement | null) => {
+    if (el) {
+      itemRefs.current.set(index, el);
+    } else {
+      itemRefs.current.delete(index);
+    }
+  }, []);
 
   // Separate items by KOT status
   const sentItems = cart.filter(item => item.sentToKitchen);
@@ -76,17 +169,23 @@ export function Cart() {
     );
   }
 
-  const renderItem = (item: typeof cart[0], index: number) => {
+  const renderItem = (item: typeof cart[0], index: number, globalIndex: number) => {
     const isSent = item.sentToKitchen;
     const hasAdditionalQty = isSent && item.quantity > item.printedQuantity;
     const additionalQty = item.quantity - item.printedQuantity;
+    const isFocused = focusedItemIndex === globalIndex;
 
     return (
       <div
         key={item.id}
+        ref={(el) => setItemRef(globalIndex, el)}
+        tabIndex={0}
+        onClick={() => setFocusedItemIndex(globalIndex)}
+        onFocus={() => setFocusedItemIndex(globalIndex)}
         className={cn(
-          "cart-item animate-slide-up",
-          isSent ? "cart-item-sent opacity-80" : "cart-item-pending"
+          "cart-item animate-slide-up outline-none",
+          isSent ? "cart-item-sent opacity-80" : "cart-item-pending",
+          isFocused && "cart-item-focused"
         )}
       >
         <div className="flex-1 min-w-0">
@@ -158,7 +257,10 @@ export function Cart() {
               <Button
                 size="icon"
                 variant="ghost"
-                className={cn("h-7 w-7", isSent && "opacity-50")}
+                className={cn(
+                  "h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent",
+                  isSent && "opacity-50"
+                )}
                 onClick={() => handleQuantityChange(
                   item.id, 
                   item.quantity - 1, 
@@ -174,7 +276,7 @@ export function Cart() {
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7"
+                className="h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => handleQuantityChange(
                   item.id, 
                   item.quantity + 1, 
@@ -192,7 +294,7 @@ export function Cart() {
                 size="icon"
                 variant="ghost"
                 className={cn(
-                  "h-7 w-7",
+                  "h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent",
                   isSent 
                     ? "text-muted-foreground/50 cursor-not-allowed" 
                     : "text-muted-foreground hover:text-foreground"
@@ -206,7 +308,7 @@ export function Cart() {
                 size="icon"
                 variant="ghost"
                 className={cn(
-                  "h-7 w-7",
+                  "h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent",
                   isSent 
                     ? "text-muted-foreground/50 cursor-not-allowed" 
                     : "text-muted-foreground hover:text-destructive"
@@ -223,8 +325,17 @@ export function Cart() {
     );
   };
 
+  let globalIndex = 0;
+
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0">
+    <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0" ref={containerRef}>
+      {/* Keyboard hints */}
+      <div className="text-xs text-muted-foreground/70 flex items-center gap-3 pb-2 border-b border-border">
+        <span><kbd className="kbd text-[10px]">Ctrl+↑↓</kbd> Navigate</span>
+        <span><kbd className="kbd text-[10px]">Ctrl+←→</kbd> Qty</span>
+        <span><kbd className="kbd text-[10px]">Ctrl+Del</kbd> Remove</span>
+      </div>
+
       {/* Sent to Kitchen Section */}
       {sentItems.length > 0 && (
         <div>
@@ -233,7 +344,11 @@ export function Cart() {
             Sent to Kitchen ({sentItems.length})
           </p>
           <div className="space-y-2">
-            {sentItems.map((item, index) => renderItem(item, index))}
+            {sentItems.map((item, index) => {
+              const result = renderItem(item, index, globalIndex);
+              globalIndex++;
+              return result;
+            })}
           </div>
         </div>
       )}
@@ -247,7 +362,11 @@ export function Cart() {
             </p>
           )}
           <div className="space-y-2">
-            {pendingItems.map((item, index) => renderItem(item, sentItems.length + index))}
+            {pendingItems.map((item, index) => {
+              const result = renderItem(item, index, globalIndex);
+              globalIndex++;
+              return result;
+            })}
           </div>
         </div>
       )}
