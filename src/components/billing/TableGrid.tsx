@@ -10,6 +10,7 @@ import type { DbTable } from '@/types/database';
 import { TransferTableModal } from './TransferTableModal';
 import { MergeTableModal } from './MergeTableModal';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
+import { useCartSync } from '@/hooks/useCartSync';
 
 interface TableGridProps {
   onTableSelect?: () => void;
@@ -27,6 +28,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
 
   const { data: tableSections = [] } = useGetTableSectionsQuery();
   const { saveAsUnsettled } = useBillingOperations();
+  const { syncBeforeTableChange } = useCartSync();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -62,8 +64,10 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
     return undefined;
   };
 
-  const handleTableClick = (table: DbTable) => {
-    // Simply select the table - useCartSync handles loading cart data
+  const handleTableClick = async (table: DbTable) => {
+    // Sync current cart before switching tables
+    await syncBeforeTableChange();
+    // Select the table - useCartSync handles loading cart data
     setSelectedTable(table);
     onTableSelect?.();
   };
