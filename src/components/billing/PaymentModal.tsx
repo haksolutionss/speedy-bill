@@ -3,6 +3,7 @@ import {
   Banknote,
   Smartphone,
   Clock,
+  Split,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,8 +19,10 @@ interface PaymentModalProps {
   onClose: () => void;
   onPayment: (method: 'cash' | 'card' | 'upi') => void;
   onSaveUnsettled: () => void;
+  onSplitPayment?: () => void;
   finalAmount: number;
   showNotNow?: boolean;
+  showSplit?: boolean;
 }
 
 export function PaymentModal({
@@ -27,8 +30,10 @@ export function PaymentModal({
   onClose,
   onPayment,
   onSaveUnsettled,
+  onSplitPayment,
   finalAmount,
   showNotNow = true,
+  showSplit = true,
 }: PaymentModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -43,7 +48,7 @@ export function PaymentModal({
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 py-4">
+        <div className={`grid gap-4 py-4 ${showSplit ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <Button
             variant="outline"
             className="h-24 flex-col gap-2 hover:bg-success/10 hover:border-success hover:text-success"
@@ -68,6 +73,16 @@ export function PaymentModal({
             <Smartphone className="h-8 w-8" />
             <span>UPI</span>
           </Button>
+          {showSplit && onSplitPayment && (
+            <Button
+              variant="outline"
+              className="h-24 flex-col gap-2 hover:bg-orange-500/10 hover:border-orange-500 hover:text-orange-400"
+              onClick={onSplitPayment}
+            >
+              <Split className="h-8 w-8" />
+              <span>Split</span>
+            </Button>
+          )}
         </div>
 
         {showNotNow && (

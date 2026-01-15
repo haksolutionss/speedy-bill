@@ -135,21 +135,54 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
 
       if (itemsError) throw itemsError;
 
-      // Merge items - combine duplicates by increasing quantity
-      const mergedItems: Record<string, typeof allItems[0]> = {};
+      // Merge items with KOT-aware logic
+      // Key: product_id + portion
+      // If both items have KOT printed (sent_to_kitchen = true), keep separate entries
+      // If one or none has KOT, merge them
+      const mergedItems: typeof allItems = [];
+      const processedKeys = new Set<string>();
       
       allItems?.forEach((item) => {
         const key = `${item.product_id}_${item.portion}`;
-        if (mergedItems[key]) {
-          mergedItems[key].quantity += item.quantity;
+        
+        // Find other items with same key
+        const sameKeyItems = allItems.filter(
+          (i) => `${i.product_id}_${i.portion}` === key
+        );
+        
+        if (processedKeys.has(key)) return;
+        processedKeys.add(key);
+        
+        if (sameKeyItems.length === 1) {
+          // Only one item, just add it
+          mergedItems.push(item);
         } else {
-          mergedItems[key] = { ...item };
+          // Multiple items with same product/portion
+          const kotPrintedItems = sameKeyItems.filter((i) => i.sent_to_kitchen);
+          const pendingItems = sameKeyItems.filter((i) => !i.sent_to_kitchen);
+          
+          if (kotPrintedItems.length > 1) {
+            // Multiple KOT-printed items - keep them separate
+            kotPrintedItems.forEach((i) => mergedItems.push({ ...i }));
+            // Merge pending items if any
+            if (pendingItems.length > 0) {
+              const totalPendingQty = pendingItems.reduce((sum, i) => sum + i.quantity, 0);
+              mergedItems.push({ ...pendingItems[0], quantity: totalPendingQty });
+            }
+          } else if (kotPrintedItems.length === 1) {
+            // One KOT-printed, merge pending into it
+            const totalQty = sameKeyItems.reduce((sum, i) => sum + i.quantity, 0);
+            mergedItems.push({ ...kotPrintedItems[0], quantity: totalQty });
+          } else {
+            // No KOT-printed items, merge all
+            const totalQty = sameKeyItems.reduce((sum, i) => sum + i.quantity, 0);
+            mergedItems.push({ ...pendingItems[0], quantity: totalQty });
+          }
         }
       });
 
       // Calculate new totals
-      const mergedItemsArray = Object.values(mergedItems);
-      const subTotal = mergedItemsArray.reduce(
+      const subTotal = mergedItems.reduce(
         (sum, item) => sum + Number(item.unit_price) * item.quantity,
         0
       );
@@ -158,7 +191,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
       await supabase.from('bill_items').delete().in('bill_id', allBillIds);
 
       // Insert merged items to primary bill
-      const newItems = mergedItemsArray.map((item) => ({
+      const newItems = mergedItems.map((item) => ({
         bill_id: primaryTable.billId,
         product_id: item.product_id,
         product_name: item.product_name,
@@ -169,6 +202,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
         gst_rate: item.gst_rate,
         notes: item.notes,
         sent_to_kitchen: item.sent_to_kitchen,
+        kot_printed_at: item.kot_printed_at,
       }));
 
       await supabase.from('bill_items').insert(newItems as any);

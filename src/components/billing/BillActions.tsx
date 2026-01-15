@@ -4,10 +4,13 @@ import {
   Receipt,
   CreditCard,
   Banknote,
-  Smartphone
+  Smartphone,
+  Split,
+  Users,
+  Percent,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useUIStore } from '@/store/uiStore';
+import { useUIStore, calculateBillTotals } from '@/store/uiStore';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
 import { toast } from 'sonner';
 import {
@@ -19,6 +22,17 @@ import {
 import { KOTTemplate } from '@/components/print/KOTTemplate';
 import { BillTemplate } from '@/components/print/BillTemplate';
 import { BillSummary } from './BillSummary';
+import { DiscountModal } from './DiscountModal';
+import { CustomerModal } from './CustomerModal';
+import { SplitPaymentModal } from './SplitPaymentModal';
+
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  loyalty_points: number;
+}
 
 export function BillActions() {
   const {
@@ -28,6 +42,10 @@ export function BillActions() {
     selectedTable,
     isParcelMode,
     getKOTItems,
+    discountType,
+    discountValue,
+    discountReason,
+    setDiscount,
   } = useUIStore();
 
   const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
@@ -36,6 +54,11 @@ export function BillActions() {
   const [showKOTPreview, setShowKOTPreview] = useState(false);
   const [showBillPreview, setShowBillPreview] = useState(false);
   const [totalAmountView, setTotalAmountView] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showSplitPayment, setShowSplitPayment] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  
   const kotRef = useRef<HTMLDivElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
 
@@ -44,19 +67,9 @@ export function BillActions() {
   const hasPendingItems = kotItems.length > 0;
   const hasItems = cart.length > 0;
 
-  // Calculate totals for bill template
-  const subTotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-  const gstByRate: Record<number, number> = {};
-  cart.forEach(item => {
-    const itemTotal = item.unitPrice * item.quantity;
-    const gst = itemTotal * (item.gstRate / 100);
-    gstByRate[item.gstRate] = (gstByRate[item.gstRate] || 0) + gst;
-  });
-  const totalGst = Object.values(gstByRate).reduce((sum, gst) => sum + gst, 0);
-  const cgstAmount = totalGst / 2;
-  const sgstAmount = totalGst / 2;
-  const totalAmount = subTotal + totalGst;
-  const finalAmount = Math.round(totalAmount);
+  // Calculate totals with discount
+  const totals = calculateBillTotals(cart, discountType, discountValue);
+  const { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount, finalAmount } = totals;
 
   // Keyboard shortcuts - F1 for KOT, F2 for Bill
   useEffect(() => {
@@ -131,11 +144,32 @@ export function BillActions() {
     setTimeout(async () => {
       await settleBill(method);
       setShowBillPreview(false);
+      setSelectedCustomer(null);
+    }, 100);
+  };
+
+  const handleSplitPayment = async (payments: { method: 'cash' | 'card' | 'upi'; amount: number }[]) => {
+    setShowSplitPayment(false);
+    setShowPaymentDialog(false);
+    setShowBillPreview(true);
+
+    setTimeout(async () => {
+      await settleBill('split', payments);
+      setShowBillPreview(false);
+      setSelectedCustomer(null);
     }, 100);
   };
 
   const handleTotalAmountView = () => {
     setTotalAmountView(!totalAmountView);
+  };
+
+  const handleApplyDiscount = (
+    type: 'percentage' | 'fixed' | null,
+    value: number | null,
+    reason: string | null
+  ) => {
+    setDiscount(type, value, reason);
   };
 
   return (
@@ -147,14 +181,25 @@ export function BillActions() {
         <div className="flex items-center gap-2 ml-auto">
           <Button
             variant='outline'
+            onClick={() => setShowCustomerModal(true)}
+            className={selectedCustomer ? 'border-accent text-accent' : ''}
           >
-            Loyalty
+            <Users className="h-4 w-4 mr-1" />
+            {selectedCustomer ? selectedCustomer.name.split(' ')[0] : 'Loyalty'}
           </Button>
           <Button
             variant='outline'
-            onClick={handleTotalAmountView}
+            onClick={() => setShowDiscountModal(true)}
+            className={discountValue ? 'border-success text-success' : ''}
           >
-            Total
+            {discountValue ? (
+              <>
+                <Percent className="h-4 w-4 mr-1" />
+                {discountType === 'percentage' ? `${discountValue}%` : `₹${discountValue}`}
+              </>
+            ) : (
+              'Total'
+            )}
           </Button>
           <Button
             onClick={handlePrintKOT}
@@ -177,6 +222,25 @@ export function BillActions() {
           </Button>
         </div>
       </div>
+
+      {/* Discount Modal */}
+      <DiscountModal
+        open={showDiscountModal}
+        onClose={() => setShowDiscountModal(false)}
+        onApply={handleApplyDiscount}
+        currentType={discountType}
+        currentValue={discountValue}
+        currentReason={discountReason}
+        subTotal={subTotal}
+      />
+
+      {/* Customer Modal */}
+      <CustomerModal
+        open={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        onSelect={setSelectedCustomer}
+        currentCustomer={selectedCustomer}
+      />
 
       {/* KOT Preview Dialog */}
       <Dialog open={showKOTPreview} onOpenChange={setShowKOTPreview}>
@@ -217,7 +281,7 @@ export function BillActions() {
               tableNumber={selectedTable?.number}
               items={cart}
               subTotal={subTotal}
-              discountAmount={0}
+              discountAmount={discountAmount}
               cgstAmount={cgstAmount}
               sgstAmount={sgstAmount}
               totalAmount={totalAmount}
@@ -237,7 +301,7 @@ export function BillActions() {
           <div className="text-center mb-4">
             <span className="text-3xl font-bold text-success">₹{finalAmount}</span>
           </div>
-          <div className="grid grid-cols-3 gap-4 py-4">
+          <div className="grid grid-cols-4 gap-4 py-4">
             <Button
               variant="outline"
               className="h-24 flex-col gap-2 hover:bg-success/10 hover:border-success hover:text-success"
@@ -262,9 +326,28 @@ export function BillActions() {
               <Smartphone className="h-8 w-8" />
               <span>UPI</span>
             </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex-col gap-2 hover:bg-orange-500/10 hover:border-orange-500 hover:text-orange-400"
+              onClick={() => {
+                setShowPaymentDialog(false);
+                setShowSplitPayment(true);
+              }}
+            >
+              <Split className="h-8 w-8" />
+              <span>Split</span>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Split Payment Modal */}
+      <SplitPaymentModal
+        open={showSplitPayment}
+        onClose={() => setShowSplitPayment(false)}
+        onConfirm={handleSplitPayment}
+        finalAmount={finalAmount}
+      />
     </>
   );
 }

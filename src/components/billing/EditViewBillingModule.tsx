@@ -36,11 +36,13 @@ import {
   useUpdateBillMutation,
   useGetProductsQuery,
   useUpdateTableMutation,
+  useAddPaymentDetailsMutation,
 } from '@/store/redux/api/billingApi';
 import { BillTemplate } from '@/components/print/BillTemplate';
 import { DiscountModal } from './DiscountModal';
 import { CustomerModal } from './CustomerModal';
 import { PaymentModal } from './PaymentModal';
+import { SplitPaymentModal } from './SplitPaymentModal';
 import type { ProductWithPortions, DbProductPortion } from '@/types/database';
 
 interface BillItem {
@@ -149,6 +151,7 @@ export function EditViewBillingModule({
   const [showBillPreview, setShowBillPreview] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showSplitPayment, setShowSplitPayment] = useState(false);
 
   // Discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | null>(
@@ -179,6 +182,7 @@ export function EditViewBillingModule({
 
   const [updateBill] = useUpdateBillMutation();
   const [updateTable] = useUpdateTableMutation();
+  const [addPaymentDetails] = useAddPaymentDetailsMutation();
   const { data: products = [] } = useGetProductsQuery();
 
   // Calculate totals with current discount
@@ -237,7 +241,7 @@ export function EditViewBillingModule({
     setSelectedIndex(0);
   }, [searchQuery, products]);
 
-  // Handle product selection
+  // Handle product selection with proper portion handling
   const handleSelectProduct = useCallback((product: ProductWithPortions) => {
     setSelectedProduct(product);
 
@@ -245,12 +249,21 @@ export function EditViewBillingModule({
       return;
     }
 
-    if (product.portions.length === 1) {
-      setSelectedPortion(product.portions[0]);
+    // Filter active portions
+    const activePortions = product.portions.filter(p => p.is_active !== false);
+    
+    if (activePortions.length === 0) {
+      return;
+    }
+
+    if (activePortions.length === 1) {
+      // Single portion - go directly to quantity
+      setSelectedPortion(activePortions[0]);
       setSearchStep('quantity');
       setShowPortionSelect(false);
       setTimeout(() => quantityInputRef.current?.focus(), 50);
     } else {
+      // Multiple portions - show selection with prices
       setSearchStep('portion');
       setShowPortionSelect(true);
       setSelectedIndex(0);
@@ -613,6 +626,57 @@ export function EditViewBillingModule({
           payment_method: method,
           settled_at: new Date().toISOString(),
         },
+      }).unwrap();
+
+      // Free up the table
+      if (bill.table_id) {
+        await updateTable({
+          id: bill.table_id,
+          updates: {
+            status: 'available',
+            current_bill_id: null,
+            current_amount: null,
+          },
+        }).unwrap();
+      }
+
+      setShowBillPreview(true);
+      toast.success('Bill settled successfully');
+
+      setTimeout(() => {
+        setShowBillPreview(false);
+        navigate('/history');
+      }, 1000);
+    } catch (error) {
+      console.error('Error settling bill:', error);
+      toast.error('Failed to settle bill');
+    }
+  };
+
+  // Handle split payment
+  const handleSplitPayment = async (payments: { method: 'cash' | 'card' | 'upi'; amount: number }[]) => {
+    setShowSplitPayment(false);
+    setShowPaymentModal(false);
+
+    try {
+      // First save any changes
+      const saved = await saveChanges();
+      if (!saved) return;
+
+      // Update bill status
+      await updateBill({
+        id: bill.id,
+        updates: {
+          status: 'settled',
+          payment_method: 'split',
+          settled_at: new Date().toISOString(),
+        },
+      }).unwrap();
+
+      // Add payment details
+      await addPaymentDetails({
+        billId: bill.id,
+        payments,
       }).unwrap();
 
       // Free up the table
@@ -1268,8 +1332,20 @@ export function EditViewBillingModule({
         onClose={() => setShowPaymentModal(false)}
         onPayment={handleSettleBill}
         onSaveUnsettled={handleSaveUnsettled}
+        onSplitPayment={() => {
+          setShowPaymentModal(false);
+          setShowSplitPayment(true);
+        }}
         finalAmount={totals.finalAmount}
         showNotNow={true}
+        showSplit={true}
+      />
+
+      <SplitPaymentModal
+        open={showSplitPayment}
+        onClose={() => setShowSplitPayment(false)}
+        onConfirm={handleSplitPayment}
+        finalAmount={totals.finalAmount}
       />
 
       {/* Bill Preview Dialog */}
