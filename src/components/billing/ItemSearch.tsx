@@ -83,15 +83,23 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
       return;
     }
 
-    if (product.portions.length === 1) {
-      // Single portion, go directly to quantity
+    // Filter active portions
+    const activePortions = product.portions.filter(p => p.is_active !== false);
+    
+    if (activePortions.length === 0) {
+      console.error('[ItemSearch] Product has no active portions:', product);
+      return;
+    }
+
+    if (activePortions.length === 1) {
+      // Single portion - go directly to quantity
       console.log('[ItemSearch] Single portion, going to quantity step');
-      setSelectedPortion(product.portions[0]);
+      setSelectedPortion(activePortions[0]);
       setStep('quantity');
       setShowPortionSelect(false);
       setTimeout(() => quantityRef.current?.focus(), 50);
     } else {
-      // Multiple portions, show selection
+      // Multiple portions - show selection with prices
       console.log('[ItemSearch] Multiple portions, showing selection');
       setStep('portion');
       setShowPortionSelect(true);
