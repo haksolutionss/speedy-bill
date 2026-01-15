@@ -130,7 +130,7 @@ export const reportsApi = createApi({
 
           if (yesterdayError) throw yesterdayError;
 
-          // Payment details for today
+          // Payment details for today (from payment_details table)
           const { data: payments, error: paymentsError } = await supabase
             .from('payment_details')
             .select('method, amount')
@@ -144,9 +144,23 @@ export const reportsApi = createApi({
           const previousDaySales = (yesterdayBills || []).reduce((sum, b) => sum + (b.final_amount || 0), 0);
           const salesGrowth = previousDaySales > 0 ? ((todaySales - previousDaySales) / previousDaySales) * 100 : 0;
 
-          const cashAmount = (payments || []).filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0);
-          const cardAmount = (payments || []).filter(p => p.method === 'card').reduce((sum, p) => sum + p.amount, 0);
-          const upiAmount = (payments || []).filter(p => p.method === 'upi').reduce((sum, p) => sum + p.amount, 0);
+          // Calculate payment amounts - first try payment_details table
+          let cashAmount = (payments || []).filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0);
+          let cardAmount = (payments || []).filter(p => p.method === 'card').reduce((sum, p) => sum + p.amount, 0);
+          let upiAmount = (payments || []).filter(p => p.method === 'upi').reduce((sum, p) => sum + p.amount, 0);
+
+          // If payment_details is empty, fall back to aggregating from bills.payment_method
+          if (!payments || payments.length === 0) {
+            settledBills.forEach(bill => {
+              if (bill.payment_method === 'cash') {
+                cashAmount += bill.final_amount || 0;
+              } else if (bill.payment_method === 'card') {
+                cardAmount += bill.final_amount || 0;
+              } else if (bill.payment_method === 'upi') {
+                upiAmount += bill.final_amount || 0;
+              }
+            });
+          }
 
           const stats: DashboardStats = {
             todaySales,

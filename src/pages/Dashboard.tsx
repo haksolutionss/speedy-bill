@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { 
   IndianRupee, 
   ShoppingBag, 
@@ -137,6 +138,7 @@ function PaymentCard({
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading } = useGetDashboardStatsQuery();
   const { data: hourlySales, isLoading: hourlyLoading } = useGetHourlySalesQuery();
   const { data: recentOrders, isLoading: ordersLoading } = useGetRecentOrdersQuery(10);
@@ -363,7 +365,8 @@ export default function Dashboard() {
               {(recentOrders || []).map((order) => (
                 <div 
                   key={order.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/bill/${order.id}?isEdit=false`)}
                 >
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">

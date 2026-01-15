@@ -12,6 +12,7 @@ import Tables from "./pages/Tables";
 import History from "./pages/History";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
+import BillDetail from "./pages/BillDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/products" element={<Products />} />
               <Route path="/tables" element={<Tables />} />
               <Route path="/history" element={<History />} />
+              <Route path="/bill/:id" element={<BillDetail />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
