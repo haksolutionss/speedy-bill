@@ -6,24 +6,22 @@ import {
   Users, 
   ArrowLeft,
   Printer,
-  Receipt,
-  CreditCard,
-  Banknote,
-  Smartphone,
   Save,
   X,
   Minus,
   Plus,
   Trash2,
-  MessageSquare,
   Lock,
   Search,
-  AlertCircle,
+  Percent,
+  Eye,
+  Edit3,
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
@@ -38,10 +36,11 @@ import {
   useUpdateBillMutation, 
   useGetProductsQuery,
   useUpdateTableMutation,
-  useAddPaymentDetailsMutation,
 } from '@/store/redux/api/billingApi';
 import { BillTemplate } from '@/components/print/BillTemplate';
-import { BillSummary } from './BillSummary';
+import { DiscountModal } from './DiscountModal';
+import { CustomerModal } from './CustomerModal';
+import { PaymentModal } from './PaymentModal';
 import type { ProductWithPortions, DbProductPortion } from '@/types/database';
 
 interface BillItem {
@@ -55,6 +54,14 @@ interface BillItem {
   gst_rate: number;
   notes: string | null;
   sent_to_kitchen: boolean;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  loyalty_points: number;
 }
 
 interface BillData {
@@ -78,6 +85,7 @@ interface BillData {
   payment_method: string | null;
   created_at: string;
   settled_at: string | null;
+  customer_id?: string | null;
 }
 
 interface EditViewBillingModuleProps {
@@ -92,7 +100,11 @@ function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function calculateTotals(items: BillItem[], discountType?: string | null, discountValue?: number | null) {
+function calculateTotals(
+  items: BillItem[], 
+  discountType?: string | null, 
+  discountValue?: number | null
+) {
   const subTotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
   let discountAmount = 0;
@@ -131,9 +143,24 @@ export function EditViewBillingModule({
   const [items, setItems] = useState<BillItem[]>(initialItems);
   const [isSaving, setIsSaving] = useState(false);
   const [focusedItemIndex, setFocusedItemIndex] = useState<number>(-1);
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  
+  // Modal states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showBillPreview, setShowBillPreview] = useState(false);
-  const [showTotalSummary, setShowTotalSummary] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  
+  // Discount state
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | null>(
+    bill.discount_type as 'percentage' | 'fixed' | null
+  );
+  const [discountValue, setDiscountValue] = useState<number | null>(
+    bill.discount_value ? Number(bill.discount_value) : null
+  );
+  const [discountReason, setDiscountReason] = useState<string | null>(bill.discount_reason);
+  
+  // Customer state
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
   // Item search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,20 +179,36 @@ export function EditViewBillingModule({
 
   const [updateBill] = useUpdateBillMutation();
   const [updateTable] = useUpdateTableMutation();
-  const [addPaymentDetails] = useAddPaymentDetailsMutation();
   const { data: products = [] } = useGetProductsQuery();
 
-  // Calculate totals
+  // Calculate totals with current discount
   const totals = useMemo(() => {
-    return calculateTotals(items, bill.discount_type, bill.discount_value);
-  }, [items, bill.discount_type, bill.discount_value]);
+    return calculateTotals(items, discountType, discountValue);
+  }, [items, discountType, discountValue]);
 
   // Track if there are changes
   const hasChanges = useMemo(() => {
     const originalStr = JSON.stringify(initialItems.map(i => ({ id: i.id, quantity: i.quantity })).sort((a, b) => a.id.localeCompare(b.id)));
     const currentStr = JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity })).sort((a, b) => a.id.localeCompare(b.id)));
-    return originalStr !== currentStr || items.length !== initialItems.length;
-  }, [items, initialItems]);
+    const itemsChanged = originalStr !== currentStr || items.length !== initialItems.length;
+    const discountChanged = discountType !== (bill.discount_type as 'percentage' | 'fixed' | null) || 
+                           discountValue !== (bill.discount_value ? Number(bill.discount_value) : null);
+    return itemsChanged || discountChanged;
+  }, [items, initialItems, discountType, discountValue, bill]);
+
+  // Load customer if bill has one
+  useEffect(() => {
+    if (bill.customer_id) {
+      supabase
+        .from('customers')
+        .select('*')
+        .eq('id', bill.customer_id)
+        .single()
+        .then(({ data }) => {
+          if (data) setSelectedCustomer(data);
+        });
+    }
+  }, [bill.customer_id]);
 
   // Focus search on edit mode
   useEffect(() => {
@@ -232,14 +275,12 @@ export function EditViewBillingModule({
     );
 
     if (existingIndex >= 0) {
-      // Update quantity
       setItems(prev => prev.map((item, idx) => 
         idx === existingIndex 
           ? { ...item, quantity: item.quantity + qty }
           : item
       ));
     } else {
-      // Add new item
       const newItem: BillItem = {
         id: `new-${crypto.randomUUID()}`,
         product_id: selectedProduct.id,
@@ -432,11 +473,22 @@ export function EditViewBillingModule({
     return () => window.removeEventListener('keydown', handleCartKeyDown);
   }, [handleCartKeyDown]);
 
+  // Discount handlers
+  const handleApplyDiscount = (
+    type: 'percentage' | 'fixed' | null, 
+    value: number | null, 
+    reason: string | null
+  ) => {
+    setDiscountType(type);
+    setDiscountValue(value);
+    setDiscountReason(reason);
+  };
+
   // Save changes
-  const handleSave = async () => {
+  const saveChanges = async (): Promise<boolean> => {
     if (items.length === 0 || items.every(item => item.quantity < 1)) {
       toast.error('Bill must have at least one item with quantity of 1 or more');
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -492,11 +544,15 @@ export function EditViewBillingModule({
         id: bill.id,
         updates: {
           sub_total: totals.subTotal,
+          discount_type: discountType,
+          discount_value: discountValue,
+          discount_reason: discountReason,
           discount_amount: totals.discountAmount,
           cgst_amount: totals.cgstAmount,
           sgst_amount: totals.sgstAmount,
           total_amount: totals.totalAmount,
           final_amount: totals.finalAmount,
+          customer_id: selectedCustomer?.id || null,
         },
       }).unwrap();
 
@@ -508,27 +564,46 @@ export function EditViewBillingModule({
           .eq('id', bill.table_id);
       }
 
-      toast.success('Bill updated successfully');
-      onBillUpdated();
-      onModeChange(false);
+      return true;
     } catch (error) {
       console.error('Error saving bill:', error);
       toast.error('Failed to save changes');
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Handle Save button click
+  const handleSave = async () => {
+    const saved = await saveChanges();
+    if (saved) {
+      toast.success('Bill updated successfully');
+      onBillUpdated();
+      onModeChange(false);
+    }
+  };
+
+  // Handle save with settlement prompt
+  const handleSaveWithSettlement = async () => {
+    // First check if already settled
+    if (bill.status === 'settled') {
+      await handleSave();
+      return;
+    }
+    
+    // Show payment modal
+    setShowPaymentModal(true);
+  };
+
   // Settle bill
   const handleSettleBill = async (method: 'cash' | 'card' | 'upi') => {
-    setShowPaymentDialog(false);
-    setShowBillPreview(true);
+    setShowPaymentModal(false);
 
     try {
       // First save any changes
-      if (hasChanges) {
-        await handleSave();
-      }
+      const saved = await saveChanges();
+      if (!saved) return;
 
       // Update bill status
       await updateBill({
@@ -552,26 +627,50 @@ export function EditViewBillingModule({
         }).unwrap();
       }
 
+      setShowBillPreview(true);
       toast.success('Bill settled successfully');
       
       setTimeout(() => {
         setShowBillPreview(false);
         navigate('/history');
-      }, 500);
+      }, 1000);
     } catch (error) {
       console.error('Error settling bill:', error);
       toast.error('Failed to settle bill');
-      setShowBillPreview(false);
+    }
+  };
+
+  // Save as unsettled
+  const handleSaveUnsettled = async () => {
+    setShowPaymentModal(false);
+    
+    const saved = await saveChanges();
+    if (saved) {
+      // Update bill status to unsettled
+      await updateBill({
+        id: bill.id,
+        updates: {
+          status: 'unsettled',
+        },
+      }).unwrap();
+      
+      toast.success('Bill saved as unsettled');
+      onBillUpdated();
+      onModeChange(false);
     }
   };
 
   const handleCancelEdit = () => {
     setItems(initialItems);
+    setDiscountType(bill.discount_type as 'percentage' | 'fixed' | null);
+    setDiscountValue(bill.discount_value ? Number(bill.discount_value) : null);
+    setDiscountReason(bill.discount_reason);
     onModeChange(false);
   };
 
   const handlePrint = () => {
-    window.print();
+    setShowBillPreview(true);
+    setTimeout(() => window.print(), 100);
   };
 
   // Store item ref
@@ -585,37 +684,43 @@ export function EditViewBillingModule({
 
   const isParcel = bill.type === 'parcel';
   const canSettle = bill.status !== 'settled';
-  const canEdit = bill.status !== 'settled';
 
   // Separate items by KOT status
   const sentItems = items.filter(item => item.sent_to_kitchen);
   const pendingItems = items.filter(item => !item.sent_to_kitchen);
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
-      {/* Left Panel - Bill Info */}
-      <div className="fixed w-[calc(100%_-_480px)] h-[calc(100vh_-_50px)] left-0 flex-1 flex flex-col border-r border-border min-w-0 overflow-hidden">
-        <div className="flex-1 overflow-auto p-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Top Header Bar */}
+      <div className="shrink-0 border-b border-border bg-card px-4 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left: Back button + Bill info */}
+          <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                {bill.bill_number}
-                {isEditMode && (
-                  <Badge variant="outline" className="ml-2 bg-warning/10 text-warning border-warning/30">
-                    Editing
-                  </Badge>
-                )}
-              </h1>
-              <p className="text-muted-foreground text-sm">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold">{bill.bill_number}</h1>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs",
+                    bill.status === 'settled' && "bg-success/10 text-success border-success/30",
+                    bill.status === 'unsettled' && "bg-warning/10 text-warning border-warning/30",
+                    bill.status === 'active' && "bg-accent/10 text-accent border-accent/30"
+                  )}
+                >
+                  {bill.status.toUpperCase()}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isParcel ? `Parcel #${bill.token_number}` : `Table ${bill.table_number}`}
+                {' • '}
                 {new Date(bill.created_at).toLocaleDateString('en-IN', {
-                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'short',
                   year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
@@ -623,25 +728,80 @@ export function EditViewBillingModule({
             </div>
           </div>
 
-          {isEditMode && (
-            <Alert className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You can add new items, modify quantities, or remove items. At least one item must remain.
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Center: View/Edit Toggle */}
+          <div className="flex items-center gap-3 bg-muted rounded-lg p-1">
+            <Button
+              variant={!isEditMode ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onModeChange(false)}
+              className={cn(
+                "gap-2",
+                !isEditMode && "bg-background shadow-sm"
+              )}
+            >
+              <Eye className="h-4 w-4" />
+              View
+            </Button>
+            {bill.status !== 'settled' && (
+              <Button
+                variant={isEditMode ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onModeChange(true)}
+                className={cn(
+                  "gap-2",
+                  isEditMode && "bg-background shadow-sm"
+                )}
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit
+              </Button>
+            )}
+          </div>
 
-          {/* Bill Info Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2">
+            {isEditMode ? (
+              <>
+                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveWithSettlement} disabled={isSaving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? 'Saving...' : 'Save Bill'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={handlePrint}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Bill
+                </Button>
+                {canSettle && (
+                  <Button 
+                    className="gap-2 bg-success hover:bg-success/90"
+                    onClick={() => setShowPaymentModal(true)}
+                  >
+                    <Receipt className="h-4 w-4" />
+                    Settle Bill
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Bill Details */}
+        <div className="flex-1 overflow-auto p-6">
+          {/* Info Cards */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  {isParcel ? (
-                    <Package className="h-5 w-5 text-primary" />
-                  ) : (
-                    <Hash className="h-5 w-5 text-primary" />
-                  )}
+                  {isParcel ? <Package className="h-5 w-5 text-primary" /> : <Hash className="h-5 w-5 text-primary" />}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Type</p>
@@ -658,40 +818,109 @@ export function EditViewBillingModule({
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    {isParcel ? 'Token' : 'Table'}
-                  </p>
-                  <p className="font-semibold">
-                    {isParcel ? `Token ${bill.token_number}` : bill.table_number}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{isParcel ? 'Token' : 'Table'}</p>
+                  <p className="font-semibold">{isParcel ? `Token ${bill.token_number}` : bill.table_number}</p>
                 </div>
               </div>
             </div>
 
             <div className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "h-10 px-4 text-sm",
-                    bill.status === 'settled' && "bg-success/10 text-success border-success/30",
-                    bill.status === 'unsettled' && "bg-warning/10 text-warning border-warning/30",
-                    bill.status === 'active' && "bg-accent/10 text-accent border-accent/30"
-                  )}
-                >
-                  {bill.status.toUpperCase()}
-                </Badge>
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Covers</p>
+                  <p className="font-semibold">{bill.cover_count || 1}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                  <span className="font-bold text-muted-foreground capitalize">
+                    {bill.payment_method?.charAt(0) || '?'}
+                  </span>
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Payment</p>
-                  <p className="font-semibold capitalize">
-                    {bill.payment_method || 'Pending'}
-                  </p>
+                  <p className="font-semibold capitalize">{bill.payment_method || 'Pending'}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Summary Totals */}
+          {/* Customer & Discount Section */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {/* Customer */}
+            <div 
+              className={cn(
+                "bg-card border border-border rounded-lg p-4 transition-all",
+                isEditMode && "cursor-pointer hover:border-accent"
+              )}
+              onClick={() => isEditMode && setShowCustomerModal(true)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Customer</p>
+                    {selectedCustomer ? (
+                      <div>
+                        <p className="font-semibold">{selectedCustomer.name}</p>
+                        <p className="text-xs text-muted-foreground">{selectedCustomer.phone}</p>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No customer linked</p>
+                    )}
+                  </div>
+                </div>
+                {selectedCustomer && (
+                  <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                    {selectedCustomer.loyalty_points} pts
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Discount */}
+            <div 
+              className={cn(
+                "bg-card border border-border rounded-lg p-4 transition-all",
+                isEditMode && "cursor-pointer hover:border-accent"
+              )}
+              onClick={() => isEditMode && setShowDiscountModal(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                  <Percent className="h-5 w-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Discount</p>
+                  {discountType && discountValue ? (
+                    <div>
+                      <p className="font-semibold text-warning">
+                        -{formatCurrency(totals.discountAmount)}
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({discountType === 'percentage' ? `${discountValue}%` : 'Fixed'})
+                        </span>
+                      </p>
+                      {discountReason && (
+                        <p className="text-xs text-muted-foreground">{discountReason}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No discount applied</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bill Summary */}
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="font-semibold mb-3">Bill Summary</h3>
             <div className="space-y-2 text-sm">
@@ -720,410 +949,328 @@ export function EditViewBillingModule({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Right Panel - Cart/Items */}
-      <div className="fixed right-0 w-[480px] h-[calc(100vh_-_50px)] flex flex-col bg-card shrink-0 overflow-hidden">
-        {/* Header */}
-        <div className="border-b border-border p-4 shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              {isParcel ? (
-                <div className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-accent" />
-                  <span className="text-lg font-semibold">Parcel #{bill.token_number}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-success" />
-                  <span className="text-lg font-semibold">Table {bill.table_number}</span>
+        {/* Right Panel - Cart/Items */}
+        <div className="w-[480px] border-l border-border flex flex-col bg-card shrink-0 overflow-hidden">
+          {/* Header */}
+          <div className="border-b border-border p-4 shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                {isParcel ? (
+                  <div className="flex items-center gap-2">
+                    <Package className="h-5 w-5 text-accent" />
+                    <span className="text-lg font-semibold">Parcel #{bill.token_number}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-5 w-5 text-success" />
+                    <span className="text-lg font-semibold">Table {bill.table_number}</span>
+                  </div>
+                )}
+              </div>
+              <span className="text-lg font-bold text-success">{formatCurrency(totals.finalAmount)}</span>
+            </div>
+          </div>
+
+          {/* Item Search - Only in Edit Mode */}
+          {isEditMode && (
+            <div className="p-4 border-b border-border shrink-0 relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search items to add..."
+                  className="pl-10 bg-secondary border-border focus:border-primary"
+                  disabled={searchStep !== 'search'}
+                />
+              </div>
+
+              {/* Suggestions Dropdown */}
+              {suggestions.length > 0 && searchStep === 'search' && (
+                <div className="absolute top-full left-4 right-4 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
+                  {suggestions.map((product, index) => (
+                    <div
+                      key={product.id}
+                      className={cn(
+                        "suggestion-item cursor-pointer transition-colors",
+                        index === selectedIndex && "bg-accent/30 border-l-2 border-l-accent"
+                      )}
+                      onClick={() => handleSelectProduct(product)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground w-10">{product.code}</span>
+                        <span className="font-medium">{product.name}</span>
+                      </div>
+                      <span className="text-sm text-success">
+                        ₹{product.portions[0]?.price || 0}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
-            {!isParcel && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                <span>Covers: {bill.cover_count || 1}</span>
-              </div>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Bill ID: {bill.id.slice(0, 8)}...
-          </p>
-        </div>
 
-        {/* Item Search - Only in Edit Mode */}
-        {isEditMode && (
-          <div className="p-4 border-b border-border shrink-0 relative">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search items to add..."
-                className="pl-10 bg-secondary border-border focus:border-primary"
-                disabled={searchStep !== 'search'}
-              />
-            </div>
-
-            {/* Suggestions Dropdown */}
-            {suggestions.length > 0 && searchStep === 'search' && (
-              <div className="absolute top-full left-4 right-4 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
-                {suggestions.map((product, index) => (
-                  <div
-                    key={product.id}
-                    className={cn(
-                      "suggestion-item cursor-pointer transition-colors",
-                      index === selectedIndex && "bg-accent/30 border-l-2 border-l-accent"
-                    )}
-                    onClick={() => handleSelectProduct(product)}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-10">{product.code}</span>
-                      <span className="font-medium">{product.name}</span>
-                    </div>
-                    <span className="text-sm text-success">
-                      ₹{product.portions[0]?.price || 0}
-                    </span>
+              {/* Portion Selection */}
+              {showPortionSelect && selectedProduct && (
+                <div className="absolute top-full left-4 right-4 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
+                  <div className="px-3 py-2 border-b border-border bg-muted/50">
+                    <span className="text-sm font-medium text-accent">{selectedProduct.name}</span>
+                    <span className="text-xs text-muted-foreground ml-2">Select portion</span>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Portion Selection */}
-            {showPortionSelect && selectedProduct && (
-              <div className="absolute top-full left-4 right-4 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
-                <div className="px-3 py-2 border-b border-border bg-muted/50">
-                  <span className="text-sm font-medium text-accent">{selectedProduct.name}</span>
-                  <span className="text-xs text-muted-foreground ml-2">Select portion</span>
-                </div>
-                {selectedProduct.portions.map((portion, index) => (
-                  <div
-                    key={portion.size}
-                    className={cn(
-                      "suggestion-item cursor-pointer transition-colors",
-                      index === selectedIndex && "bg-accent/30 border-l-2 border-l-accent"
-                    )}
-                    onClick={() => handleSelectPortion(portion)}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    <span className="capitalize font-medium">{portion.size}</span>
-                    <span className="text-sm text-success">₹{portion.price}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Quantity Input */}
-            {searchStep === 'quantity' && selectedProduct && selectedPortion && (
-              <div className="absolute top-full left-4 right-4 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up p-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <span className="font-medium">{selectedProduct.name}</span>
-                    <span className="text-muted-foreground ml-2 capitalize">({selectedPortion.size})</span>
-                  </div>
-                  <span className="text-success">₹{selectedPortion.price}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
-                    <Input
-                      ref={quantityInputRef}
-                      type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      onKeyDown={handleQuantityKeyDown}
-                      className="bg-secondary text-center"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
-                    <div className="h-10 flex items-center justify-center bg-muted rounded-md text-success">
-                      ₹{selectedPortion.price * (parseInt(quantity) || 1)}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Press <kbd className="kbd">Enter</kbd> to add</span>
-                  <span>Press <kbd className="kbd">Esc</kbd> to cancel</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0">
-          {isEditMode && (
-            <div className="text-xs text-muted-foreground/70 flex items-center gap-3 pb-2 border-b border-border">
-              <span><kbd className="kbd text-[10px]">Ctrl+↑↓</kbd> Navigate</span>
-              <span><kbd className="kbd text-[10px]">Ctrl+←→</kbd> Qty</span>
-              <span><kbd className="kbd text-[10px]">Ctrl+Del</kbd> Remove</span>
-            </div>
-          )}
-
-          {/* Sent to Kitchen Section */}
-          {sentItems.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                <Lock className="h-3 w-3" />
-                Sent to Kitchen ({sentItems.length})
-              </p>
-              <div className="space-y-2">
-                {sentItems.map((item, index) => {
-                  const globalIndex = index;
-                  const isFocused = focusedItemIndex === globalIndex;
-                  
-                  return (
+                  {selectedProduct.portions.map((portion, index) => (
                     <div
-                      key={item.id}
-                      ref={(el) => setItemRef(globalIndex, el)}
-                      tabIndex={0}
-                      onClick={() => setFocusedItemIndex(globalIndex)}
+                      key={portion.size}
                       className={cn(
-                        "cart-item animate-slide-up outline-none cart-item-sent opacity-80",
-                        isFocused && isEditMode && "cart-item-focused"
+                        "suggestion-item cursor-pointer transition-colors",
+                        index === selectedIndex && "bg-accent/30 border-l-2 border-l-accent"
                       )}
+                      onClick={() => handleSelectPortion(portion)}
+                      onMouseEnter={() => setSelectedIndex(index)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{item.product_code}</span>
-                              <span className="font-medium truncate">{item.product_name}</span>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Lock className="h-3 w-3 text-muted-foreground" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Sent to kitchen - cannot be modified</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span className="capitalize">{item.portion}</span>
-                              <span>×</span>
-                              <span>₹{item.unit_price}</span>
-                            </div>
-                          </div>
-                          <span className="font-semibold text-success shrink-0">
-                            ₹{item.unit_price * item.quantity}
-                          </span>
-                        </div>
+                      <span className="capitalize font-medium">{portion.size}</span>
+                      <span className="text-sm text-success">₹{portion.price}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-50" disabled>
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-8 text-center">{item.quantity}</span>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-50" disabled>
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-50" disabled>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
+              {/* Quantity Input */}
+              {searchStep === 'quantity' && selectedProduct && selectedPortion && (
+                <div className="absolute top-full left-4 right-4 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="font-medium">{selectedProduct.name}</span>
+                      <span className="text-muted-foreground ml-2 capitalize">({selectedPortion.size})</span>
+                    </div>
+                    <span className="text-success">₹{selectedPortion.price}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
+                      <Input
+                        ref={quantityInputRef}
+                        type="number"
+                        min="1"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        onKeyDown={handleQuantityKeyDown}
+                        className="bg-secondary text-center"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
+                      <div className="h-10 flex items-center justify-center bg-muted rounded-md text-success">
+                        ₹{selectedPortion.price * (parseInt(quantity) || 1)}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Press <kbd className="kbd">Enter</kbd> to add</span>
+                    <span>Press <kbd className="kbd">Esc</kbd> to cancel</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Pending Items */}
-          {pendingItems.length > 0 && (
-            <div>
-              {sentItems.length > 0 && (
-                <p className="text-xs text-muted-foreground mb-2 mt-4">
-                  Pending ({pendingItems.length})
+          {/* Cart Items */}
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0">
+            {isEditMode && (
+              <div className="text-xs text-muted-foreground/70 flex items-center gap-3 pb-2 border-b border-border">
+                <span><kbd className="kbd text-[10px]">Ctrl+↑↓</kbd> Navigate</span>
+                <span><kbd className="kbd text-[10px]">Ctrl+←→</kbd> Qty</span>
+                <span><kbd className="kbd text-[10px]">Ctrl+Del</kbd> Remove</span>
+              </div>
+            )}
+
+            {/* Sent to Kitchen Section */}
+            {sentItems.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Sent to Kitchen ({sentItems.length})
                 </p>
-              )}
-              <div className="space-y-2">
-                {pendingItems.map((item, index) => {
-                  const globalIndex = sentItems.length + index;
-                  const isFocused = focusedItemIndex === globalIndex;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      ref={(el) => setItemRef(globalIndex, el)}
-                      tabIndex={0}
-                      onClick={() => setFocusedItemIndex(globalIndex)}
-                      className={cn(
-                        "cart-item animate-slide-up outline-none cart-item-pending",
-                        isFocused && isEditMode && "cart-item-focused"
-                      )}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{item.product_code}</span>
-                              <span className="font-medium truncate">{item.product_name}</span>
-                              {item.id.startsWith('new-') && (
-                                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">
-                                  New
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span className="capitalize">{item.portion}</span>
-                              <span>×</span>
-                              <span>₹{item.unit_price}</span>
-                            </div>
-                          </div>
-                          <span className="font-semibold text-success shrink-0">
-                            ₹{item.unit_price * item.quantity}
-                          </span>
-                        </div>
-
-                        {isEditMode && (
-                          <div className="flex items-center justify-between mt-2">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => handleQuantityChange(item.id, -1)}
-                                disabled={item.quantity <= 1}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="w-8 text-center">{item.quantity}</span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => handleQuantityChange(item.id, 1)}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleRemoveItem(item.id)}
-                                disabled={items.length <= 1}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
+                <div className="space-y-2">
+                  {sentItems.map((item, index) => {
+                    const globalIndex = index;
+                    const isFocused = focusedItemIndex === globalIndex;
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        ref={(el) => setItemRef(globalIndex, el)}
+                        tabIndex={0}
+                        onClick={() => setFocusedItemIndex(globalIndex)}
+                        className={cn(
+                          "cart-item animate-slide-up outline-none cart-item-sent opacity-80",
+                          isFocused && isEditMode && "cart-item-focused"
                         )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{item.product_code}</span>
+                                <span className="font-medium truncate">{item.product_name}</span>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Lock className="h-3 w-3 text-muted-foreground" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Sent to kitchen - cannot be modified</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                <span className="capitalize">{item.portion}</span>
+                                <span>×</span>
+                                <span>₹{item.unit_price}</span>
+                              </div>
+                            </div>
+                            <span className="font-semibold text-success shrink-0">
+                              ₹{item.unit_price * item.quantity}
+                            </span>
+                          </div>
 
-                        {!isEditMode && (
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-sm text-muted-foreground">Qty: {item.quantity}</span>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* Actions */}
-        <div className="action-bar border-t border-border p-4 bg-background">
-          <div className="flex items-center gap-2">
-            {isEditMode ? (
-              <>
-                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-                {canSettle && (
-                  <Button 
-                    className="gap-1.5 bg-success hover:bg-success/90 ml-auto"
-                    onClick={() => setShowPaymentDialog(true)}
-                  >
-                    <Receipt className="h-4 w-4" />
-                    Settle Bill
-                  </Button>
+            {/* Pending Items */}
+            {pendingItems.length > 0 && (
+              <div>
+                {sentItems.length > 0 && (
+                  <p className="text-xs text-muted-foreground mb-2 mt-4">
+                    Pending ({pendingItems.length})
+                  </p>
                 )}
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={handlePrint}>
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
-                </Button>
-                {canEdit && (
-                  <Button onClick={() => onModeChange(true)}>
-                    Edit Bill
-                  </Button>
-                )}
-                {canSettle && (
-                  <Button 
-                    className="gap-1.5 bg-success hover:bg-success/90 ml-auto"
-                    onClick={() => setShowPaymentDialog(true)}
-                  >
-                    <Receipt className="h-4 w-4" />
-                    Settle Bill
-                  </Button>
-                )}
-              </>
+                <div className="space-y-2">
+                  {pendingItems.map((item, index) => {
+                    const globalIndex = sentItems.length + index;
+                    const isFocused = focusedItemIndex === globalIndex;
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        ref={(el) => setItemRef(globalIndex, el)}
+                        tabIndex={0}
+                        onClick={() => setFocusedItemIndex(globalIndex)}
+                        className={cn(
+                          "cart-item animate-slide-up outline-none cart-item-pending",
+                          isFocused && isEditMode && "cart-item-focused"
+                        )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{item.product_code}</span>
+                                <span className="font-medium truncate">{item.product_name}</span>
+                                {item.id.startsWith('new-') && (
+                                  <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">
+                                    New
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                <span className="capitalize">{item.portion}</span>
+                                <span>×</span>
+                                <span>₹{item.unit_price}</span>
+                              </div>
+                            </div>
+                            <span className="font-semibold text-success shrink-0">
+                              ₹{item.unit_price * item.quantity}
+                            </span>
+                          </div>
+
+                          {isEditMode ? (
+                            <div className="flex items-center justify-between mt-2">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => handleQuantityChange(item.id, -1)}
+                                  disabled={item.quantity <= 1}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-8 text-center">{item.quantity}</span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => handleQuantityChange(item.id, 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  disabled={items.length <= 1}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-sm text-muted-foreground">Qty: {item.quantity}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Select Payment Method</DialogTitle>
-          </DialogHeader>
-          <div className="text-center mb-4">
-            <span className="text-3xl font-bold text-success">{formatCurrency(totals.finalAmount)}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-4 py-4">
-            <Button
-              variant="outline"
-              className="h-24 flex-col gap-2 hover:bg-success/10 hover:border-success hover:text-success"
-              onClick={() => handleSettleBill('cash')}
-            >
-              <Banknote className="h-8 w-8" />
-              <span>Cash</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-24 flex-col gap-2 hover:bg-blue-500/10 hover:border-blue-500 hover:text-blue-400"
-              onClick={() => handleSettleBill('card')}
-            >
-              <CreditCard className="h-8 w-8" />
-              <span>Card</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-24 flex-col gap-2 hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-400"
-              onClick={() => handleSettleBill('upi')}
-            >
-              <Smartphone className="h-8 w-8" />
-              <span>UPI</span>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Modals */}
+      <DiscountModal
+        open={showDiscountModal}
+        onClose={() => setShowDiscountModal(false)}
+        onApply={handleApplyDiscount}
+        currentType={discountType}
+        currentValue={discountValue}
+        currentReason={discountReason}
+        subTotal={totals.subTotal}
+      />
+
+      <CustomerModal
+        open={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        onSelect={setSelectedCustomer}
+        currentCustomer={selectedCustomer}
+      />
+
+      <PaymentModal
+        open={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPayment={handleSettleBill}
+        onSaveUnsettled={handleSaveUnsettled}
+        finalAmount={totals.finalAmount}
+        showNotNow={true}
+      />
 
       {/* Bill Preview Dialog */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
@@ -1136,6 +1283,7 @@ export function EditViewBillingModule({
               ref={billRef}
               billNumber={bill.bill_number}
               tableNumber={bill.table_number || undefined}
+              tokenNumber={bill.token_number || undefined}
               items={items.map(item => ({
                 id: item.id,
                 productId: item.product_id,
@@ -1150,11 +1298,15 @@ export function EditViewBillingModule({
               }))}
               subTotal={totals.subTotal}
               discountAmount={totals.discountAmount}
+              discountType={discountType || undefined}
+              discountValue={discountValue || undefined}
+              discountReason={discountReason || undefined}
               cgstAmount={totals.cgstAmount}
               sgstAmount={totals.sgstAmount}
               totalAmount={totals.totalAmount}
               finalAmount={totals.finalAmount}
               isParcel={isParcel}
+              coverCount={bill.cover_count || undefined}
             />
           </div>
         </DialogContent>

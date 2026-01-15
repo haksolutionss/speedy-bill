@@ -41,6 +41,7 @@ interface BillData {
   payment_method: string | null;
   created_at: string;
   settled_at: string | null;
+  customer_id?: string | null;
 }
 
 export default function BillDetail() {
@@ -98,29 +99,37 @@ export default function BillDetail() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex bg-background overflow-hidden">
-        <div className="fixed w-[calc(100%_-_480px)] h-[calc(100vh_-_50px)] left-0 flex-1 flex flex-col border-r border-border min-w-0 overflow-hidden p-6">
-          <div className="flex items-center gap-4 mb-6">
-            <Skeleton className="h-10 w-10" />
-            <div>
-              <Skeleton className="h-8 w-48 mb-2" />
-              <Skeleton className="h-4 w-64" />
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
+        <div className="shrink-0 border-b border-border bg-card px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-10 w-10" />
+              <div>
+                <Skeleton className="h-6 w-32 mb-1" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            </div>
+            <Skeleton className="h-10 w-32" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-24" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-          <Skeleton className="h-48 w-full" />
         </div>
-        <div className="fixed right-0 w-[480px] h-[calc(100vh_-_50px)] flex flex-col bg-card shrink-0 overflow-hidden">
-          <div className="p-4 border-b border-border">
-            <Skeleton className="h-8 w-32" />
+        <div className="flex-1 flex">
+          <div className="flex-1 p-6">
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+            <Skeleton className="h-48 w-full" />
           </div>
-          <div className="flex-1 p-4 space-y-3">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
+          <div className="w-[480px] border-l border-border p-4">
+            <Skeleton className="h-12 w-full mb-4" />
+            <Skeleton className="h-20 w-full mb-2" />
+            <Skeleton className="h-20 w-full mb-2" />
             <Skeleton className="h-20 w-full" />
           </div>
         </div>
@@ -130,7 +139,7 @@ export default function BillDetail() {
 
   if (!bill) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
+      <div className="flex flex-col items-center justify-center h-screen">
         <Receipt className="h-16 w-16 text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold mb-2">Bill Not Found</h2>
         <p className="text-muted-foreground mb-4">The bill you're looking for doesn't exist.</p>
