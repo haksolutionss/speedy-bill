@@ -10,6 +10,8 @@ import Index from "./pages/Index";
 import Products from "./pages/Products";
 import Tables from "./pages/Tables";
 import History from "./pages/History";
+import Dashboard from "./pages/Dashboard";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -33,6 +35,8 @@ const App = () => (
           <AppLayout>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/products" element={<Products />} />
               <Route path="/tables" element={<Tables />} />
               <Route path="/history" element={<History />} />

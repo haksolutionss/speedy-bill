@@ -7,13 +7,16 @@ import {
   MapPin,
   History,
   Menu,
-  X
+  X,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { path: '/', label: 'Billing', icon: ShoppingCart },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/reports', label: 'Reports', icon: BarChart3 },
   { path: '/products', label: 'Products', icon: Package },
   { path: '/tables', label: 'Tables', icon: MapPin },
   { path: '/history', label: 'History', icon: History },
