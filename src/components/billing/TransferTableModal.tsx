@@ -11,7 +11,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useBillingStore } from '@/store/billingStore';
-import { useUpdateTableMutation, useUpdateBillMutation } from '@/store/redux/api/billingApi';
+import { 
+  useUpdateTableMutation, 
+  useUpdateBillMutation,
+  useGetTableSectionsQuery 
+} from '@/store/redux/api/billingApi';
 import { toast } from 'sonner';
 
 interface TransferTableModalProps {
@@ -20,15 +24,18 @@ interface TransferTableModalProps {
 }
 
 export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps) {
-  const { tableSections, selectedTable, selectTable, clearCart } = useBillingStore();
+  const { selectedTable, selectTable, clearCart } = useBillingStore();
   const [fromTableId, setFromTableId] = useState<string>('');
   const [toTableId, setToTableId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   
+  // Use RTK Query directly to get fresh table data
+  const { data: tableSections = [] } = useGetTableSectionsQuery();
+  
   const [updateTable] = useUpdateTableMutation();
   const [updateBill] = useUpdateBillMutation();
 
-  // Get only occupied tables
+  // Get only occupied tables from RTK Query data
   const occupiedTables = useMemo(() => {
     const tables: { id: string; number: string; sectionId: string; sectionName: string; billId?: string; amount?: number }[] = [];
     tableSections.forEach((section) => {
@@ -40,8 +47,8 @@ export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps)
             number: table.number,
             sectionId: section.id,
             sectionName: section.name,
-            billId: table.currentBillId,
-            amount: table.currentAmount,
+            billId: table.current_bill_id || undefined,
+            amount: table.current_amount || undefined,
           });
         });
     });

@@ -15,7 +15,7 @@ import { useBillingStore } from '@/store/billingStore';
 import { 
   useUpdateTableMutation, 
   useUpdateBillMutation,
-  useGetActiveBillsQuery,
+  useGetTableSectionsQuery,
 } from '@/store/redux/api/billingApi';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,10 +26,13 @@ interface MergeTableModalProps {
 }
 
 export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
-  const { tableSections, selectedTable, loadCartFromBill, selectTable, clearCart } = useBillingStore();
+  const { selectedTable, loadCartFromBill, selectTable, clearCart } = useBillingStore();
   const [primaryTableId, setPrimaryTableId] = useState<string>('');
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Use RTK Query directly to get fresh table data
+  const { data: tableSections = [] } = useGetTableSectionsQuery();
   
   const [updateTable] = useUpdateTableMutation();
   const [updateBill] = useUpdateBillMutation();
@@ -44,7 +47,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
     return null;
   }, [tableSections, primaryTableId]);
 
-  // Get occupied tables in the same section
+  // Get occupied tables in the same section - use RTK Query data directly
   const occupiedTablesInSection = useMemo(() => {
     if (!selectedSectionId) return [];
     
@@ -58,8 +61,8 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
         number: table.number,
         sectionId: selectedSectionId,
         sectionName: section.name,
-        billId: table.currentBillId,
-        amount: table.currentAmount,
+        billId: table.current_bill_id || undefined,
+        amount: table.current_amount || undefined,
       }));
   }, [tableSections, selectedSectionId]);
 
@@ -67,6 +70,20 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
   const tablesToMerge = useMemo(() => {
     return occupiedTablesInSection.filter((t) => t.id !== primaryTableId);
   }, [occupiedTablesInSection, primaryTableId]);
+
+  // Get all occupied tables for primary selection dropdown
+  const allOccupiedTables = useMemo(() => {
+    return tableSections.flatMap((section) =>
+      section.tables
+        .filter((t) => t.status === 'occupied')
+        .map((table) => ({
+          id: table.id,
+          number: table.number,
+          sectionName: section.name,
+          currentAmount: table.current_amount,
+        }))
+    );
+  }, [tableSections]);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -240,20 +257,22 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
               <SelectValue placeholder="Select primary table" />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50">
-              {tableSections.map((section) =>
-                section.tables
-                  .filter((t) => t.status === 'occupied')
-                  .map((table) => (
-                    <SelectItem key={table.id} value={table.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="font-medium">{table.number}</span>
-                        <span className="text-muted-foreground text-sm">({section.name})</span>
-                        {table.currentAmount && (
-                          <span className="text-success text-sm">₹{table.currentAmount}</span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))
+              {allOccupiedTables.length === 0 ? (
+                <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                  No occupied tables
+                </div>
+              ) : (
+                allOccupiedTables.map((table) => (
+                  <SelectItem key={table.id} value={table.id}>
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{table.number}</span>
+                      <span className="text-muted-foreground text-sm">({table.sectionName})</span>
+                      {table.currentAmount && (
+                        <span className="text-success text-sm">₹{table.currentAmount}</span>
+                      )}
+                    </span>
+                  </SelectItem>
+                ))
               )}
             </SelectContent>
           </Select>

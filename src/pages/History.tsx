@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Search, Eye, RotateCcw, Printer, Trash2, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useGetBillsQuery, useUpdateBillMutation, useUpdateTableMutation } from '@/store/redux/api/billingApi';
@@ -30,6 +31,7 @@ import {
 const ITEMS_PER_PAGE = 20;
 
 export default function History() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'settled' | 'unsettled' | 'active'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'table' | 'parcel'>('all');
@@ -320,7 +322,13 @@ export default function History() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => navigate(`/bill/${bill.id}?isEdit=false`)}
+                        title="View Bill"
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
