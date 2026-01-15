@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center p-8 bg-destructive/10 rounded-lg border border-destructive/20">
           <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">Something went wrong</h3>
-          <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
+          <p className="text-sm text-muted-foreground mb-4 text-center max-w-max">
             {this.state.error?.message || 'An unexpected error occurred'}
           </p>
           <Button onClick={this.handleRetry} variant="outline" size="sm">

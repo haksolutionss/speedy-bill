@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Hash, 
-  Package, 
-  Users, 
+import {
+  Hash,
+  Package,
+  Users,
   ArrowLeft,
   Printer,
   Save,
@@ -32,8 +32,8 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  useUpdateBillMutation, 
+import {
+  useUpdateBillMutation,
   useGetProductsQuery,
   useUpdateTableMutation,
 } from '@/store/redux/api/billingApi';
@@ -101,8 +101,8 @@ function formatCurrency(amount: number): string {
 }
 
 function calculateTotals(
-  items: BillItem[], 
-  discountType?: string | null, 
+  items: BillItem[],
+  discountType?: string | null,
   discountValue?: number | null
 ) {
   const subTotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
@@ -132,10 +132,10 @@ function calculateTotals(
   return { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount, finalAmount };
 }
 
-export function EditViewBillingModule({ 
-  bill, 
-  initialItems, 
-  isEditMode, 
+export function EditViewBillingModule({
+  bill,
+  initialItems,
+  isEditMode,
   onModeChange,
   onBillUpdated,
 }: EditViewBillingModuleProps) {
@@ -143,13 +143,13 @@ export function EditViewBillingModule({
   const [items, setItems] = useState<BillItem[]>(initialItems);
   const [isSaving, setIsSaving] = useState(false);
   const [focusedItemIndex, setFocusedItemIndex] = useState<number>(-1);
-  
+
   // Modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showBillPreview, setShowBillPreview] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
-  
+
   // Discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | null>(
     bill.discount_type as 'percentage' | 'fixed' | null
@@ -158,10 +158,10 @@ export function EditViewBillingModule({
     bill.discount_value ? Number(bill.discount_value) : null
   );
   const [discountReason, setDiscountReason] = useState<string | null>(bill.discount_reason);
-  
+
   // Customer state
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  
+
   // Item search state
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<ProductWithPortions[]>([]);
@@ -171,7 +171,7 @@ export function EditViewBillingModule({
   const [selectedPortion, setSelectedPortion] = useState<DbProductPortion | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [searchStep, setSearchStep] = useState<'search' | 'portion' | 'quantity'>('search');
-  
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -191,8 +191,8 @@ export function EditViewBillingModule({
     const originalStr = JSON.stringify(initialItems.map(i => ({ id: i.id, quantity: i.quantity })).sort((a, b) => a.id.localeCompare(b.id)));
     const currentStr = JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity })).sort((a, b) => a.id.localeCompare(b.id)));
     const itemsChanged = originalStr !== currentStr || items.length !== initialItems.length;
-    const discountChanged = discountType !== (bill.discount_type as 'percentage' | 'fixed' | null) || 
-                           discountValue !== (bill.discount_value ? Number(bill.discount_value) : null);
+    const discountChanged = discountType !== (bill.discount_type as 'percentage' | 'fixed' | null) ||
+      discountValue !== (bill.discount_value ? Number(bill.discount_value) : null);
     return itemsChanged || discountChanged;
   }, [items, initialItems, discountType, discountValue, bill]);
 
@@ -268,15 +268,15 @@ export function EditViewBillingModule({
     if (!selectedProduct || !selectedPortion) return;
 
     const qty = parseInt(quantity) || 1;
-    
+
     // Check if item already exists
     const existingIndex = items.findIndex(
       item => item.product_id === selectedProduct.id && item.portion === selectedPortion.size
     );
 
     if (existingIndex >= 0) {
-      setItems(prev => prev.map((item, idx) => 
-        idx === existingIndex 
+      setItems(prev => prev.map((item, idx) =>
+        idx === existingIndex
           ? { ...item, quantity: item.quantity + qty }
           : item
       ));
@@ -410,7 +410,7 @@ export function EditViewBillingModule({
   // Cart keyboard navigation
   const handleCartKeyDown = useCallback((e: KeyboardEvent) => {
     if (
-      e.target instanceof HTMLInputElement || 
+      e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement ||
       items.length === 0 ||
       !isEditMode
@@ -475,8 +475,8 @@ export function EditViewBillingModule({
 
   // Discount handlers
   const handleApplyDiscount = (
-    type: 'percentage' | 'fixed' | null, 
-    value: number | null, 
+    type: 'percentage' | 'fixed' | null,
+    value: number | null,
     reason: string | null
   ) => {
     setDiscountType(type);
@@ -496,7 +496,7 @@ export function EditViewBillingModule({
       // Update existing items
       for (const item of items) {
         if (item.id.startsWith('new-')) continue;
-        
+
         const original = initialItems.find(i => i.id === item.id);
         if (original && original.quantity !== item.quantity) {
           await supabase
@@ -523,7 +523,7 @@ export function EditViewBillingModule({
             notes: item.notes,
             sent_to_kitchen: false,
           })));
-        
+
         if (error) throw error;
       }
 
@@ -591,7 +591,7 @@ export function EditViewBillingModule({
       await handleSave();
       return;
     }
-    
+
     // Show payment modal
     setShowPaymentModal(true);
   };
@@ -629,7 +629,7 @@ export function EditViewBillingModule({
 
       setShowBillPreview(true);
       toast.success('Bill settled successfully');
-      
+
       setTimeout(() => {
         setShowBillPreview(false);
         navigate('/history');
@@ -643,7 +643,7 @@ export function EditViewBillingModule({
   // Save as unsettled
   const handleSaveUnsettled = async () => {
     setShowPaymentModal(false);
-    
+
     const saved = await saveChanges();
     if (saved) {
       // Update bill status to unsettled
@@ -653,7 +653,7 @@ export function EditViewBillingModule({
           status: 'unsettled',
         },
       }).unwrap();
-      
+
       toast.success('Bill saved as unsettled');
       onBillUpdated();
       onModeChange(false);
@@ -728,66 +728,66 @@ export function EditViewBillingModule({
             </div>
           </div>
 
-          {/* Center: View/Edit Toggle */}
-          <div className="flex items-center gap-3 bg-muted rounded-lg p-1">
-            <Button
-              variant={!isEditMode ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onModeChange(false)}
-              className={cn(
-                "gap-2",
-                !isEditMode && "bg-background shadow-sm"
-              )}
-            >
-              <Eye className="h-4 w-4" />
-              View
-            </Button>
-            {bill.status !== 'settled' && (
+          <div className='flex items-center gap-2 '>
+            {/* Center: View/Edit Toggle */}
+            <div className="flex items-center gap-3 bg-muted rounded-lg p-1">
               <Button
-                variant={isEditMode ? "default" : "ghost"}
+                variant={!isEditMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => onModeChange(false)}
+                className={cn(
+                  "gap-2",
+                )}
+              >
+                <Eye className="h-4 w-4" />
+                View
+              </Button>
+              {/* {bill.status !== 'settled' && ( */}
+              <Button
+                variant={isEditMode ? "default" : "outline"}
                 size="sm"
                 onClick={() => onModeChange(true)}
                 className={cn(
                   "gap-2",
-                  isEditMode && "bg-background shadow-sm"
                 )}
               >
                 <Edit3 className="h-4 w-4" />
                 Edit
               </Button>
-            )}
-          </div>
+              {/* )} */}
+            </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-2">
-            {isEditMode ? (
-              <>
-                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveWithSettlement} disabled={isSaving}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Saving...' : 'Save Bill'}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={handlePrint}>
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Bill
-                </Button>
-                {canSettle && (
-                  <Button 
-                    className="gap-2 bg-success hover:bg-success/90"
-                    onClick={() => setShowPaymentModal(true)}
-                  >
-                    <Receipt className="h-4 w-4" />
-                    Settle Bill
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              {isEditMode ? (
+                <>
+                  <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
                   </Button>
-                )}
-              </>
-            )}
+                  <Button onClick={handleSaveWithSettlement} disabled={isSaving}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Saving...' : 'Save Bill'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={handlePrint}>
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Bill
+                  </Button>
+                  {canSettle && (
+                    <Button
+                      className="gap-2 bg-success hover:bg-success/90"
+                      onClick={() => setShowPaymentModal(true)}
+                    >
+                      <Receipt className="h-4 w-4" />
+                      Settle Bill
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -854,7 +854,7 @@ export function EditViewBillingModule({
           {/* Customer & Discount Section */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             {/* Customer */}
-            <div 
+            <div
               className={cn(
                 "bg-card border border-border rounded-lg p-4 transition-all",
                 isEditMode && "cursor-pointer hover:border-accent"
@@ -887,7 +887,7 @@ export function EditViewBillingModule({
             </div>
 
             {/* Discount */}
-            <div 
+            <div
               className={cn(
                 "bg-card border border-border rounded-lg p-4 transition-all",
                 isEditMode && "cursor-pointer hover:border-accent"
@@ -1097,7 +1097,7 @@ export function EditViewBillingModule({
                   {sentItems.map((item, index) => {
                     const globalIndex = index;
                     const isFocused = focusedItemIndex === globalIndex;
-                    
+
                     return (
                       <div
                         key={item.id}
@@ -1160,7 +1160,7 @@ export function EditViewBillingModule({
                   {pendingItems.map((item, index) => {
                     const globalIndex = sentItems.length + index;
                     const isFocused = focusedItemIndex === globalIndex;
-                    
+
                     return (
                       <div
                         key={item.id}
@@ -1274,7 +1274,7 @@ export function EditViewBillingModule({
 
       {/* Bill Preview Dialog */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-max max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Bill Preview</DialogTitle>
           </DialogHeader>

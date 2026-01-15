@@ -23,10 +23,10 @@ interface DiscountModalProps {
   subTotal: number;
 }
 
-export function DiscountModal({ 
-  open, 
-  onClose, 
-  onApply, 
+export function DiscountModal({
+  open,
+  onClose,
+  onApply,
   currentType,
   currentValue,
   currentReason,
@@ -66,14 +66,14 @@ export function DiscountModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-max">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Percent className="h-5 w-5 text-accent" />
             Apply Discount
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           {/* Discount Type */}
           <div className="space-y-2">

@@ -30,6 +30,17 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
+  const isBillViewOrEditPage = location.pathname.includes('/bill')
+
+  if (isBillViewOrEditPage) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="">
+          {children}
+        </main>
+      </div>
+    )
+  }
   // Check if we're on billing page (full screen mode)
   const isBillingPage = location.pathname === '/';
 

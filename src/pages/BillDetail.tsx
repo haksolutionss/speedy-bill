@@ -90,6 +90,7 @@ export default function BillDetail() {
   }, [id]);
 
   const handleModeChange = (isEdit: boolean) => {
+    console.log("isEdit", isEdit)
     setSearchParams({ isEdit: isEdit.toString() });
   };
 

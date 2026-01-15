@@ -29,9 +29,9 @@ interface CustomerModalProps {
   currentCustomer: Customer | null;
 }
 
-export function CustomerModal({ 
-  open, 
-  onClose, 
+export function CustomerModal({
+  open,
+  onClose,
   onSelect,
   currentCustomer,
 }: CustomerModalProps) {
@@ -39,7 +39,7 @@ export function CustomerModal({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
-  
+
   // New customer form state
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -49,7 +49,7 @@ export function CustomerModal({
   // Search customers
   useEffect(() => {
     if (!open) return;
-    
+
     const searchCustomers = async () => {
       if (searchQuery.trim().length < 2) {
         setCustomers([]);
@@ -150,14 +150,14 @@ export function CustomerModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-max">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-accent" />
             {showNewCustomerForm ? 'Add New Customer' : 'Select Customer'}
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-2">
           {/* Current Customer */}
           {currentCustomer && !showNewCustomerForm && (
@@ -300,8 +300,8 @@ export function CustomerModal({
                 <Button variant="outline" onClick={resetForm} className="flex-1">
                   Back
                 </Button>
-                <Button 
-                  onClick={handleCreateCustomer} 
+                <Button
+                  onClick={handleCreateCustomer}
                   className="flex-1 bg-success hover:bg-success/90"
                   disabled={isSaving}
                 >

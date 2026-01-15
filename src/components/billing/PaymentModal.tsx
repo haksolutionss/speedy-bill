@@ -1,6 +1,6 @@
-import { 
-  CreditCard, 
-  Banknote, 
+import {
+  CreditCard,
+  Banknote,
   Smartphone,
   Clock,
 } from 'lucide-react';
@@ -22,9 +22,9 @@ interface PaymentModalProps {
   showNotNow?: boolean;
 }
 
-export function PaymentModal({ 
-  open, 
-  onClose, 
+export function PaymentModal({
+  open,
+  onClose,
   onPayment,
   onSaveUnsettled,
   finalAmount,
@@ -32,17 +32,17 @@ export function PaymentModal({
 }: PaymentModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-max">
         <DialogHeader>
           <DialogTitle>Select Payment Method</DialogTitle>
         </DialogHeader>
-        
+
         <div className="text-center mb-4">
           <span className="text-3xl font-bold text-success">
             ₹{finalAmount.toLocaleString('en-IN')}
           </span>
         </div>
-        
+
         <div className="grid grid-cols-3 gap-4 py-4">
           <Button
             variant="outline"
@@ -72,16 +72,16 @@ export function PaymentModal({
 
         {showNotNow && (
           <DialogFooter className="flex gap-2 sm:justify-between">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={onSaveUnsettled}
               className="flex-1"
             >
               <Clock className="h-4 w-4 mr-2" />
               Not Now
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={onClose}
               className="flex-1"
             >
