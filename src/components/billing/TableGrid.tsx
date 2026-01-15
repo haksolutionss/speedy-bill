@@ -33,7 +33,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [focusedTableId, setFocusedTableId] = useState<string | null>(null);
-  
+
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = searchInputRef || internalInputRef;
   const tableButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -82,7 +82,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const handleGridKeyDown = useCallback((e: KeyboardEvent) => {
     // Only handle if not in an input and not in parcel mode
     if (
-      e.target instanceof HTMLInputElement || 
+      e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement ||
       isParcelMode
     ) {
@@ -90,7 +90,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
     }
 
     const cols = getGridColumns();
-    const currentIndex = focusedTableId 
+    const currentIndex = focusedTableId
       ? allTables.findIndex(t => t.id === focusedTableId)
       : -1;
 
@@ -281,27 +281,6 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
             <p>No tables found matching "{searchQuery}"</p>
           </div>
         )}
-
-        {/* Legend */}
-        <div className="flex items-center gap-6 text-xs text-muted-foreground pt-4 border-t border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-success/50" />
-            <span>Available</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-accent/50" />
-            <span>Occupied</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-blue-500/50" />
-            <span>Reserved</span>
-          </div>
-          <div className="ml-auto text-muted-foreground/70">
-            <kbd className="kbd">↑↓←→</kbd> Navigate &nbsp;
-            <kbd className="kbd">Enter</kbd> Select &nbsp;
-            <kbd className="kbd">Esc</kbd> Back to search
-          </div>
-        </div>
       </div>
 
       {/* Fixed Action Buttons at Bottom */}
@@ -336,19 +315,19 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
           <Save className="h-3.5 w-3.5" />
           Unsettled
         </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          disabled 
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
           className="gap-1.5 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           <Eye className="h-3.5 w-3.5" />
           View
         </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          disabled 
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
           className="gap-1.5 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           <RotateCcw className="h-3.5 w-3.5" />

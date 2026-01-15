@@ -54,8 +54,8 @@ export default function Products() {
   const { data: tableSections = [] } = useGetTableSectionsQuery();
 
   // Get flat list of sections for the form
-  const sections = useMemo(() => tableSections.map(s => ({ 
-    id: s.id, 
+  const sections = useMemo(() => tableSections.map(s => ({
+    id: s.id,
     name: s.name,
     display_order: s.display_order,
     is_active: s.is_active,
@@ -93,7 +93,7 @@ export default function Products() {
             sectionPrices[sp.sectionId] = sp.price;
           }
         });
-        
+
         return {
           id: p.id,
           size: p.size,
@@ -349,7 +349,7 @@ export default function Products() {
                   <TableBody>
                     {filteredProducts.map((product) => (
                       <TableRow key={product.id}>
-                        <TableCell className="text-muted-foreground font-mono text-xs">
+                        <TableCell className="text-muted-foreground  text-xs">
                           {product.code}
                         </TableCell>
                         <TableCell className="font-medium">

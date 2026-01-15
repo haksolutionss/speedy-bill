@@ -65,7 +65,7 @@ export function BillActions() {
       if (e.key === 'F1') {
         e.preventDefault();
         e.stopPropagation();
-        
+
         if (hasPendingItems) {
           setShowKOTPreview(true);
         } else {
@@ -78,7 +78,7 @@ export function BillActions() {
       if (e.key === 'F2') {
         e.preventDefault();
         e.stopPropagation();
-        
+
         if (hasItems) {
           handlePrintBill();
         } else {
@@ -206,7 +206,7 @@ export function BillActions() {
 
       {/* Bill Preview Dialog */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-max max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Bill Preview</DialogTitle>
           </DialogHeader>
@@ -230,7 +230,7 @@ export function BillActions() {
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-max">
           <DialogHeader>
             <DialogTitle>Select Payment Method</DialogTitle>
           </DialogHeader>

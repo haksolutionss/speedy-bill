@@ -11,7 +11,7 @@ export function Cart() {
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState('');
   const [focusedItemIndex, setFocusedItemIndex] = useState<number>(-1);
-  
+
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +34,7 @@ export function Cart() {
       }
       return;
     }
-    
+
     if (newQuantity <= 0) {
       removeFromCart(itemId);
     } else {
@@ -50,7 +50,7 @@ export function Cart() {
   // Keyboard navigation for cart items
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (
-      e.target instanceof HTMLInputElement || 
+      e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement ||
       cart.length === 0
     ) {
@@ -262,9 +262,9 @@ export function Cart() {
                   isSent && "opacity-50"
                 )}
                 onClick={() => handleQuantityChange(
-                  item.id, 
-                  item.quantity - 1, 
-                  isSent, 
+                  item.id,
+                  item.quantity - 1,
+                  isSent,
                   item.quantity,
                   item.printedQuantity
                 )}
@@ -278,9 +278,9 @@ export function Cart() {
                 variant="ghost"
                 className="h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => handleQuantityChange(
-                  item.id, 
-                  item.quantity + 1, 
-                  isSent, 
+                  item.id,
+                  item.quantity + 1,
+                  isSent,
                   item.quantity,
                   item.printedQuantity
                 )}
@@ -295,8 +295,8 @@ export function Cart() {
                 variant="ghost"
                 className={cn(
                   "h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent",
-                  isSent 
-                    ? "text-muted-foreground/50 cursor-not-allowed" 
+                  isSent
+                    ? "text-muted-foreground/50 cursor-not-allowed"
                     : "text-muted-foreground hover:text-foreground"
                 )}
                 onClick={() => handleStartEditNotes(item.id, item.notes, isSent)}
@@ -309,8 +309,8 @@ export function Cart() {
                 variant="ghost"
                 className={cn(
                   "h-7 w-7 focus-visible:ring-2 focus-visible:ring-accent",
-                  isSent 
-                    ? "text-muted-foreground/50 cursor-not-allowed" 
+                  isSent
+                    ? "text-muted-foreground/50 cursor-not-allowed"
                     : "text-muted-foreground hover:text-destructive"
                 )}
                 onClick={() => handleRemove(item.id, isSent)}
@@ -328,13 +328,7 @@ export function Cart() {
   let globalIndex = 0;
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0" ref={containerRef}>
-      {/* Keyboard hints */}
-      <div className="text-xs text-muted-foreground/70 flex items-center gap-3 pb-2 border-b border-border">
-        <span><kbd className="kbd text-[10px]">Ctrl+↑↓</kbd> Navigate</span>
-        <span><kbd className="kbd text-[10px]">Ctrl+←→</kbd> Qty</span>
-        <span><kbd className="kbd text-[10px]">Ctrl+Del</kbd> Remove</span>
-      </div>
+    <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3 min-h-0 pb-20" ref={containerRef}>
 
       {/* Sent to Kitchen Section */}
       {sentItems.length > 0 && (

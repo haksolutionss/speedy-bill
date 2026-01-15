@@ -122,7 +122,7 @@
 
     /* Amount display */
     .amount {
-        @apply font-semibold tabular-nums;
+        @apply font-semibold;
     }
 
     .amount-positive {

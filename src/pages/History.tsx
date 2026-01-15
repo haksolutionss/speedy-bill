@@ -38,12 +38,12 @@ export default function History() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Use RTK Query to fetch bills from Supabase
-  const { 
-    data: bills = [], 
-    isLoading, 
-    error, 
+  const {
+    data: bills = [],
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useGetBillsQuery({ limit: 500 });
 
   const [updateBill] = useUpdateBillMutation();
@@ -277,7 +277,7 @@ export default function History() {
             ) : (
               paginatedBills.map(bill => (
                 <TableRow key={bill.id}>
-                  <TableCell className="text-sm font-mono">
+                  <TableCell className="text-sm ">
                     {bill.bill_number}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -370,12 +370,12 @@ export default function History() {
           <Pagination>
             <PaginationContent>
               <PaginationItem>
-                <PaginationPrevious 
+                <PaginationPrevious
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
                 />
               </PaginationItem>
-              
+
               {getPaginationItems().map((item, index) => (
                 <PaginationItem key={index}>
                   {item === 'ellipsis' ? (
@@ -390,9 +390,9 @@ export default function History() {
                   )}
                 </PaginationItem>
               ))}
-              
+
               <PaginationItem>
-                <PaginationNext 
+                <PaginationNext
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   className={cn(currentPage === totalPages && "pointer-events-none opacity-50")}
                 />

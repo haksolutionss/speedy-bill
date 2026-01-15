@@ -2,82 +2,176 @@
 @tailwind components;
 @tailwind utilities;
 
+/* POS Design System - Enhanced with Premium Design Patterns */
 @font-face {
   font-family: 'bricola';
-  src: url('./assets/bricola.woff2');
+  src: url('./assets/fonts/bricola.woff2');
+  font-weight: 400;
+  font-style: normal;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 220 15% 15%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
-
-    /* Dark Teal (replacing green) */
+    /* Core brand colors - Teal theme for POS */
     --primary: 172 65% 35%;
     --primary-foreground: 0 0% 100%;
+    --primary-hover: 172 65% 30%;
 
-    --secondary: 220 15% 95%;
-    --secondary-foreground: 220 15% 20%;
+    /* Backgrounds */
+    --background: 0 0% 100%;
+    --background-secondary: 220 14% 98%;
+    --foreground: 220 13% 13%;
 
-    --muted: 220 15% 96%;
-    --muted-foreground: 220 10% 45%;
+    /* Surface colors */
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+    --card-hover: 220 14% 99%;
 
-    /* Teal (replacing orange) */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 13%;
+
+    /* Secondary elements */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 13% 26%;
+
+    /* Muted text and backgrounds */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Accent for highlights - Teal */
     --accent: 188 70% 45%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Dark Teal */
+    /* Status colors */
     --success: 172 65% 35%;
     --success-foreground: 0 0% 100%;
+    --success-muted: 172 65% 95%;
 
-    /* Teal */
     --warning: 188 70% 45%;
     --warning-foreground: 0 0% 100%;
+    --warning-muted: 188 70% 95%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 95%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-muted: 0 72% 95%;
 
-    /* Dark Teal */
+    --info: 220 70% 55%;
+    --info-foreground: 0 0% 100%;
+    --info-muted: 220 70% 96%;
+
+    /* UI elements */
+    --border: 220 13% 91%;
+    --border-strong: 220 13% 85%;
+    --input: 220 13% 91%;
     --ring: 172 65% 35%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    --radius-sm: 0.5rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
 
-    /* Tables */
+    /* Shadows */
+    --shadow-xs: 0 1px 2px 0 hsl(220 13% 13% / 0.03);
+    --shadow-sm: 0 1px 3px 0 hsl(220 13% 13% / 0.05), 0 1px 2px 0 hsl(220 13% 13% / 0.03);
+    --shadow-md: 0 4px 6px -1px hsl(220 13% 13% / 0.05), 0 2px 4px -1px hsl(220 13% 13% / 0.03);
+    --shadow-lg: 0 10px 15px -3px hsl(220 13% 13% / 0.05), 0 4px 6px -2px hsl(220 13% 13% / 0.02);
+    --shadow-xl: 0 20px 25px -5px hsl(220 13% 13% / 0.06), 0 10px 10px -5px hsl(220 13% 13% / 0.02);
+    --shadow-card: 0 1px 3px 0 hsl(220 13% 13% / 0.04), 0 1px 2px -1px hsl(220 13% 13% / 0.02);
+    --shadow-card-hover: 0 4px 12px 0 hsl(220 13% 13% / 0.08), 0 2px 4px -1px hsl(220 13% 13% / 0.03);
+
+    /* POS-specific: Tables */
     --table-available: 172 65% 35%;
-    /* dark teal */
     --table-occupied: 188 70% 45%;
-    /* teal */
     --table-reserved: 220 70% 55%;
 
-    /* KOT */
+    /* POS-specific: KOT */
     --kot-sent: 220 70% 55%;
     --kot-pending: 188 70% 45%;
-    /* teal */
 
-    /* Amounts */
+    /* POS-specific: Amounts */
     --amount-positive: 172 65% 35%;
     --amount-negative: 0 72% 50%;
 
     /* Sidebar */
-    --sidebar-background: 220 15% 98%;
-    --sidebar-foreground: 220 15% 20%;
+    --sidebar-background: 220 14% 98%;
+    --sidebar-foreground: 220 13% 26%;
     --sidebar-primary: 172 65% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 94%;
-    --sidebar-accent-foreground: 220 15% 20%;
-    --sidebar-border: 220 15% 90%;
+    --sidebar-accent: 220 14% 94%;
+    --sidebar-accent-foreground: 220 13% 13%;
+    --sidebar-border: 220 13% 91%;
     --sidebar-ring: 172 65% 35%;
   }
 
+  /* .dark {
+    --primary: 172 65% 40%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 172 65% 45%;
+
+    --background: 220 13% 6%;
+    --background-secondary: 220 13% 9%;
+    --foreground: 220 14% 96%;
+
+    --card: 220 13% 9%;
+    --card-foreground: 220 14% 96%;
+    --card-hover: 220 13% 11%;
+
+    --popover: 220 13% 9%;
+    --popover-foreground: 220 14% 96%;
+
+    --secondary: 220 13% 14%;
+    --secondary-foreground: 220 14% 90%;
+
+    --muted: 220 13% 14%;
+    --muted-foreground: 220 9% 55%;
+
+    --accent: 188 70% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 172 65% 40%;
+    --success-muted: 172 50% 15%;
+
+    --warning: 188 70% 50%;
+    --warning-muted: 188 50% 15%;
+
+    --destructive: 0 72% 55%;
+    --destructive-muted: 0 50% 15%;
+
+    --info: 220 70% 60%;
+    --info-muted: 220 50% 15%;
+
+    --border: 220 13% 18%;
+    --border-strong: 220 13% 25%;
+    --input: 220 13% 18%;
+    --ring: 172 65% 40%;
+
+    --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
+    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.4), 0 1px 2px 0 hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 0 2px 4px -1px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.4), 0 4px 6px -2px hsl(0 0% 0% / 0.2);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.5), 0 10px 10px -5px hsl(0 0% 0% / 0.2);
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.2);
+    --shadow-card-hover: 0 4px 12px 0 hsl(0 0% 0% / 0.4), 0 2px 4px -1px hsl(0 0% 0% / 0.2);
+
+    --table-available: 172 65% 40%;
+    --table-occupied: 188 70% 50%;
+    --table-reserved: 220 70% 60%;
+
+    --kot-sent: 220 70% 60%;
+    --kot-pending: 188 70% 50%;
+
+    --amount-positive: 172 65% 40%;
+    --amount-negative: 0 72% 55%;
+
+    --sidebar-background: 220 13% 9%;
+    --sidebar-foreground: 220 14% 70%;
+    --sidebar-primary: 172 65% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 13% 14%;
+    --sidebar-accent-foreground: 220 14% 96%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 172 65% 40%;
+  } */
 }
 
 @layer base {
@@ -85,17 +179,90 @@
     @apply border-border;
   }
 
+  html {
+    font-family: 'bricola', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'bricola', system-ui, sans-serif;
+    @apply bg-background text-foreground;
+  }
+
+  /* Custom scrollbar - hidden by default for clean look */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 }
 
 @layer components {
 
+  /* Glass effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl;
+  }
+
+  /* Stat card gradient */
+  .stat-card-gradient {
+    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--background-secondary)) 100%);
+  }
+
+  /* Hero gradient */
+  .hero-gradient {
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background-secondary)) 100%);
+  }
+
+  /* Primary gradient button */
+  .btn-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(172 65% 25%) 100%);
+  }
+
+  /* Animated gradient background */
+  .animated-gradient {
+    background: linear-gradient(-45deg,
+        hsl(var(--primary) / 0.1),
+        hsl(var(--accent) / 0.1),
+        hsl(var(--success) / 0.1),
+        hsl(var(--primary) / 0.1));
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  /* Subtle hover lift effect */
+  .hover-lift {
+    @apply transition-all duration-200;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* ========== POS-SPECIFIC COMPONENTS ========== */
+
   /* Table button base */
   .table-btn {
-    @apply relative flex flex-col items-center justify-center rounded-lg border-2 p-3 font-medium transition-all duration-150 hover:scale-[1.04] focus:outline-none;
+    @apply relative flex flex-col items-center justify-center rounded-lg border-2 p-3 font-medium transition-all duration-150 hover:scale-[1.01] focus:outline-none;
   }
 
   /* AVAILABLE — calm */
@@ -103,14 +270,35 @@
     @apply border-success bg-success/10 text-success hover:bg-success/20;
   }
 
+  /* OCCUPIED — animated border */
   .table-btn-occupied {
     @apply relative border-transparent;
     animation: occupied-border 1.8s ease-in-out infinite;
   }
 
+  @keyframes occupied-border {
+    0% {
+      box-shadow:
+        0 0 0 2px hsl(var(--accent)),
+        0 0 10px hsl(var(--accent) / 0.6);
+    }
+
+    50% {
+      box-shadow:
+        0 0 0 2px hsl(220 70% 55%),
+        0 0 14px hsl(220 70% 55% / 0.7);
+    }
+
+    100% {
+      box-shadow:
+        0 0 0 2px hsl(var(--accent)),
+        0 0 10px hsl(var(--accent) / 0.6);
+    }
+  }
+
   /* RESERVED — dashed informational */
   .table-btn-reserved {
-    @apply border-2 border-blue-500 border-dashed bg-blue-500/10 text-blue-600 hover:bg-blue-500/20;
+    @apply border-2 border-dashed;
   }
 
   /* ACTIVE / SELECTED — overrides all */
@@ -135,7 +323,7 @@
   }
 
   .cart-item-sent {
-    @apply border-l-4 border-l-blue-500 bg-blue-500/5;
+    @apply border-l-4;
   }
 
   .cart-item-pending {
@@ -154,7 +342,7 @@
 
   /* Amount display */
   .amount {
-    @apply font-semibold tabular-nums;
+    @apply font-semibold;
   }
 
   .amount-positive {
@@ -209,6 +397,23 @@
   }
 }
 
+@layer utilities {
+
+  /* Text balance for headings */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 /* Print styles for thermal printer */
 @media print {
@@ -231,29 +436,5 @@
 
   .print-only {
     display: block !important;
-  }
-}
-
-::-webkit-scrollbar {
-  display: none;
-}
-
-@keyframes occupied-border {
-  0% {
-    box-shadow:
-      0 0 0 2px hsl(var(--accent)),
-      0 0 10px hsl(var(--accent) / 0.6);
-  }
-
-  50% {
-    box-shadow:
-      0 0 0 2px hsl(220 70% 55%),
-      0 0 14px hsl(220 70% 55% / 0.7);
-  }
-
-  100% {
-    box-shadow:
-      0 0 0 2px hsl(var(--accent)),
-      0 0 10px hsl(var(--accent) / 0.6);
   }
 }
