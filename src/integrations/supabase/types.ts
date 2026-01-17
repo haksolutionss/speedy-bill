@@ -363,6 +363,48 @@ export type Database = {
           },
         ]
       }
+      printers: {
+        Row: {
+          created_at: string
+          format: string
+          id: string
+          ip_address: string | null
+          is_active: boolean
+          is_default: boolean
+          name: string
+          port: number | null
+          role: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          format?: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          port?: number | null
+          role?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          format?: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          port?: number | null
+          role?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_portions: {
         Row: {
           created_at: string
@@ -551,6 +593,74 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          user_id: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          mobile: string
+          name: string | null
+          pin_hash: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mobile: string
+          name?: string | null
+          pin_hash: string
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mobile?: string
+          name?: string | null
+          pin_hash?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
