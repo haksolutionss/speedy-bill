@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useSettingsStore } from '@/store/settingsStore';
 
 interface Customer {
   id: string;
@@ -27,6 +28,9 @@ interface CustomerModalProps {
   onClose: () => void;
   onSelect: (customer: Customer | null) => void;
   currentCustomer: Customer | null;
+  billAmount?: number;
+  onUseLoyaltyPoints?: (points: number) => void;
+  loyaltyPointsToUse?: number;
 }
 
 export function CustomerModal({
@@ -34,6 +38,9 @@ export function CustomerModal({
   onClose,
   onSelect,
   currentCustomer,
+  billAmount = 0,
+  onUseLoyaltyPoints,
+  loyaltyPointsToUse = 0,
 }: CustomerModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -148,9 +155,12 @@ export function CustomerModal({
     }
   }, [open]);
 
+  // Get settings for loyalty
+  const { settings, calculateRedemptionValue } = useSettingsStore();
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-max">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-accent" />
@@ -159,9 +169,9 @@ export function CustomerModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Current Customer */}
+          {/* Current Customer with Loyalty Options */}
           {currentCustomer && !showNewCustomerForm && (
-            <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
+            <div className="p-3 bg-accent/10 rounded-lg border border-accent/20 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">{currentCustomer.name}</p>
@@ -176,6 +186,44 @@ export function CustomerModal({
                   </Button>
                 </div>
               </div>
+
+              {/* Loyalty Points Redemption */}
+              {settings.loyalty.enabled && currentCustomer.loyalty_points >= settings.loyalty.minRedemptionPoints && billAmount > 0 && onUseLoyaltyPoints && (
+                <div className="pt-2 border-t border-accent/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm">Redeem Loyalty Points</Label>
+                    <span className="text-xs text-muted-foreground">
+                      1 pt = {settings.currency.symbol}{settings.loyalty.redemptionValue}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={Math.min(currentCustomer.loyalty_points, Math.floor(billAmount / settings.loyalty.redemptionValue))}
+                      value={loyaltyPointsToUse}
+                      onChange={(e) => onUseLoyaltyPoints(Math.min(Number(e.target.value), currentCustomer.loyalty_points))}
+                      className="w-24"
+                    />
+                    <span className="text-sm">
+                      = {settings.currency.symbol}{calculateRedemptionValue(loyaltyPointsToUse).toFixed(2)} off
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const maxPoints = Math.min(
+                          currentCustomer.loyalty_points,
+                          Math.floor(billAmount / settings.loyalty.redemptionValue)
+                        );
+                        onUseLoyaltyPoints(maxPoints);
+                      }}
+                    >
+                      Use Max
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

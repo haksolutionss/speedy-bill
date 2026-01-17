@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ReduxProvider } from "@/providers/ReduxProvider";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { RealtimeSubscription } from "@/components/common/RealtimeSubscription";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
@@ -15,6 +16,8 @@ import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import BillDetail from "./pages/BillDetail";
 import Settings from "./pages/Settings";
+import Staff from "./pages/Staff";
+import Customers from "./pages/Customers";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
@@ -47,6 +50,8 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/tables" element={<Tables />} />
+                <Route path="/customers" element={<Customers />} />
+                <Route path="/staff" element={<Staff />} />
                 <Route path="/history" element={<History />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/bill/:id" element={<BillDetail />} />

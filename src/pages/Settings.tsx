@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSettingsStore } from '@/store/settingsStore';
 import { PrinterDiscovery } from '@/components/settings/PrinterDiscovery';
 import { toast } from 'sonner';
-import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save } from 'lucide-react';
-import type { TaxType, GstMode, Currency } from '@/types/settings';
+import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save, Gift, CreditCard } from 'lucide-react';
+import type { TaxType, GstMode, Currency, PaymentMethod } from '@/types/settings';
 import { CURRENCY_OPTIONS, FONT_OPTIONS } from '@/types/settings';
 
 export default function Settings() {
@@ -40,11 +40,13 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="business"><Building2 className="h-4 w-4 mr-2" />Business</TabsTrigger>
           <TabsTrigger value="tax"><Receipt className="h-4 w-4 mr-2" />Tax</TabsTrigger>
           <TabsTrigger value="theme"><Palette className="h-4 w-4 mr-2" />Theme</TabsTrigger>
           <TabsTrigger value="currency"><Banknote className="h-4 w-4 mr-2" />Currency</TabsTrigger>
+          <TabsTrigger value="loyalty"><Gift className="h-4 w-4 mr-2" />Loyalty</TabsTrigger>
+          <TabsTrigger value="billing"><CreditCard className="h-4 w-4 mr-2" />Billing</TabsTrigger>
           <TabsTrigger value="printers"><Printer className="h-4 w-4 mr-2" />Printers</TabsTrigger>
           <TabsTrigger value="sync"><RefreshCw className="h-4 w-4 mr-2" />Sync</TabsTrigger>
         </TabsList>
@@ -154,6 +156,139 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <Label>Use Commas</Label>
                 <Switch checked={settings.currency.useCommas} onCheckedChange={(c) => updateSettings('currency', { ...settings.currency, useCommas: c })} />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Loyalty Settings Tab */}
+        <TabsContent value="loyalty" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Loyalty Points Configuration</CardTitle>
+              <CardDescription>Configure how customers earn and redeem loyalty points</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Enable Loyalty Program</Label>
+                  <p className="text-sm text-muted-foreground">Allow customers to earn and redeem points</p>
+                </div>
+                <Switch 
+                  checked={settings.loyalty.enabled} 
+                  onCheckedChange={(c) => updateSettings('loyalty', { ...settings.loyalty, enabled: c })} 
+                />
+              </div>
+
+              {settings.loyalty.enabled && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Amount for Points ({settings.currency.symbol})</Label>
+                      <Input 
+                        type="number" 
+                        value={settings.loyalty.amountForPoints} 
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, amountForPoints: Number(e.target.value) })} 
+                      />
+                      <p className="text-xs text-muted-foreground">Spend this amount to earn points</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Points Per Amount</Label>
+                      <Input 
+                        type="number" 
+                        value={settings.loyalty.pointsPerAmount} 
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, pointsPerAmount: Number(e.target.value) })} 
+                      />
+                      <p className="text-xs text-muted-foreground">Points earned per amount spent</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Redemption Value ({settings.currency.symbol})</Label>
+                      <Input 
+                        type="number" 
+                        value={settings.loyalty.redemptionValue} 
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, redemptionValue: Number(e.target.value) })} 
+                      />
+                      <p className="text-xs text-muted-foreground">Value of 1 point when redeemed</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Minimum Points to Redeem</Label>
+                      <Input 
+                        type="number" 
+                        value={settings.loyalty.minRedemptionPoints} 
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, minRedemptionPoints: Number(e.target.value) })} 
+                      />
+                      <p className="text-xs text-muted-foreground">Minimum points required for redemption</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium">Example:</p>
+                    <p className="text-sm text-muted-foreground">
+                      Customer spends {settings.currency.symbol}{settings.loyalty.amountForPoints} → Earns {settings.loyalty.pointsPerAmount} point(s)<br />
+                      {settings.loyalty.minRedemptionPoints} points can be redeemed for {settings.currency.symbol}{settings.loyalty.minRedemptionPoints * settings.loyalty.redemptionValue}
+                    </p>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Billing Defaults Tab */}
+        <TabsContent value="billing" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Billing Defaults</CardTitle>
+              <CardDescription>Configure default billing behavior</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Default Payment Method</Label>
+                <Select 
+                  value={settings.billing.defaultPaymentMethod} 
+                  onValueChange={(v) => updateSettings('billing', { ...settings.billing, defaultPaymentMethod: v as PaymentMethod })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="upi">UPI</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Used when pressing F2 for quick billing</p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Auto-settle on Print</Label>
+                  <p className="text-sm text-muted-foreground">Automatically settle bill when printing</p>
+                </div>
+                <Switch 
+                  checked={settings.billing.autoSettleOnPrint} 
+                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, autoSettleOnPrint: c })} 
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Print Customer Copy</Label>
+                  <p className="text-sm text-muted-foreground">Print an extra copy for customer</p>
+                </div>
+                <Switch 
+                  checked={settings.billing.printCustomerCopy} 
+                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, printCustomerCopy: c })} 
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Show Loyalty in Bill</Label>
+                  <p className="text-sm text-muted-foreground">Display loyalty points info on printed bill</p>
+                </div>
+                <Switch 
+                  checked={settings.billing.showLoyaltyInBill} 
+                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, showLoyaltyInBill: c })} 
+                />
               </div>
             </CardContent>
           </Card>
