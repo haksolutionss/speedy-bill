@@ -517,6 +517,59 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_permissions: {
+        Row: {
+          can_access_billing: boolean
+          can_access_customers: boolean
+          can_access_history: boolean
+          can_access_products: boolean
+          can_access_reports: boolean
+          can_access_settings: boolean
+          can_access_staff: boolean
+          can_access_tables: boolean
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_access_billing?: boolean
+          can_access_customers?: boolean
+          can_access_history?: boolean
+          can_access_products?: boolean
+          can_access_reports?: boolean
+          can_access_settings?: boolean
+          can_access_staff?: boolean
+          can_access_tables?: boolean
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_access_billing?: boolean
+          can_access_customers?: boolean
+          can_access_history?: boolean
+          can_access_products?: boolean
+          can_access_reports?: boolean
+          can_access_settings?: boolean
+          can_access_staff?: boolean
+          can_access_tables?: boolean
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_sections: {
         Row: {
           created_at: string
@@ -629,6 +682,35 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -638,6 +720,7 @@ export type Database = {
           name: string | null
           pin_hash: string
           role: string
+          session_expires_at: string | null
           updated_at: string
         }
         Insert: {
@@ -648,6 +731,7 @@ export type Database = {
           name?: string | null
           pin_hash: string
           role?: string
+          session_expires_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -658,6 +742,7 @@ export type Database = {
           name?: string | null
           pin_hash?: string
           role?: string
+          session_expires_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -670,9 +755,16 @@ export type Database = {
       generate_bill_number: { Args: never; Returns: string }
       generate_kot_number: { Args: never; Returns: string }
       generate_token_number: { Args: never; Returns: number }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "manager" | "staff"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -799,6 +891,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "manager", "staff"],
+    },
   },
 } as const
