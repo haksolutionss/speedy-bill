@@ -38,6 +38,8 @@ import {
   useUpdateTableMutation,
   useAddPaymentDetailsMutation,
 } from '@/store/redux/api/billingApi';
+import { useSettingsStore } from '@/store/settingsStore';
+import { usePrint } from '@/hooks/usePrint';
 import { BillTemplate } from '@/components/print/BillTemplate';
 import { DiscountModal } from './DiscountModal';
 import { CustomerModal } from './CustomerModal';
@@ -164,6 +166,7 @@ export function EditViewBillingModule({
 
   // Customer state
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
 
   // Item search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,6 +178,10 @@ export function EditViewBillingModule({
   const [quantity, setQuantity] = useState('1');
   const [searchStep, setSearchStep] = useState<'search' | 'portion' | 'quantity'>('search');
 
+  // Settings and print
+  const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
+  const { print } = usePrint();
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -185,10 +192,16 @@ export function EditViewBillingModule({
   const [addPaymentDetails] = useAddPaymentDetailsMutation();
   const { data: products = [] } = useGetProductsQuery();
 
-  // Calculate totals with current discount
+  // Calculate totals with current discount and loyalty
+  const loyaltyDiscount = calculateRedemptionValue(loyaltyPointsToUse);
   const totals = useMemo(() => {
-    return calculateTotals(items, discountType, discountValue);
-  }, [items, discountType, discountValue]);
+    const baseTotals = calculateTotals(items, discountType, discountValue);
+    return {
+      ...baseTotals,
+      loyaltyDiscount,
+      adjustedFinalAmount: Math.max(0, baseTotals.finalAmount - loyaltyDiscount),
+    };
+  }, [items, discountType, discountValue, loyaltyDiscount]);
 
   // Track if there are changes
   const hasChanges = useMemo(() => {
@@ -597,19 +610,37 @@ export function EditViewBillingModule({
     }
   };
 
-  // Handle save with settlement prompt
+  // Handle save with settlement prompt - also allow re-settlement for already settled bills
   const handleSaveWithSettlement = async () => {
-    // First check if already settled
-    if (bill.status === 'settled') {
-      await handleSave();
-      return;
-    }
-
-    // Show payment modal
+    // Show payment modal for both new settlement and re-settlement
     setShowPaymentModal(true);
   };
 
-  // Settle bill
+  // Update customer loyalty points helper
+  const updateCustomerLoyaltyPoints = async (customerId: string, usedPoints: number, earnedPoints: number) => {
+    try {
+      const { data: customerData } = await supabase
+        .from('customers')
+        .select('loyalty_points')
+        .eq('id', customerId)
+        .single();
+      
+      if (customerData) {
+        const newPoints = Math.max(0, customerData.loyalty_points - usedPoints + earnedPoints);
+        
+        await supabase
+          .from('customers')
+          .update({ loyalty_points: newPoints })
+          .eq('id', customerId);
+        
+        console.log('[EditBill] Updated customer loyalty:', { customerId, usedPoints, earnedPoints, newPoints });
+      }
+    } catch (error) {
+      console.error('[EditBill] Error updating loyalty points:', error);
+    }
+  };
+
+  // Settle bill (or re-settle)
   const handleSettleBill = async (method: 'cash' | 'card' | 'upi') => {
     setShowPaymentModal(false);
 
@@ -625,11 +656,18 @@ export function EditViewBillingModule({
           status: 'settled',
           payment_method: method,
           settled_at: new Date().toISOString(),
+          customer_id: selectedCustomer?.id || null,
         },
       }).unwrap();
 
-      // Free up the table
-      if (bill.table_id) {
+      // Update customer loyalty points if customer selected
+      if (selectedCustomer) {
+        const earnedPoints = calculateLoyaltyPoints(totals.adjustedFinalAmount);
+        await updateCustomerLoyaltyPoints(selectedCustomer.id, loyaltyPointsToUse, earnedPoints);
+      }
+
+      // Free up the table if it's still occupied
+      if (bill.table_id && bill.status !== 'settled') {
         await updateTable({
           id: bill.table_id,
           updates: {
@@ -640,13 +678,16 @@ export function EditViewBillingModule({
         }).unwrap();
       }
 
+      // Print bill instantly
+      print('counter');
+      
       setShowBillPreview(true);
       toast.success('Bill settled successfully');
 
       setTimeout(() => {
         setShowBillPreview(false);
         navigate('/history');
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error('Error settling bill:', error);
       toast.error('Failed to settle bill');
@@ -670,6 +711,7 @@ export function EditViewBillingModule({
           status: 'settled',
           payment_method: 'split',
           settled_at: new Date().toISOString(),
+          customer_id: selectedCustomer?.id || null,
         },
       }).unwrap();
 
@@ -679,8 +721,14 @@ export function EditViewBillingModule({
         payments,
       }).unwrap();
 
-      // Free up the table
-      if (bill.table_id) {
+      // Update customer loyalty points if customer selected
+      if (selectedCustomer) {
+        const earnedPoints = calculateLoyaltyPoints(totals.adjustedFinalAmount);
+        await updateCustomerLoyaltyPoints(selectedCustomer.id, loyaltyPointsToUse, earnedPoints);
+      }
+
+      // Free up the table if still occupied
+      if (bill.table_id && bill.status !== 'settled') {
         await updateTable({
           id: bill.table_id,
           updates: {
@@ -691,16 +739,26 @@ export function EditViewBillingModule({
         }).unwrap();
       }
 
+      // Print bill instantly
+      print('counter');
+      
       setShowBillPreview(true);
       toast.success('Bill settled successfully');
 
       setTimeout(() => {
         setShowBillPreview(false);
         navigate('/history');
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error('Error settling bill:', error);
       toast.error('Failed to settle bill');
+    }
+  };
+
+  // Handle loyalty points from customer modal
+  const handleUseLoyaltyPoints = (points: number) => {
+    if (selectedCustomer && points <= selectedCustomer.loyalty_points) {
+      setLoyaltyPointsToUse(points);
     }
   };
 
@@ -1325,6 +1383,9 @@ export function EditViewBillingModule({
         onClose={() => setShowCustomerModal(false)}
         onSelect={setSelectedCustomer}
         currentCustomer={selectedCustomer}
+        billAmount={totals.adjustedFinalAmount}
+        onUseLoyaltyPoints={handleUseLoyaltyPoints}
+        loyaltyPointsToUse={loyaltyPointsToUse}
       />
 
       <PaymentModal
@@ -1336,16 +1397,20 @@ export function EditViewBillingModule({
           setShowPaymentModal(false);
           setShowSplitPayment(true);
         }}
-        finalAmount={totals.finalAmount}
-        showNotNow={true}
+        finalAmount={totals.adjustedFinalAmount}
+        showNotNow={bill.status !== 'settled'}
         showSplit={true}
+        customer={selectedCustomer}
+        loyaltyPointsToUse={loyaltyPointsToUse}
+        loyaltyDiscount={totals.loyaltyDiscount}
+        pointsToEarn={calculateLoyaltyPoints(totals.adjustedFinalAmount)}
       />
 
       <SplitPaymentModal
         open={showSplitPayment}
         onClose={() => setShowSplitPayment(false)}
         onConfirm={handleSplitPayment}
-        finalAmount={totals.finalAmount}
+        finalAmount={totals.adjustedFinalAmount}
       />
 
       {/* Bill Preview Dialog */}

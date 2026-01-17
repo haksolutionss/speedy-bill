@@ -19,14 +19,21 @@ import type {
 // Cache time: 1 hour in seconds
 const ONE_HOUR = 60 * 60;
 
+// Stale time: 5 minutes (refetch after this)
+const FIVE_MINUTES = 5 * 60;
+
 export const billingApi = createApi({
   reducerPath: 'billingApi',
   baseQuery: fakeBaseQuery(),
   tagTypes: ['TableSections', 'Tables', 'Categories', 'Products', 'Bills', 'BillItems', 'Customers'],
-  // Keep unused data for 1 hour before refetching
+  // Keep unused data for 1 hour before garbage collection
   keepUnusedDataFor: ONE_HOUR,
-  // Refetch on mount after 1 hour
-  refetchOnMountOrArgChange: ONE_HOUR,
+  // Allow refetch on mount only after 5 minutes of stale data
+  refetchOnMountOrArgChange: FIVE_MINUTES,
+  // Don't refetch on window focus for faster perceived performance
+  refetchOnFocus: false,
+  // Don't refetch on reconnect for billing module - data is cached
+  refetchOnReconnect: false,
   endpoints: (builder) => ({
     // ============ TABLE SECTIONS ============
     getTableSections: builder.query<TableSectionWithTables[], void>({

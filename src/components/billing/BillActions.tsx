@@ -146,11 +146,11 @@ export function BillActions() {
     // Use default payment method from settings
     const defaultMethod = settings.billing.defaultPaymentMethod;
     
-    // Print bill directly
+    // Print bill instantly
     print('counter');
     
-    // Settle with default payment method
-    await settleBill(defaultMethod);
+    // Settle with default payment method - optimistic, runs in background
+    await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
     toast.success(`Bill settled with ${defaultMethod.toUpperCase()}`);
   };
 
@@ -191,16 +191,14 @@ export function BillActions() {
     setShowPaymentDialog(false);
     setShowBillPreview(true);
 
-    // Print bill
+    // Print bill instantly
     print('counter');
 
-    // Delay settlement to allow print
-    setTimeout(async () => {
-      await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse);
-      setShowBillPreview(false);
-      setSelectedCustomer(null);
-      setLoyaltyPointsToUse(0);
-    }, 100);
+    // Settlement is optimistic - runs in background
+    await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
+    setShowBillPreview(false);
+    setSelectedCustomer(null);
+    setLoyaltyPointsToUse(0);
   };
 
   const handleSplitPayment = async (payments: { method: 'cash' | 'card' | 'upi'; amount: number }[]) => {
@@ -208,14 +206,14 @@ export function BillActions() {
     setShowPaymentDialog(false);
     setShowBillPreview(true);
 
+    // Print bill instantly
     print('counter');
 
-    setTimeout(async () => {
-      await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse);
-      setShowBillPreview(false);
-      setSelectedCustomer(null);
-      setLoyaltyPointsToUse(0);
-    }, 100);
+    // Settlement is optimistic - runs in background
+    await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
+    setShowBillPreview(false);
+    setSelectedCustomer(null);
+    setLoyaltyPointsToUse(0);
   };
 
   const handleTotalAmountView = () => {
