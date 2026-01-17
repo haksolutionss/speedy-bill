@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
-import type { AppSettings, Printer } from '@/types/settings';
+import type { AppSettings, Printer, LoyaltySettings, BillingDefaults } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -16,6 +16,10 @@ interface SettingsState {
   loadSettings: () => Promise<void>;
   syncToSupabase: () => Promise<void>;
   resetSettings: () => void;
+  
+  // Loyalty helpers
+  calculateLoyaltyPoints: (amount: number) => number;
+  calculateRedemptionValue: (points: number) => number;
   
   // Printer actions
   loadPrinters: () => Promise<void>;
@@ -46,7 +50,7 @@ export const useSettingsStore = create<SettingsState>()(
         set({ isLoading: true });
         try {
           // Load each setting key from Supabase
-          const settingKeys = ['business', 'tax', 'theme', 'currency', 'sync', 'onboardingComplete'];
+          const settingKeys = ['business', 'tax', 'theme', 'currency', 'sync', 'loyalty', 'billing', 'onboardingComplete'];
           const { data, error } = await supabase
             .from('settings')
             .select('key, value')
@@ -84,6 +88,8 @@ export const useSettingsStore = create<SettingsState>()(
             { key: 'theme', value: settings.theme },
             { key: 'currency', value: settings.currency },
             { key: 'sync', value: settings.sync },
+            { key: 'loyalty', value: settings.loyalty },
+            { key: 'billing', value: settings.billing },
             { key: 'onboardingComplete', value: settings.onboardingComplete },
           ];
 
@@ -115,6 +121,19 @@ export const useSettingsStore = create<SettingsState>()(
 
       resetSettings: () => {
         set({ settings: DEFAULT_SETTINGS });
+      },
+
+      // Loyalty helpers
+      calculateLoyaltyPoints: (amount: number): number => {
+        const { loyalty } = get().settings;
+        if (!loyalty.enabled || loyalty.amountForPoints <= 0) return 0;
+        return Math.floor(amount / loyalty.amountForPoints) * loyalty.pointsPerAmount;
+      },
+
+      calculateRedemptionValue: (points: number): number => {
+        const { loyalty } = get().settings;
+        if (!loyalty.enabled || points < loyalty.minRedemptionPoints) return 0;
+        return points * loyalty.redemptionValue;
       },
 
       loadPrinters: async () => {

@@ -60,12 +60,33 @@ export interface SyncSettings {
   isPremium: boolean;
 }
 
+// Loyalty Points Configuration
+export interface LoyaltySettings {
+  enabled: boolean;
+  pointsPerAmount: number; // e.g., 1 point per ₹100
+  amountForPoints: number; // e.g., ₹100 = 1 point
+  redemptionValue: number; // e.g., 1 point = ₹1
+  minRedemptionPoints: number; // Minimum points required to redeem
+}
+
+// Billing Defaults
+export type PaymentMethod = 'cash' | 'card' | 'upi';
+
+export interface BillingDefaults {
+  defaultPaymentMethod: PaymentMethod;
+  autoSettleOnPrint: boolean;
+  printCustomerCopy: boolean;
+  showLoyaltyInBill: boolean;
+}
+
 export interface AppSettings {
   business: BusinessInfo;
   tax: TaxSettings;
   theme: ThemeSettings;
   currency: CurrencySettings;
   sync: SyncSettings;
+  loyalty: LoyaltySettings;
+  billing: BillingDefaults;
   onboardingComplete: boolean;
 }
 
@@ -101,6 +122,19 @@ export const DEFAULT_SETTINGS: AppSettings = {
     pollingInterval: 20,
     isPremium: false,
   },
+  loyalty: {
+    enabled: true,
+    pointsPerAmount: 1,
+    amountForPoints: 100, // ₹100 = 1 point
+    redemptionValue: 1, // 1 point = ₹1
+    minRedemptionPoints: 10,
+  },
+  billing: {
+    defaultPaymentMethod: 'cash',
+    autoSettleOnPrint: false,
+    printCustomerCopy: true,
+    showLoyaltyInBill: true,
+  },
   onboardingComplete: false,
 };
 
@@ -111,7 +145,42 @@ export interface User {
   role: 'admin' | 'staff' | 'manager';
   isActive: boolean;
   createdAt: string;
+  permissions?: StaffPermissions;
 }
+
+// Staff Permissions - module-level access control
+export interface StaffPermissions {
+  canAccessBilling: boolean;
+  canAccessProducts: boolean;
+  canAccessTables: boolean;
+  canAccessReports: boolean;
+  canAccessHistory: boolean;
+  canAccessSettings: boolean;
+  canAccessCustomers: boolean;
+  canAccessStaff: boolean;
+}
+
+export const DEFAULT_STAFF_PERMISSIONS: StaffPermissions = {
+  canAccessBilling: true,
+  canAccessProducts: false,
+  canAccessTables: false,
+  canAccessReports: false,
+  canAccessHistory: false,
+  canAccessSettings: false,
+  canAccessCustomers: false,
+  canAccessStaff: false,
+};
+
+export const ADMIN_PERMISSIONS: StaffPermissions = {
+  canAccessBilling: true,
+  canAccessProducts: true,
+  canAccessTables: true,
+  canAccessReports: true,
+  canAccessHistory: true,
+  canAccessSettings: true,
+  canAccessCustomers: true,
+  canAccessStaff: true,
+};
 
 export const CURRENCY_OPTIONS: { value: Currency; label: string; symbol: string }[] = [
   { value: 'INR', label: 'Indian Rupee', symbol: '₹' },
@@ -127,3 +196,14 @@ export const FONT_OPTIONS = [
   { value: 'Inter', label: 'Inter' },
   { value: 'Roboto', label: 'Roboto' },
 ];
+
+export const MODULE_OPTIONS = [
+  { key: 'canAccessBilling', label: 'Billing', description: 'Access to billing and POS' },
+  { key: 'canAccessProducts', label: 'Products', description: 'Manage products and categories' },
+  { key: 'canAccessTables', label: 'Tables', description: 'Manage tables and sections' },
+  { key: 'canAccessReports', label: 'Reports', description: 'View sales and analytics' },
+  { key: 'canAccessHistory', label: 'History', description: 'View bill history' },
+  { key: 'canAccessSettings', label: 'Settings', description: 'System configuration' },
+  { key: 'canAccessCustomers', label: 'Customers', description: 'Manage customers and loyalty' },
+  { key: 'canAccessStaff', label: 'Staff', description: 'Manage staff and permissions' },
+] as const;
