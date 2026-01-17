@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import type { CartItem } from '@/data/mockData';
+import type { CartItem } from '@/store/uiStore';
 
 interface BillTemplateProps {
   billNumber: string;
@@ -19,10 +19,14 @@ interface BillTemplateProps {
   isParcel?: boolean;
   coverCount?: number;
   restaurantName?: string;
-  restaurantAddress?: string;
+  address?: string;
+  phone?: string;
   gstin?: string;
   currencySymbol?: string;
   gstMode?: 'cgst_sgst' | 'igst';
+  customerName?: string;
+  loyaltyPointsUsed?: number;
+  loyaltyPointsEarned?: number;
 }
 
 export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
@@ -44,10 +48,14 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     isParcel,
     coverCount,
     restaurantName = "Hotel Aqsa",
-    restaurantAddress = "Juhapura",
+    address = "Juhapura",
+    phone = "",
     gstin = "27XXXXX1234X1ZX",
     currencySymbol = "₹",
-    gstMode = "cgst_sgst"
+    gstMode = "cgst_sgst",
+    customerName,
+    loyaltyPointsUsed = 0,
+    loyaltyPointsEarned = 0,
   }, ref) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -252,8 +260,9 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 
         <div className="bill-header">
           <div className="bill-restaurant-name">{restaurantName}</div>
-          <div className="bill-address">{restaurantAddress}</div>
-          <div className="bill-gstin">GSTIN: {gstin}</div>
+          <div className="bill-address">{address}</div>
+          {phone && <div className="bill-address">Tel: {phone}</div>}
+          {gstin && <div className="bill-gstin">GSTIN: {gstin}</div>}
         </div>
 
         <div className="bill-info">
@@ -360,6 +369,15 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         {paymentMethod && (
           <div className="bill-payment">
             <strong>PAID BY: {paymentMethod.toUpperCase()}</strong>
+          </div>
+        )}
+
+        {/* Loyalty Info */}
+        {(loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0 || customerName) && (
+          <div style={{ marginTop: '8px', padding: '4px 0', borderTop: '1px dashed #000', fontSize: '10px' }}>
+            {customerName && <div>Customer: {customerName}</div>}
+            {loyaltyPointsUsed > 0 && <div>Points Redeemed: {loyaltyPointsUsed}</div>}
+            {loyaltyPointsEarned > 0 && <div>Points Earned: +{loyaltyPointsEarned}</div>}
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -9,21 +9,33 @@ import {
   Menu,
   Settings,
   BarChart3,
-  LogOut
+  LogOut,
+  Users,
+  UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import type { StaffPermissions } from '@/types/settings';
 
-const navItems = [
-  { path: '/', label: 'Billing', icon: ShoppingCart },
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/products', label: 'Products', icon: Package },
-  { path: '/tables', label: 'Tables', icon: MapPin },
-  { path: '/history', label: 'History', icon: History },
-  { path: '/settings', label: 'Settings', icon: Settings },
+interface NavItem {
+  path: string;
+  label: string;
+  icon: typeof ShoppingCart;
+  permission?: keyof StaffPermissions;
+}
+
+const allNavItems: NavItem[] = [
+  { path: '/', label: 'Billing', icon: ShoppingCart, permission: 'canAccessBilling' },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessReports' },
+  { path: '/reports', label: 'Reports', icon: BarChart3, permission: 'canAccessReports' },
+  { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' },
+  { path: '/tables', label: 'Tables', icon: MapPin, permission: 'canAccessTables' },
+  { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessCustomers' },
+  { path: '/staff', label: 'Staff', icon: UserCog, permission: 'canAccessStaff' },
+  { path: '/history', label: 'History', icon: History, permission: 'canAccessHistory' },
+  { path: '/settings', label: 'Settings', icon: Settings, permission: 'canAccessSettings' },
 ];
 
 interface AppLayoutProps {
@@ -33,8 +45,16 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, hasPermission } = useAuthStore();
   const { settings } = useSettingsStore();
+
+  // Filter nav items based on user permissions
+  const navItems = useMemo(() => {
+    return allNavItems.filter(item => {
+      if (!item.permission) return true;
+      return hasPermission(item.permission);
+    });
+  }, [hasPermission, user?.permissions]);
 
   // Auth and onboarding pages should render without layout
   const isAuthPage = location.pathname === '/auth' || location.pathname === '/onboarding';

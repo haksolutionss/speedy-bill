@@ -191,7 +191,9 @@ export function useBillingOperations() {
   const settleBill = useCallback(
     async (
       paymentMethod: 'cash' | 'card' | 'upi' | 'split',
-      paymentDetails?: { method: 'cash' | 'card' | 'upi'; amount: number }[]
+      paymentDetails?: { method: 'cash' | 'card' | 'upi'; amount: number }[],
+      customerId?: string,
+      loyaltyPointsUsed?: number
     ) => {
       if (cart.length === 0) {
         toast.error('Cart is empty');
@@ -213,6 +215,7 @@ export function useBillingOperations() {
             status: 'settled',
             payment_method: paymentMethod,
             settled_at: new Date().toISOString(),
+            customer_id: customerId || null,
           },
         }).unwrap();
 
@@ -222,6 +225,23 @@ export function useBillingOperations() {
             billId,
             payments: paymentDetails,
           }).unwrap();
+        }
+
+        // Update customer loyalty points if customer selected
+        if (customerId && loyaltyPointsUsed && loyaltyPointsUsed > 0) {
+          // Fetch current points and deduct used points
+          const { data: customerData } = await supabase
+            .from('customers')
+            .select('loyalty_points')
+            .eq('id', customerId)
+            .single();
+          
+          if (customerData) {
+            await supabase
+              .from('customers')
+              .update({ loyalty_points: Math.max(0, customerData.loyalty_points - loyaltyPointsUsed) })
+              .eq('id', customerId);
+          }
         }
 
         // Free up the table and clear cart from Supabase
@@ -250,7 +270,7 @@ export function useBillingOperations() {
         return false;
       }
     },
-    [cart, currentBillId, selectedTable, saveOrUpdateBill, updateBill, updateTable, addPaymentDetails, resetBillingState]
+    [cart, currentBillId, selectedTable, discountType, discountValue, saveOrUpdateBill, updateBill, updateTable, addPaymentDetails, resetBillingState]
   );
 
   const saveAsUnsettled = useCallback(async () => {
