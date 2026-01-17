@@ -180,8 +180,8 @@ export default function Customers() {
   };
 
   const calculatePointsValue = (points: number) => {
-    const { loyalty } = settings;
-    return points * loyalty.redemptionValue;
+    const redemptionValue = settings?.loyalty?.redemptionValue ?? 1;
+    return points * redemptionValue;
   };
 
   if (isLoading) {
@@ -259,7 +259,7 @@ export default function Customers() {
                   {customer.loyalty_points} pts
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  = {settings.currency.symbol}{calculatePointsValue(customer.loyalty_points)}
+                  = {settings?.currency?.symbol ?? '₹'}{calculatePointsValue(customer.loyalty_points)}
                 </span>
               </div>
             </CardContent>
@@ -371,7 +371,7 @@ export default function Customers() {
                 min={0}
               />
               <p className="text-xs text-muted-foreground">
-                Value: {settings.currency.symbol}{calculatePointsValue(formPoints)}
+                Value: {settings?.currency?.symbol ?? '₹'}{calculatePointsValue(formPoints)}
               </p>
             </div>
           </div>
