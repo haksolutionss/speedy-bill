@@ -21,6 +21,8 @@ interface BillTemplateProps {
   restaurantName?: string;
   restaurantAddress?: string;
   gstin?: string;
+  currencySymbol?: string;
+  gstMode?: 'cgst_sgst' | 'igst';
 }
 
 export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
@@ -43,14 +45,16 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     coverCount,
     restaurantName = "Hotel Aqsa",
     restaurantAddress = "Juhapura",
-    gstin = "27XXXXX1234X1ZX"
+    gstin = "27XXXXX1234X1ZX",
+    currencySymbol = "₹",
+    gstMode = "cgst_sgst"
   }, ref) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     // Group items by GST rate for tax breakdown
-    const gstBreakdown: Record<number, { taxableAmount: number; cgst: number; sgst: number }> = {};
+    const gstBreakdown: Record<number, { taxableAmount: number; cgst: number; sgst: number; igst: number }> = {};
     items.forEach(item => {
       const itemTotal = item.unitPrice * item.quantity;
       const itemDiscount = discountAmount > 0 ? (itemTotal / subTotal) * discountAmount : 0;
@@ -58,11 +62,15 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
       const gst = taxableAmount * (item.gstRate / 100);
 
       if (!gstBreakdown[item.gstRate]) {
-        gstBreakdown[item.gstRate] = { taxableAmount: 0, cgst: 0, sgst: 0 };
+        gstBreakdown[item.gstRate] = { taxableAmount: 0, cgst: 0, sgst: 0, igst: 0 };
       }
       gstBreakdown[item.gstRate].taxableAmount += taxableAmount;
-      gstBreakdown[item.gstRate].cgst += gst / 2;
-      gstBreakdown[item.gstRate].sgst += gst / 2;
+      if (gstMode === 'igst') {
+        gstBreakdown[item.gstRate].igst += gst;
+      } else {
+        gstBreakdown[item.gstRate].cgst += gst / 2;
+        gstBreakdown[item.gstRate].sgst += gst / 2;
+      }
     });
 
     return (
@@ -290,7 +298,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         <div className="bill-totals">
           <div className="bill-total-row">
             <span>Sub Total:</span>
-            <span>₹{subTotal.toFixed(2)}</span>
+            <span>{currencySymbol}{subTotal.toFixed(2)}</span>
           </div>
           {discountAmount > 0 && (
             <div className="bill-total-row">
@@ -299,20 +307,29 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
                 {discountType === 'percentage' ? ` (${discountValue}%)` : ''}
                 {discountReason && ` - ${discountReason}`}:
               </span>
-              <span>-₹{discountAmount.toFixed(2)}</span>
+              <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
             </div>
           )}
-          <div className="bill-total-row">
-            <span>CGST:</span>
-            <span>₹{cgstAmount.toFixed(2)}</span>
-          </div>
-          <div className="bill-total-row">
-            <span>SGST:</span>
-            <span>₹{sgstAmount.toFixed(2)}</span>
-          </div>
+          {gstMode === 'igst' ? (
+            <div className="bill-total-row">
+              <span>IGST:</span>
+              <span>{currencySymbol}{(cgstAmount + sgstAmount).toFixed(2)}</span>
+            </div>
+          ) : (
+            <>
+              <div className="bill-total-row">
+                <span>CGST:</span>
+                <span>{currencySymbol}{cgstAmount.toFixed(2)}</span>
+              </div>
+              <div className="bill-total-row">
+                <span>SGST:</span>
+                <span>{currencySymbol}{sgstAmount.toFixed(2)}</span>
+              </div>
+            </>
+          )}
           <div className="bill-total-row final">
             <span>GRAND TOTAL:</span>
-            <span>₹{finalAmount.toFixed(2)}</span>
+            <span>{currencySymbol}{finalAmount.toFixed(2)}</span>
           </div>
         </div>
 
@@ -321,15 +338,20 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             <div className="bill-gst-header">
               <span>GST%</span>
               <span>Taxable</span>
-              <span>CGST</span>
-              <span>SGST</span>
+              {gstMode === 'igst' ? <span>IGST</span> : <><span>CGST</span><span>SGST</span></>}
             </div>
             {Object.entries(gstBreakdown).map(([rate, data]) => (
               <div key={rate} className="bill-gst-row">
                 <span>{rate}%</span>
                 <span>{data.taxableAmount.toFixed(2)}</span>
-                <span>{data.cgst.toFixed(2)}</span>
-                <span>{data.sgst.toFixed(2)}</span>
+                {gstMode === 'igst' ? (
+                  <span>{data.igst.toFixed(2)}</span>
+                ) : (
+                  <>
+                    <span>{data.cgst.toFixed(2)}</span>
+                    <span>{data.sgst.toFixed(2)}</span>
+                  </>
+                )}
               </div>
             ))}
           </div>
