@@ -125,13 +125,13 @@ export const useSettingsStore = create<SettingsState>()(
 
       // Loyalty helpers
       calculateLoyaltyPoints: (amount: number): number => {
-        const { loyalty } = get().settings;
+        const loyalty = get().settings?.loyalty ?? DEFAULT_SETTINGS.loyalty;
         if (!loyalty.enabled || loyalty.amountForPoints <= 0) return 0;
         return Math.floor(amount / loyalty.amountForPoints) * loyalty.pointsPerAmount;
       },
 
       calculateRedemptionValue: (points: number): number => {
-        const { loyalty } = get().settings;
+        const loyalty = get().settings?.loyalty ?? DEFAULT_SETTINGS.loyalty;
         if (!loyalty.enabled || points < loyalty.minRedemptionPoints) return 0;
         return points * loyalty.redemptionValue;
       },
