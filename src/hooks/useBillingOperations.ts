@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useUIStore, calculateBillTotals, type CartItem } from '@/store/uiStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useCreateBillMutation,
@@ -49,6 +50,8 @@ export function useBillingOperations() {
     getNextToken,
     setCurrentBillId,
   } = useUIStore();
+
+  const { calculateLoyaltyPoints } = useSettingsStore();
 
   const [createBill] = useCreateBillMutation();
   const [updateBill] = useUpdateBillMutation();
@@ -193,84 +196,104 @@ export function useBillingOperations() {
       paymentMethod: 'cash' | 'card' | 'upi' | 'split',
       paymentDetails?: { method: 'cash' | 'card' | 'upi'; amount: number }[],
       customerId?: string,
-      loyaltyPointsUsed?: number
+      loyaltyPointsUsed?: number,
+      finalAmount?: number
     ) => {
       if (cart.length === 0) {
         toast.error('Cart is empty');
         return false;
       }
 
-      try {
-        // First save/update the bill
-        let billId = currentBillId;
-        if (!billId) {
-          billId = await saveOrUpdateBill();
-          if (!billId) return false;
-        }
+      // Optimistically reset state for instant UI feedback
+      const tableToUpdate = selectedTable;
+      resetBillingState();
 
-        // Update bill status to settled
-        await updateBill({
-          id: billId,
-          updates: {
-            status: 'settled',
-            payment_method: paymentMethod,
-            settled_at: new Date().toISOString(),
-            customer_id: customerId || null,
-          },
-        }).unwrap();
-
-        // Add payment details if split payment
-        if (paymentMethod === 'split' && paymentDetails) {
-          await addPaymentDetails({
-            billId,
-            payments: paymentDetails,
-          }).unwrap();
-        }
-
-        // Update customer loyalty points if customer selected
-        if (customerId && loyaltyPointsUsed && loyaltyPointsUsed > 0) {
-          // Fetch current points and deduct used points
-          const { data: customerData } = await supabase
-            .from('customers')
-            .select('loyalty_points')
-            .eq('id', customerId)
-            .single();
-          
-          if (customerData) {
-            await supabase
-              .from('customers')
-              .update({ loyalty_points: Math.max(0, customerData.loyalty_points - loyaltyPointsUsed) })
-              .eq('id', customerId);
+      // Do all DB operations in background
+      (async () => {
+        try {
+          // First save/update the bill
+          let billId = currentBillId;
+          if (!billId) {
+            billId = await saveOrUpdateBill();
+            if (!billId) return;
           }
-        }
 
-        // Free up the table and clear cart from Supabase
-        if (selectedTable) {
-          await updateTable({
-            id: selectedTable.id,
+          // Update bill status to settled
+          await updateBill({
+            id: billId,
             updates: {
-              status: 'available',
-              current_bill_id: null,
-              current_amount: null,
+              status: 'settled',
+              payment_method: paymentMethod,
+              settled_at: new Date().toISOString(),
+              customer_id: customerId || null,
             },
           }).unwrap();
-          
-          // Clear any remaining cart items from Supabase
-          await clearCartFromSupabase(selectedTable.id);
+
+          // Add payment details if split payment
+          if (paymentMethod === 'split' && paymentDetails) {
+            await addPaymentDetails({
+              billId,
+              payments: paymentDetails,
+            }).unwrap();
+          }
+
+          // Update customer loyalty points if customer selected
+          if (customerId) {
+            const { data: customerData } = await supabase
+              .from('customers')
+              .select('loyalty_points')
+              .eq('id', customerId)
+              .single();
+            
+            if (customerData) {
+              // Calculate points to deduct (used) and add (earned)
+              const usedPoints = loyaltyPointsUsed || 0;
+              const billAmount = finalAmount ?? calculateBillTotals(cart, discountType, discountValue).finalAmount;
+              const earnedPoints = calculateLoyaltyPoints(billAmount);
+              
+              const newPoints = Math.max(0, customerData.loyalty_points - usedPoints + earnedPoints);
+              
+              await supabase
+                .from('customers')
+                .update({ loyalty_points: newPoints })
+                .eq('id', customerId);
+              
+              console.log('[BillingOps] Updated customer loyalty points:', {
+                customerId,
+                oldPoints: customerData.loyalty_points,
+                usedPoints,
+                earnedPoints,
+                newPoints
+              });
+            }
+          }
+
+          // Free up the table and clear cart from Supabase
+          if (tableToUpdate) {
+            await updateTable({
+              id: tableToUpdate.id,
+              updates: {
+                status: 'available',
+                current_bill_id: null,
+                current_amount: null,
+              },
+            }).unwrap();
+            
+            // Clear any remaining cart items from Supabase
+            await clearCartFromSupabase(tableToUpdate.id);
+          }
+
+          console.log('[BillingOps] Bill settled successfully in background');
+        } catch (error) {
+          console.error('[BillingOps] Error settling bill in background:', error);
+          // Error is logged but UI has already responded
         }
+      })();
 
-        // Reset local state
-        resetBillingState();
-
-        toast.success('Bill settled successfully');
-        return true;
-      } catch (error) {
-        console.error('Error settling bill:', error);
-        toast.error('Failed to settle bill');
-        return false;
-      }
+      toast.success('Bill settled successfully');
+      return true;
     },
-    [cart, currentBillId, selectedTable, discountType, discountValue, saveOrUpdateBill, updateBill, updateTable, addPaymentDetails, resetBillingState]
+    [cart, currentBillId, selectedTable, discountType, discountValue, saveOrUpdateBill, updateBill, updateTable, addPaymentDetails, resetBillingState, calculateLoyaltyPoints]
   );
 
   const saveAsUnsettled = useCallback(async () => {
