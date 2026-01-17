@@ -8,13 +8,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSettingsStore } from '@/store/settingsStore';
+import { PrinterDiscovery } from '@/components/settings/PrinterDiscovery';
 import { toast } from 'sonner';
-import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save, Plus, Trash2 } from 'lucide-react';
-import type { TaxType, GstMode, Currency, PrinterRole, PrintFormat, Printer as PrinterType } from '@/types/settings';
+import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save } from 'lucide-react';
+import type { TaxType, GstMode, Currency } from '@/types/settings';
 import { CURRENCY_OPTIONS, FONT_OPTIONS } from '@/types/settings';
 
 export default function Settings() {
-  const { settings, printers, updateSettings, loadPrinters, addPrinter, deletePrinter, setDefaultPrinter } = useSettingsStore();
+  const { settings, updateSettings, loadPrinters } = useSettingsStore();
   const [activeTab, setActiveTab] = useState('business');
 
   useEffect(() => {
@@ -159,33 +160,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="printers" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Printer Configuration</CardTitle>
-              <CardDescription>Configure printers for KOT and bills</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {printers.map(p => (
-                  <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">{p.name}</p>
-                      <p className="text-sm text-muted-foreground">{p.ipAddress}:{p.port} • {p.role} • {p.format}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setDefaultPrinter(p.id, p.role)}>
-                        {p.isDefault ? 'Default' : 'Set Default'}
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deletePrinter(p.id)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full" onClick={() => addPrinter({ name: 'New Printer', ipAddress: '192.168.1.100', port: 9100, type: 'network', role: 'counter', format: '76mm', isActive: true, isDefault: false })}>
-                  <Plus className="h-4 w-4 mr-2" />Add Printer
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <PrinterDiscovery />
         </TabsContent>
 
         <TabsContent value="sync" className="mt-6">
