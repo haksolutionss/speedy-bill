@@ -68,12 +68,6 @@ export const ElectronPrinterSetup: React.FC = () => {
     
     return () => clearInterval(interval);
   }, [isElectronEnv, printers, checkPrinterStatus]);
-    
-    checkStatuses();
-    const interval = setInterval(checkStatuses, 30000); // Check every 30 seconds
-    
-    return () => clearInterval(interval);
-  }, [isElectronEnv, settings.printers, checkPrinterStatus]);
 
   const handleScanUSB = async () => {
     setIsScanning(true);
