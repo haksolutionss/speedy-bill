@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useSettingsStore } from '@/store/settingsStore';
-import { discoverNetworkPrinters, discoverBluetoothPrinters } from '@/lib/printService';
+import { discoverBluetoothPrinters } from '@/lib/printService';
 import { connectUSBPrinter, connectBluetoothPrinter } from '@/lib/escpos/printer';
 import { useThermalPrint } from '@/hooks/useThermalPrint';
 import { toast } from 'sonner';
@@ -41,37 +41,14 @@ export function PrinterDiscovery() {
     format: '80mm' as PrintFormat,
   });
 
-  const handleNetworkScan = async () => {
-    setIsScanning(true);
-    setScanType('network');
-    setDiscoveredPrinters([]);
-    
-    try {
-      toast.info('Scanning network for printers...');
-      const found = await discoverNetworkPrinters();
-      
-      const mapped: DiscoveredPrinter[] = found.map(p => ({
-        ip: p.ip,
-        name: p.name,
-        port: p.port,
-        type: 'network' as const,
-      }));
-      
-      setDiscoveredPrinters(mapped);
-      setShowDiscoveryResults(true);
-      
-      if (found.length === 0) {
-        toast.info('No network printers found. Try adding manually.');
-      } else {
-        toast.success(`Found ${found.length} printer(s)`);
-      }
-    } catch (error) {
-      console.error('Network scan error:', error);
-      toast.error('Network scan failed');
-    } finally {
-      setIsScanning(false);
-      setScanType(null);
-    }
+  // Network scan is not available from HTTPS due to Mixed Content restrictions
+  // Users should add network printers manually
+  const handleNetworkInfo = () => {
+    toast.info(
+      'Network printers must be added manually due to browser security restrictions. ' +
+      'Use USB or Bluetooth for automatic detection.',
+      { duration: 5000 }
+    );
   };
 
   const handleBluetoothScan = async () => {
@@ -227,7 +204,8 @@ export function PrinterDiscovery() {
           Printer Configuration
         </CardTitle>
         <CardDescription>
-          Connect thermal printers for instant KOT and bill printing
+          Connect thermal printers for instant KOT and bill printing.
+          USB and Bluetooth work directly; network printers need manual setup.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -259,22 +237,19 @@ export function PrinterDiscovery() {
             Scan Bluetooth
           </Button>
           
-          <Button
-            variant="outline"
-            onClick={handleNetworkScan}
-            disabled={isScanning}
-          >
-            {isScanning && scanType === 'network' ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Wifi className="h-4 w-4 mr-2" />
-            )}
-            Scan Network
-          </Button>
-
           <Button variant="outline" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Manually
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleNetworkInfo}
+            className="text-muted-foreground"
+          >
+            <Wifi className="h-4 w-4 mr-2" />
+            Network Printers?
           </Button>
         </div>
 
