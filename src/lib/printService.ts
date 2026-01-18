@@ -80,67 +80,30 @@ export const printWithBrowser = (content: HTMLElement, format: PrintFormat = '76
   }, 250);
 };
 
-// Network printer discovery using WebSocket/HTTP probing
+/**
+ * Network Printer Architecture Notice:
+ * 
+ * HTTPS web apps cannot directly connect to local HTTP printer IPs due to 
+ * Mixed Content restrictions in browsers. For network printers, we support:
+ * 
+ * 1. USB Printers - Use WebUSB API (recommended for POS)
+ * 2. Bluetooth Printers - Use Web Bluetooth API
+ * 3. Network Printers - Use browser print dialog with paper size presets
+ * 
+ * For direct network printing, users need a Local Print Agent:
+ * - A small desktop app running on localhost:8080 (or similar)
+ * - Handles the raw TCP communication to printers
+ * - Web app communicates with agent via secure WebSocket
+ */
+
+// Network printer discovery - returns empty array since we can't probe HTTP from HTTPS
+// Users should add network printers manually with their IP/port
 export const discoverNetworkPrinters = async (): Promise<Array<{ ip: string; name: string; port: number }>> => {
-  const discoveredPrinters: Array<{ ip: string; name: string; port: number }> = [];
-  
-  // Common printer ports
-  const printerPorts = [9100, 515, 631];
-  
-  // Get local network range (common ranges)
-  const networkRanges = [
-    '192.168.1',
-    '192.168.0',
-    '10.0.0',
-  ];
-
-  // Probe for printers using fetch with timeout
-  const probeAddress = async (ip: string, port: number): Promise<boolean> => {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 500);
-      
-      // Try HTTP probe for web-enabled printers
-      const response = await fetch(`http://${ip}:${port === 631 ? 631 : 80}/`, {
-        method: 'HEAD',
-        signal: controller.signal,
-      }).catch(() => null);
-      
-      clearTimeout(timeout);
-      return response !== null;
-    } catch {
-      return false;
-    }
-  };
-
-  // Limited scan for performance
-  for (const range of networkRanges) {
-    const promises: Promise<void>[] = [];
-    
-    for (let i = 1; i <= 50; i++) {
-      const ip = `${range}.${i}`;
-      
-      promises.push(
-        (async () => {
-          for (const port of printerPorts) {
-            const found = await probeAddress(ip, port);
-            if (found) {
-              discoveredPrinters.push({
-                ip,
-                name: `Printer at ${ip}`,
-                port,
-              });
-              break;
-            }
-          }
-        })()
-      );
-    }
-    
-    await Promise.all(promises);
-  }
-
-  return discoveredPrinters;
+  console.info(
+    'Network printer auto-discovery is not available from HTTPS websites due to security restrictions. ' +
+    'Please add network printers manually or use USB/Bluetooth connection.'
+  );
+  return [];
 };
 
 // Bluetooth printer discovery (Web Bluetooth API)
@@ -177,16 +140,72 @@ export const discoverBluetoothPrinters = async (): Promise<Array<{ id: string; n
   return [];
 };
 
-// Print to network printer via raw socket (requires backend support)
+/**
+ * Network Printer Printing
+ * 
+ * Due to browser security restrictions, HTTPS pages cannot make HTTP requests
+ * to local network IPs (Mixed Content). For network printers, we:
+ * 
+ * 1. Try Local Print Agent (if available) - secure WebSocket on localhost
+ * 2. Fall back to browser print dialog with correct paper size
+ */
 export const printToNetworkPrinter = async (
   printer: Printer,
   content: string
 ): Promise<boolean> => {
-  // For direct network printing, we'd need a backend proxy
-  // since browsers can't open raw TCP sockets
-  // This is a placeholder that uses browser print as fallback
-  console.warn('Direct network printing requires backend support. Using browser print.');
+  // Check for local print agent (runs on localhost which is allowed)
+  const agentAvailable = await checkLocalPrintAgent();
+  
+  if (agentAvailable && printer.ipAddress && printer.port) {
+    try {
+      const response = await fetch('http://localhost:8765/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printerIp: printer.ipAddress,
+          printerPort: printer.port,
+          content: content,
+          format: printer.format,
+        }),
+      });
+      
+      if (response.ok) {
+        console.log('Printed via Local Print Agent');
+        return true;
+      }
+    } catch (error) {
+      console.warn('Local Print Agent error, falling back to browser print:', error);
+    }
+  }
+  
+  // Browser fallback - Mixed Content prevents direct network printing
+  console.info(
+    'Network printing requires Local Print Agent. ' +
+    'Install the POS Print Agent for direct thermal printing.'
+  );
   return false;
+};
+
+/**
+ * Check if Local Print Agent is running
+ * Agent runs on localhost:8765 to bridge web app to network printers
+ */
+export const checkLocalPrintAgent = async (): Promise<boolean> => {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1000);
+    
+    // localhost is allowed from HTTPS (same-origin policy exception)
+    const response = await fetch('http://localhost:8765/health', {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeout);
+    return response.ok;
+  } catch {
+    return false;
+  }
 };
 
 // Print to Bluetooth printer
