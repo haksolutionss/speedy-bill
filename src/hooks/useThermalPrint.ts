@@ -49,23 +49,30 @@ export function useThermalPrint() {
       kotNumber: data.kotNumber || 1,
     };
 
-    // Try thermal printing first if printer is configured
-    if (printer && (printer.type === 'usb' || printer.type === 'bluetooth')) {
-      try {
-        const success = await printKOT(printer, kotData);
-        if (success) {
-          console.log('KOT printed to thermal printer');
-          return { success: true, method: 'thermal' };
+    // Try thermal printing if printer is configured (USB or Bluetooth)
+    if (printer) {
+      if (printer.type === 'usb' || printer.type === 'bluetooth') {
+        try {
+          const success = await printKOT(printer, kotData);
+          if (success) {
+            console.log('KOT printed to thermal printer:', printer.name);
+            return { success: true, method: 'thermal' };
+          }
+        } catch (error) {
+          console.error('Thermal KOT print failed:', error);
         }
-      } catch (error) {
-        console.error('Thermal KOT print failed:', error);
+      }
+      
+      // For network printers or failed thermal, use browser print with correct paper size
+      if (printerRef?.current) {
+        printWithBrowser(printerRef.current, printer.format);
+        return { success: true, method: 'browser' };
       }
     }
 
-    // Fallback to browser print
+    // No printer configured - fallback to browser print with default size
     if (printerRef?.current) {
-      const format = printer?.format || '76mm';
-      printWithBrowser(printerRef.current, format);
+      printWithBrowser(printerRef.current, '80mm');
       return { success: true, method: 'browser' };
     }
 
@@ -114,23 +121,30 @@ export function useThermalPrint() {
       gstMode,
     };
 
-    // Try thermal printing first if printer is configured
-    if (printer && (printer.type === 'usb' || printer.type === 'bluetooth')) {
-      try {
-        const success = await printBill(printer, fullBillData);
-        if (success) {
-          console.log('Bill printed to thermal printer');
-          return { success: true, method: 'thermal' };
+    // Try thermal printing if printer is configured (USB or Bluetooth)
+    if (printer) {
+      if (printer.type === 'usb' || printer.type === 'bluetooth') {
+        try {
+          const success = await printBill(printer, fullBillData);
+          if (success) {
+            console.log('Bill printed to thermal printer:', printer.name);
+            return { success: true, method: 'thermal' };
+          }
+        } catch (error) {
+          console.error('Thermal Bill print failed:', error);
         }
-      } catch (error) {
-        console.error('Thermal Bill print failed:', error);
+      }
+      
+      // For network printers or failed thermal, use browser print with correct paper size
+      if (printerRef?.current) {
+        printWithBrowser(printerRef.current, printer.format);
+        return { success: true, method: 'browser' };
       }
     }
 
-    // Fallback to browser print
+    // No printer configured - fallback to browser print with default size
     if (printerRef?.current) {
-      const format = printer?.format || '76mm';
-      printWithBrowser(printerRef.current, format);
+      printWithBrowser(printerRef.current, '80mm');
       return { success: true, method: 'browser' };
     }
 
