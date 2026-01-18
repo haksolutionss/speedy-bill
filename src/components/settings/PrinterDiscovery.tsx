@@ -1,34 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSettingsStore } from '@/store/settingsStore';
-import { discoverBluetoothPrinters } from '@/lib/printService';
-import { connectUSBPrinter, connectBluetoothPrinter } from '@/lib/escpos/printer';
-import { useThermalPrint } from '@/hooks/useThermalPrint';
+import { usePrintQueue } from '@/hooks/usePrintQueue';
 import { toast } from 'sonner';
-import { Printer, Plus, Bluetooth, Wifi, Loader2, Trash2, Star, Usb, CircleDot, TestTube } from 'lucide-react';
-import type { PrinterRole, PrintFormat, PrinterType, Printer as PrinterConfig } from '@/types/settings';
-
-interface DiscoveredPrinter {
-  ip?: string;
-  id?: string;
-  name: string;
-  port?: number;
-  type: 'network' | 'bluetooth' | 'usb';
-}
+import { 
+  Printer, Plus, Wifi, Loader2, Trash2, Star, 
+  CircleDot, TestTube, Download, RefreshCw, CheckCircle2, XCircle 
+} from 'lucide-react';
+import type { PrinterRole, PrintFormat, Printer as PrinterConfig } from '@/types/settings';
 
 export function PrinterDiscovery() {
   const { printers, addPrinter, deletePrinter, setDefaultPrinter, loadPrinters } = useSettingsStore();
-  const { testPrint, checkPrinterStatus } = useThermalPrint();
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanType, setScanType] = useState<'network' | 'bluetooth' | 'usb' | null>(null);
-  const [discoveredPrinters, setDiscoveredPrinters] = useState<DiscoveredPrinter[]>([]);
+  const { testPrint, agentStatus, refreshAgentStatus, isChecking } = usePrintQueue();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showDiscoveryResults, setShowDiscoveryResults] = useState(false);
   const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
 
   // Manual add form
@@ -36,101 +26,9 @@ export function PrinterDiscovery() {
     name: '',
     ipAddress: '',
     port: 9100,
-    type: 'usb' as PrinterType,
     role: 'counter' as PrinterRole,
     format: '80mm' as PrintFormat,
   });
-
-  // Network scan is not available from HTTPS due to Mixed Content restrictions
-  // Users should add network printers manually
-  const handleNetworkInfo = () => {
-    toast.info(
-      'Network printers must be added manually due to browser security restrictions. ' +
-      'Use USB or Bluetooth for automatic detection.',
-      { duration: 5000 }
-    );
-  };
-
-  const handleBluetoothScan = async () => {
-    setIsScanning(true);
-    setScanType('bluetooth');
-    setDiscoveredPrinters([]);
-    
-    try {
-      toast.info('Scanning for Bluetooth printers...');
-      const found = await discoverBluetoothPrinters();
-      
-      const mapped: DiscoveredPrinter[] = found.map(p => ({
-        id: p.id,
-        name: p.name,
-        type: 'bluetooth' as const,
-      }));
-      
-      setDiscoveredPrinters(mapped);
-      setShowDiscoveryResults(true);
-      
-      if (found.length === 0) {
-        toast.info('No Bluetooth printers found. Ensure pairing mode is active.');
-      } else {
-        toast.success(`Found ${found.length} printer(s)`);
-      }
-    } catch (error) {
-      console.error('Bluetooth scan error:', error);
-      toast.error('Bluetooth scan failed. Make sure Bluetooth is enabled.');
-    } finally {
-      setIsScanning(false);
-      setScanType(null);
-    }
-  };
-
-  const handleUSBConnect = async () => {
-    setIsScanning(true);
-    setScanType('usb');
-    
-    try {
-      toast.info('Select USB printer from device picker...');
-      const device = await connectUSBPrinter();
-      
-      if (device) {
-        const discovered: DiscoveredPrinter = {
-          id: `usb-${device.vendorId}-${device.productId}`,
-          name: device.productName || `USB Printer (${device.vendorId})`,
-          type: 'usb',
-        };
-        setDiscoveredPrinters([discovered]);
-        setShowDiscoveryResults(true);
-        toast.success('USB printer connected!');
-      } else {
-        toast.error('No USB printer selected or connection failed');
-      }
-    } catch (error) {
-      console.error('USB connection error:', error);
-      toast.error('USB connection failed. Make sure printer is connected.');
-    } finally {
-      setIsScanning(false);
-      setScanType(null);
-    }
-  };
-
-  const handleAddDiscovered = async (discovered: DiscoveredPrinter, role: PrinterRole) => {
-    try {
-      await addPrinter({
-        name: discovered.name,
-        ipAddress: discovered.ip || discovered.id || null,
-        port: discovered.port || 9100,
-        type: discovered.type,
-        role,
-        format: '80mm',
-        isActive: true,
-        isDefault: false,
-      });
-      toast.success(`Added ${discovered.name}`);
-      setShowDiscoveryResults(false);
-      loadPrinters();
-    } catch (error) {
-      toast.error('Failed to add printer');
-    }
-  };
 
   const handleManualAdd = async () => {
     if (!newPrinter.name) {
@@ -138,18 +36,17 @@ export function PrinterDiscovery() {
       return;
     }
 
-    // For USB/Bluetooth, IP is not required
-    if (newPrinter.type === 'network' && !newPrinter.ipAddress) {
-      toast.error('IP address is required for network printers');
+    if (!newPrinter.ipAddress) {
+      toast.error('IP address is required');
       return;
     }
 
     try {
       await addPrinter({
         name: newPrinter.name,
-        ipAddress: newPrinter.type === 'network' ? newPrinter.ipAddress : null,
+        ipAddress: newPrinter.ipAddress,
         port: newPrinter.port,
-        type: newPrinter.type,
+        type: 'network',
         role: newPrinter.role,
         format: newPrinter.format,
         isActive: true,
@@ -161,7 +58,6 @@ export function PrinterDiscovery() {
         name: '',
         ipAddress: '',
         port: 9100,
-        type: 'usb',
         role: 'counter',
         format: '80mm',
       });
@@ -174,10 +70,10 @@ export function PrinterDiscovery() {
   const handleTestPrint = async (printer: PrinterConfig) => {
     setTestingPrinterId(printer.id);
     try {
-      toast.info(`Testing ${printer.name}...`);
-      const result = await testPrint(printer);
+      toast.info(`Sending test print to ${printer.role} printer...`);
+      const result = await testPrint(printer.role as 'counter' | 'kitchen' | 'bar');
       if (result.success) {
-        toast.success('Test print sent successfully!');
+        toast.success('Test print queued! Check printer.');
       } else {
         toast.error(result.error || 'Test print failed');
       }
@@ -188,12 +84,10 @@ export function PrinterDiscovery() {
     }
   };
 
-  const getPrinterIcon = (type: PrinterType) => {
-    switch (type) {
-      case 'usb': return <Usb className="h-4 w-4 text-muted-foreground" />;
-      case 'bluetooth': return <Bluetooth className="h-4 w-4 text-muted-foreground" />;
-      default: return <Wifi className="h-4 w-4 text-muted-foreground" />;
-    }
+  const handleDownloadAgent = () => {
+    // Open the agent folder in a new tab for download
+    window.open('/pos-print-agent/README.md', '_blank');
+    toast.info('Download the agent files and run: npm install && npm start');
   };
 
   return (
@@ -204,52 +98,62 @@ export function PrinterDiscovery() {
           Printer Configuration
         </CardTitle>
         <CardDescription>
-          Connect thermal printers for instant KOT and bill printing.
-          USB and Bluetooth work directly; network printers need manual setup.
+          Configure thermal printers via the Local Print Agent.
+          Add printer IP addresses and the agent handles the connection.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Discovery buttons */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={handleUSBConnect}
-            disabled={isScanning}
-          >
-            {isScanning && scanType === 'usb' ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Usb className="h-4 w-4 mr-2" />
-            )}
-            Connect USB
-          </Button>
+        {/* Agent Status */}
+        <Alert className={agentStatus.available ? 'border-green-500/50 bg-green-500/10' : 'border-yellow-500/50 bg-yellow-500/10'}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {agentStatus.available ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-yellow-500" />
+              )}
+              <AlertDescription>
+                {agentStatus.available ? (
+                  <>
+                    <span className="font-medium">Print Agent Connected</span>
+                    <span className="text-muted-foreground ml-2">
+                      ({agentStatus.agentId}) • {agentStatus.printers?.join(', ') || 'No printers'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium">Print Agent Not Running</span>
+                    <span className="text-muted-foreground ml-2">
+                      Download and run the agent on your POS machine
+                    </span>
+                  </>
+                )}
+              </AlertDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refreshAgentStatus}
+                disabled={isChecking}
+              >
+                <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+              </Button>
+              {!agentStatus.available && (
+                <Button variant="outline" size="sm" onClick={handleDownloadAgent}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Get Agent
+                </Button>
+              )}
+            </div>
+          </div>
+        </Alert>
 
-          <Button
-            variant="outline"
-            onClick={handleBluetoothScan}
-            disabled={isScanning}
-          >
-            {isScanning && scanType === 'bluetooth' ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Bluetooth className="h-4 w-4 mr-2" />
-            )}
-            Scan Bluetooth
-          </Button>
-          
+        {/* Add Printer Button */}
+        <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Manually
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNetworkInfo}
-            className="text-muted-foreground"
-          >
-            <Wifi className="h-4 w-4 mr-2" />
-            Network Printers?
+            Add Printer
           </Button>
         </div>
 
@@ -258,23 +162,23 @@ export function PrinterDiscovery() {
           <Label>Configured Printers</Label>
           {printers.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              No printers configured. Connect USB or add one manually.
+              No printers configured. Add a network printer to get started.
             </p>
           ) : (
             <div className="space-y-2">
               {printers.map(p => (
                 <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    {getPrinterIcon(p.type)}
+                    <Wifi className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="font-medium flex items-center gap-2">
                         {p.name}
                         {p.isDefault && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
-                        <CircleDot className={`h-3 w-3 ${checkPrinterStatus(p.id) ? 'text-green-500' : 'text-muted-foreground'}`} />
+                        <CircleDot className={`h-3 w-3 ${agentStatus.available ? 'text-green-500' : 'text-muted-foreground'}`} />
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.type.toUpperCase()} • {p.role} • {p.format}
-                        {p.ipAddress && ` • ${p.ipAddress}`}
+                        {p.role} • {p.format}
+                        {p.ipAddress && ` • ${p.ipAddress}:${p.port}`}
                       </p>
                     </div>
                   </div>
@@ -283,7 +187,8 @@ export function PrinterDiscovery() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleTestPrint(p)}
-                      disabled={testingPrinterId === p.id}
+                      disabled={testingPrinterId === p.id || !agentStatus.available}
+                      title={!agentStatus.available ? 'Start Print Agent first' : 'Send test print'}
                     >
                       {testingPrinterId === p.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -314,52 +219,11 @@ export function PrinterDiscovery() {
           )}
         </div>
 
-        {/* Discovery results dialog */}
-        <Dialog open={showDiscoveryResults} onOpenChange={setShowDiscoveryResults}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Discovered Printers</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2 max-h-64 overflow-auto">
-              {discoveredPrinters.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  No printers found
-                </p>
-              ) : (
-                discoveredPrinters.map((p, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {getPrinterIcon(p.type)}
-                      <div>
-                        <p className="font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.type.toUpperCase()}{p.ip ? ` • ${p.ip}` : ''}{p.port ? `:${p.port}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => handleAddDiscovered(p, 'kitchen')}>
-                        Kitchen
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleAddDiscovered(p, 'counter')}>
-                        Counter
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleAddDiscovered(p, 'bar')}>
-                        Bar
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Manual add dialog */}
         <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Printer Manually</DialogTitle>
+              <DialogTitle>Add Network Printer</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -371,41 +235,24 @@ export function PrinterDiscovery() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Connection Type</Label>
-                <Select
-                  value={newPrinter.type}
-                  onValueChange={(v) => setNewPrinter({ ...newPrinter, type: v as PrinterType })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="usb">USB Direct</SelectItem>
-                    <SelectItem value="bluetooth">Bluetooth</SelectItem>
-                    <SelectItem value="network">Network (IP)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {newPrinter.type === 'network' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>IP Address</Label>
-                    <Input
-                      placeholder="192.168.1.100"
-                      value={newPrinter.ipAddress}
-                      onChange={(e) => setNewPrinter({ ...newPrinter, ipAddress: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Port</Label>
-                    <Input
-                      type="number"
-                      value={newPrinter.port}
-                      onChange={(e) => setNewPrinter({ ...newPrinter, port: parseInt(e.target.value) || 9100 })}
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>IP Address</Label>
+                  <Input
+                    placeholder="192.168.1.100"
+                    value={newPrinter.ipAddress}
+                    onChange={(e) => setNewPrinter({ ...newPrinter, ipAddress: e.target.value })}
+                  />
                 </div>
-              )}
+                <div className="space-y-2">
+                  <Label>Port</Label>
+                  <Input
+                    type="number"
+                    value={newPrinter.port}
+                    onChange={(e) => setNewPrinter({ ...newPrinter, port: parseInt(e.target.value) || 9100 })}
+                  />
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -439,6 +286,11 @@ export function PrinterDiscovery() {
                   </Select>
                 </div>
               </div>
+
+              <p className="text-sm text-muted-foreground">
+                The printer must be accessible from the machine running the Print Agent.
+                Common thermal printer port is 9100.
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>

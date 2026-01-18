@@ -363,6 +363,42 @@ export type Database = {
           },
         ]
       }
+      print_jobs: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          job_type: string
+          payload: Json
+          printer_role: string
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type: string
+          payload: Json
+          printer_role?: string
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          payload?: Json
+          printer_role?: string
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       printers: {
         Row: {
           created_at: string
@@ -752,6 +788,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_print_jobs: { Args: never; Returns: undefined }
       generate_bill_number: { Args: never; Returns: string }
       generate_kot_number: { Args: never; Returns: string }
       generate_token_number: { Args: never; Returns: number }
