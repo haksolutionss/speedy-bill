@@ -86,6 +86,9 @@ Add these scripts to your `package.json`:
 # Build the React app and create Windows installer
 npm run electron:build:win
 ```
+or
+ELECTRON=true npm run electron:build:win
+
 
 This creates:
 - `release/SpeedyBill POS-1.0.0-x64.exe` - Installer

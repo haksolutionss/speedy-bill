@@ -63,7 +63,7 @@ export function BillActions() {
   const [showSplitPayment, setShowSplitPayment] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
-  
+
   const kotRef = useRef<HTMLDivElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
 
@@ -145,10 +145,10 @@ export function BillActions() {
 
     // Use default payment method from settings
     const defaultMethod = settings.billing.defaultPaymentMethod;
-    
+
     // Print bill instantly
     print('counter');
-    
+
     // Settle with default payment method - optimistic, runs in background
     await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
     toast.success(`Bill settled with ${defaultMethod.toUpperCase()}`);
@@ -381,7 +381,7 @@ export function BillActions() {
           <DialogHeader>
             <DialogTitle>Select Payment Method</DialogTitle>
           </DialogHeader>
-          
+
           {/* Customer & Loyalty Info */}
           {selectedCustomer && (
             <div className="p-3 bg-muted rounded-lg mb-4">
@@ -408,7 +408,7 @@ export function BillActions() {
               </p>
             )}
           </div>
-          
+
           <div className="grid grid-cols-4 gap-4 py-4">
             <Button
               variant="outline"
