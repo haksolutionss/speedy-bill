@@ -43,13 +43,16 @@ export type PrinterType = 'network' | 'bluetooth' | 'usb';
 export interface Printer {
   id: string;
   name: string;
-  ipAddress: string | null;
-  port: number;
+  ipAddress?: string | null;
+  port?: number;
   type: PrinterType;
   role: PrinterRole;
   format: PrintFormat;
   isActive: boolean;
   isDefault: boolean;
+  // USB printer identifiers (for Electron)
+  vendorId?: number;
+  productId?: number;
 }
 
 export type SyncMode = 'realtime' | 'polling';
@@ -87,6 +90,7 @@ export interface AppSettings {
   sync: SyncSettings;
   loyalty: LoyaltySettings;
   billing: BillingDefaults;
+  printers?: Printer[];
   onboardingComplete: boolean;
 }
 
