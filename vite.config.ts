@@ -10,8 +10,10 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: "::",
-      port: 5111,
+      port: 8080,
     },
+    // Electron needs relative paths for production
+    base: isElectron ? "./" : "/",
     plugins: [
       react(),
       mode === "development" ? componentTagger() : null,

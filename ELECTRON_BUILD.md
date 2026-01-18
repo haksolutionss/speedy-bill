@@ -1,198 +1,205 @@
 # SpeedyBill POS - Electron Desktop Application
 
-## Overview
-
-This guide explains how to build the SpeedyBill POS as a Windows desktop application (.exe) with full thermal printer support.
-
-## Why Electron?
-
-Browser-based POS systems have limitations:
-- **Mixed Content Errors**: HTTPS pages cannot access local HTTP printers
-- **WebUSB Restrictions**: `SecurityError: Access denied` when accessing USB devices
-- **No Silent Printing**: Browser always shows print dialogs
-- **Session-based Permissions**: Users must re-grant permissions
-
-Electron solves all these issues by running Node.js locally, providing direct hardware access.
-
-## Architecture
-
-```
-SpeedyBill POS (Electron)
-├── Renderer Process (React)
-│   ├── UI Components
-│   ├── Supabase Integration
-│   └── Authentication
-│
-├── Main Process (Node.js)
-│   ├── USB Printer Access (via 'usb' package)
-│   ├── Network Printer Access (TCP sockets)
-│   └── ESC/POS Command Generation
-│
-└── Preload Script
-    └── Secure IPC Bridge
-```
+This guide covers building and distributing the SpeedyBill POS as a Windows desktop application.
 
 ## Prerequisites
 
-1. **Node.js 18+** - Download from https://nodejs.org
-2. **Windows Build Tools** (for USB support):
-   ```bash
-   npm install --global windows-build-tools
-   ```
-3. **Git** - Download from https://git-scm.com
+- Node.js 18+ (LTS recommended)
+- npm or yarn
+- Windows 10/11 for building Windows executables
 
-## Setup Instructions
+## Quick Start
 
 ### 1. Clone and Install Dependencies
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd speedybill-pos
-
-# Install web app dependencies
+# Install project dependencies
 npm install
 
-# Install Electron and build dependencies
-npm install --save-dev electron electron-builder usb
+# Install Electron and build tools (run in project root)
+npm install --save-dev electron electron-builder concurrently wait-on
 ```
 
 ### 2. Update package.json
 
-Add these scripts to your `package.json`:
+Add these entries to your `package.json`:
 
 ```json
 {
   "main": "electron/main.js",
   "scripts": {
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && electron . --dev\"",
-    "electron:build": "npm run build && electron-builder",
-    "electron:build:win": "npm run build && electron-builder --win",
-    "electron:build:portable": "npm run build && electron-builder --win portable"
-  },
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1",
-    "usb": "^2.11.0",
-    "concurrently": "^8.2.2",
-    "wait-on": "^7.2.0"
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && electron .\"",
+    "electron:build": "set ELECTRON=true && npm run build && electron-builder --win",
+    "electron:build:portable": "set ELECTRON=true && npm run build && electron-builder --win portable"
   }
 }
 ```
 
-### 3. Build for Windows
+### 3. Development Mode
+
+Run the app in development mode:
 
 ```bash
-# Build the React app and create Windows installer
-npm run electron:build:win
-```
-or
-ELECTRON=true npm run electron:build:win
-
-
-This creates:
-- `release/SpeedyBill POS-1.0.0-x64.exe` - Installer
-- `release/SpeedyBill POS-Portable-1.0.0.exe` - Portable version
-
-## Development Mode
-
-Run in development with hot reload:
-
-```bash
+# Start both Vite dev server and Electron
 npm run electron:dev
 ```
 
-This starts:
-1. Vite dev server on http://localhost:8080
-2. Electron app loading from the dev server
-3. DevTools for debugging
+### 4. Building for Production
+
+```bash
+# Build React app + Windows installer
+npm run electron:build
+
+# Build portable .exe (no installation required)
+npm run electron:build:portable
+```
+
+Output files will be in the `release/` directory.
+
+## Build Output
+
+After running `npm run electron:build`, you'll find:
+
+- `release/SpeedyBill POS-Setup-1.0.0.exe` - Windows installer
+- `release/SpeedyBill POS-Portable-1.0.0.exe` - Portable executable
 
 ## Printer Configuration
 
-### USB Printers
+### Supported Printer Types
 
-1. Connect your USB thermal printer
-2. Open SpeedyBill POS → Settings → Printers
-3. Click "Scan USB Printers"
-4. Select your printer from the list
-5. Configure paper size (58mm, 76mm, 80mm)
-6. Test print to verify
+1. **USB Thermal Printers** - Direct USB connection
+2. **Network/LAN Printers** - IP-based connection (192.168.x.x:9100)
+3. **WiFi Printers** - Same as network printers
 
-### Network Printers
+### Setting Up Printers
 
-1. Ensure printer is on the same network
-2. Find the printer's IP address (usually on printer's test page)
-3. Open Settings → Printers
-4. Add printer manually with IP and port (default: 9100)
-5. Test print to verify
+1. Open the app and go to **Settings → Printers**
+2. Click **Scan USB Printers** to detect connected USB printers
+3. Or click **Add Network Printer** to add IP-based printers
+4. Configure printer roles:
+   - **Counter** - For customer receipts/bills
+   - **Kitchen** - For KOT (Kitchen Order Tickets)
+   - **Bar** - For bar orders
+
+### Printer Roles
+
+| Role | Purpose | Typical Location |
+|------|---------|------------------|
+| Counter | Print bills/receipts, open cash drawer | Billing counter |
+| Kitchen | Print KOT with item details | Kitchen |
+| Bar | Print drink orders | Bar counter |
+
+## Printing Behavior
+
+### Electron Desktop App
+- **Silent printing** - No dialog boxes
+- **Auto-print** - Receipts print immediately on F1/F2
+- **Direct hardware access** - USB and network printers
+- **Cash drawer support** - Opens on cash payments
+
+### Web Browser (Fallback)
+- Shows browser print dialog
+- User must click Print button
+- Limited printer control
 
 ## Troubleshooting
 
-### USB Printer Not Found
+### App Won't Start
 
-1. Install printer driver from manufacturer
-2. On Windows, install Zadig to set WinUSB driver:
-   - Download from https://zadig.akeo.ie
-   - Select your printer
-   - Install WinUSB driver
+1. Check if `dist/index.html` exists (run `npm run build` first)
+2. Ensure no other instance is running
+3. Check Windows Defender/antivirus isn't blocking
+4. Right-click and "Run as Administrator"
 
-### Network Printer Not Connecting
+### Printer Not Detected
 
-1. Verify printer IP with `ping <printer-ip>`
-2. Check port 9100 is open: `telnet <printer-ip> 9100`
-3. Disable Windows Firewall temporarily to test
-4. Ensure printer is not in sleep mode
+**USB Printers:**
+- Ensure printer is powered on and connected
+- Try a different USB port
+- Install printer manufacturer's USB drivers
+- On Windows, you may need Zadig for WinUSB driver
+
+**Network Printers:**
+- Verify printer IP address (usually 192.168.x.x)
+- Default port is 9100
+- Ensure printer and PC are on same network
+- Test with: `ping <printer-ip>`
+
+### Print Fails
+
+1. Test with the "Test Print" button in Settings
+2. Check printer paper and status lights
+3. For network printers, try `telnet <printer-ip> 9100`
+4. Restart the printer and app
 
 ### Build Errors
 
 ```bash
-# Clear npm cache
+# Clear cache and rebuild
 npm cache clean --force
+rm -rf node_modules
+npm install
 
-# Rebuild native modules
+# For USB module issues
 npm rebuild
-
-# For USB module issues on Windows
-npm install --global --production windows-build-tools
-npm rebuild usb --update-binary
 ```
 
 ## Distribution
 
-### Creating an Installer
+### Sharing the App
 
-The NSIS installer:
-- Allows custom install location
-- Creates Start Menu shortcut
-- Creates Desktop shortcut
-- Adds uninstaller
+1. **Installer (.exe)**: Share `SpeedyBill POS-Setup-1.0.0.exe`
+   - Users double-click to install
+   - Creates Start Menu and Desktop shortcuts
+   - Can be uninstalled via Windows Settings
 
-### Signing (Optional but Recommended)
+2. **Portable (.exe)**: Share `SpeedyBill POS-Portable-1.0.0.exe`
+   - No installation required
+   - Runs directly from any folder
+   - Good for USB drives or testing
 
-For production distribution, sign your application:
+### First-Time Setup for Users
 
-1. Obtain a code signing certificate
-2. Add to `electron-builder.json`:
-   ```json
-   {
-     "win": {
-       "certificateFile": "path/to/cert.pfx",
-       "certificatePassword": "your-password"
-     }
-   }
-   ```
+1. Install/run the application
+2. On first launch, complete the onboarding wizard
+3. Configure printers in Settings
+4. Log in with credentials
+5. Start billing!
+
+## Architecture
+
+```
+SpeedyBill POS (Electron)
+├── Main Process (Node.js)
+│   ├── Window Management
+│   ├── Printer Service (USB + Network)
+│   └── IPC Handlers
+│
+├── Renderer Process (React)
+│   ├── UI Components
+│   ├── State Management (Zustand)
+│   └── Supabase Integration
+│
+└── Preload Script
+    └── Secure Bridge (contextBridge)
+```
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| F1 | Print KOT directly (silent) |
+| F2 | Print Bill & Settle (default payment) |
+| F11 | Toggle fullscreen |
+| F12 | Open Developer Tools |
 
 ## Security Notes
 
-- Electron app still uses Supabase for authentication
-- Data is stored securely in Supabase
-- Printer communication stays local (no cloud printing)
-- The app requires network access only for Supabase
+- The app uses `contextIsolation: true` for security
+- Node.js APIs are not directly exposed to the renderer
+- All printer operations go through secure IPC channels
+- Supabase handles authentication and data security
 
 ## Support
 
-For issues:
-1. Check console for errors (F12 → Console)
-2. Try the portable version if installer fails
-3. Ensure antivirus isn't blocking the app
-4. Run as Administrator if needed
+For issues or feature requests, contact your system administrator.

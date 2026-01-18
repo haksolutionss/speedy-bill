@@ -1,5 +1,4 @@
 const net = require('net');
-const usb = require('usb');
 
 /**
  * PrinterService - Handles all printer operations in Electron main process
@@ -9,6 +8,15 @@ class PrinterService {
   constructor() {
     this.connectedDevices = new Map();
     this.PRINTER_PORT = 9100; // Default thermal printer port
+    this.usbModule = null;
+    
+    // Try to load USB module (may fail if not installed or no native bindings)
+    try {
+      this.usbModule = require('usb');
+    } catch (error) {
+      console.warn('USB module not available:', error.message);
+      console.warn('USB printer support will be disabled. Network printers still work.');
+    }
   }
 
   // ============================================
@@ -39,83 +47,96 @@ class PrinterService {
    * Get all USB devices that look like printers
    */
   listUSBPrinters() {
-    const devices = usb.getDeviceList();
-    const printers = [];
-
-    // Common thermal printer vendor IDs
-    const printerVendors = [
-      0x0416, // Winbond (many thermal printers)
-      0x0483, // STMicroelectronics
-      0x0525, // PLX Technology
-      0x067b, // Prolific (USB-Serial)
-      0x0fe6, // ICS Advent
-      0x1504, // EPSON
-      0x154f, // SNBC
-      0x1659, // SII
-      0x1a86, // QinHeng (CH340)
-      0x1fc9, // NXP
-      0x20d1, // Simba
-      0x2730, // Citizen
-      0x28e9, // GD32
-      0x4b43, // Custom
-      0x6868, // Cashino
-    ];
-
-    for (const device of devices) {
-      const descriptor = device.deviceDescriptor;
-      
-      // Check if it's a known printer vendor or has printer class
-      const isPrinterVendor = printerVendors.includes(descriptor.idVendor);
-      const isPrinterClass = descriptor.bDeviceClass === 7; // Printer class
-      
-      if (isPrinterVendor || isPrinterClass) {
-        try {
-          device.open();
-          let manufacturer = '';
-          let product = '';
-          
-          try {
-            manufacturer = device.getStringDescriptor(descriptor.iManufacturer) || '';
-            product = device.getStringDescriptor(descriptor.iProduct) || '';
-          } catch (e) {
-            // Some devices don't provide string descriptors
-          }
-          
-          device.close();
-          
-          printers.push({
-            vendorId: descriptor.idVendor,
-            productId: descriptor.idProduct,
-            manufacturer,
-            product,
-            name: product || `USB Printer (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
-            type: 'usb'
-          });
-        } catch (e) {
-          // Device might be in use or inaccessible
-          printers.push({
-            vendorId: descriptor.idVendor,
-            productId: descriptor.idProduct,
-            manufacturer: 'Unknown',
-            product: 'Unknown',
-            name: `USB Device (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
-            type: 'usb',
-            inUse: true
-          });
-        }
-      }
+    if (!this.usbModule) {
+      return [];
     }
 
-    return printers;
+    try {
+      const devices = this.usbModule.getDeviceList();
+      const printers = [];
+
+      // Common thermal printer vendor IDs
+      const printerVendors = [
+        0x0416, // Winbond (many thermal printers)
+        0x0483, // STMicroelectronics
+        0x0525, // PLX Technology
+        0x067b, // Prolific (USB-Serial)
+        0x0fe6, // ICS Advent
+        0x1504, // EPSON
+        0x154f, // SNBC
+        0x1659, // SII
+        0x1a86, // QinHeng (CH340)
+        0x1fc9, // NXP
+        0x20d1, // Simba
+        0x2730, // Citizen
+        0x28e9, // GD32
+        0x4b43, // Custom
+        0x6868, // Cashino
+      ];
+
+      for (const device of devices) {
+        const descriptor = device.deviceDescriptor;
+        
+        // Check if it's a known printer vendor or has printer class
+        const isPrinterVendor = printerVendors.includes(descriptor.idVendor);
+        const isPrinterClass = descriptor.bDeviceClass === 7; // Printer class
+        
+        if (isPrinterVendor || isPrinterClass) {
+          try {
+            device.open();
+            let manufacturer = '';
+            let product = '';
+            
+            try {
+              manufacturer = device.getStringDescriptor(descriptor.iManufacturer) || '';
+              product = device.getStringDescriptor(descriptor.iProduct) || '';
+            } catch (e) {
+              // Some devices don't provide string descriptors
+            }
+            
+            device.close();
+            
+            printers.push({
+              vendorId: descriptor.idVendor,
+              productId: descriptor.idProduct,
+              manufacturer,
+              product,
+              name: product || `USB Printer (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
+              type: 'usb'
+            });
+          } catch (e) {
+            // Device might be in use or inaccessible
+            printers.push({
+              vendorId: descriptor.idVendor,
+              productId: descriptor.idProduct,
+              manufacturer: 'Unknown',
+              product: 'Unknown',
+              name: `USB Device (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
+              type: 'usb',
+              inUse: true
+            });
+          }
+        }
+      }
+
+      return printers;
+    } catch (error) {
+      console.error('Error listing USB printers:', error);
+      return [];
+    }
   }
 
   /**
    * Print to USB printer
    */
   async printToUSB(vendorId, productId, data, format = '80mm') {
+    if (!this.usbModule) {
+      return { success: false, error: 'USB module not available. Please use network printers.' };
+    }
+
     return new Promise((resolve) => {
       try {
-        const device = usb.findByIds(vendorId, productId);
+        const device = this.usbModule.findByIds(vendorId, productId);
         
         if (!device) {
           resolve({ success: false, error: 'USB printer not found' });
@@ -134,7 +155,7 @@ class PrinterService {
         }
 
         // Detach kernel driver if necessary (Linux)
-        if (iface.isKernelDriverActive()) {
+        if (iface.isKernelDriverActive && iface.isKernelDriverActive()) {
           iface.detachKernelDriver();
         }
 
@@ -262,8 +283,11 @@ class PrinterService {
    */
   async getPrinterStatus(type, config) {
     if (type === 'usb') {
+      if (!this.usbModule) {
+        return { success: true, status: 'unavailable' };
+      }
       try {
-        const device = usb.findByIds(config.vendorId, config.productId);
+        const device = this.usbModule.findByIds(config.vendorId, config.productId);
         if (device) {
           return { success: true, status: 'connected' };
         }

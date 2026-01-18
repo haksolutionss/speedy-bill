@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
-const PrinterService = require('./printer-service');
 
 // Keep a global reference of the window object
 let mainWindow;
@@ -41,11 +40,38 @@ function createWindow() {
     backgroundColor: '#0a0a0b',
   });
 
-  // Initialize printer service
-  printerService = new PrinterService();
+  // Initialize printer service (lazy load to handle missing usb module gracefully)
+  try {
+    const PrinterService = require('./printer-service');
+    printerService = new PrinterService();
+  } catch (error) {
+    console.error('Failed to initialize printer service:', error.message);
+    // Create a mock printer service for development
+    printerService = {
+      listPrinters: async () => ({ success: true, printers: [] }),
+      printToUSB: async () => ({ success: false, error: 'USB module not available' }),
+      printToNetwork: async (ip, port, data) => {
+        const net = require('net');
+        return new Promise((resolve) => {
+          const socket = new net.Socket();
+          socket.setTimeout(10000);
+          socket.on('timeout', () => { socket.destroy(); resolve({ success: false, error: 'Connection timeout' }); });
+          socket.on('error', (err) => { resolve({ success: false, error: err.message }); });
+          socket.connect(port, ip, () => {
+            socket.write(Buffer.from(data), () => {
+              setTimeout(() => { socket.end(); resolve({ success: true }); }, 100);
+            });
+          });
+        });
+      },
+      testPrinter: async () => ({ success: false, error: 'Printer service not initialized' }),
+      openCashDrawer: async () => ({ success: false, error: 'Printer service not initialized' }),
+      getPrinterStatus: async () => ({ success: true, status: 'unknown' }),
+    };
+  }
 
   // Determine if we're in development or production
-  const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+  const isDev = !app.isPackaged;
   
   if (isDev) {
     // In development, load from Vite dev server
@@ -53,13 +79,26 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // In production, load the built React app
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    console.log('Loading production app from:', indexPath);
+    mainWindow.loadFile(indexPath);
   }
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+  });
+
+  // Handle load failures
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+    if (isDev) {
+      // In dev, retry loading after a delay (Vite might still be starting)
+      setTimeout(() => {
+        mainWindow.loadURL('http://localhost:8080');
+      }, 2000);
+    }
   });
 
   // Create application menu
@@ -106,7 +145,7 @@ function showAboutDialog() {
     type: 'info',
     title: 'About SpeedyBill POS',
     message: 'SpeedyBill POS',
-    detail: `Version: 1.0.0\nElectron: ${process.versions.electron}\nNode.js: ${process.versions.node}\nChromium: ${process.versions.chrome}\n\nA professional Point of Sale system with thermal printer support.`,
+    detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode.js: ${process.versions.node}\nChromium: ${process.versions.chrome}\n\nA professional Point of Sale system with thermal printer support.`,
     buttons: ['OK']
   });
 }
@@ -132,10 +171,28 @@ app.on('window-all-closed', () => {
 // IPC Handlers for Printer Communication
 // ============================================
 
-// Get list of available printers
+// Get list of available printers (includes system printers)
 ipcMain.handle('printer:list', async () => {
   try {
-    return await printerService.listPrinters();
+    // Get USB printers from our service
+    const usbResult = await printerService.listPrinters();
+    
+    // Also get system printers (for WiFi/network printers detected by OS)
+    const systemPrinters = mainWindow ? mainWindow.webContents.getPrintersAsync() : Promise.resolve([]);
+    const sysPrinters = await systemPrinters;
+    
+    const allPrinters = [
+      ...(usbResult.printers || []),
+      ...sysPrinters.map(p => ({
+        name: p.name,
+        type: 'system',
+        displayName: p.displayName,
+        isDefault: p.isDefault,
+        status: p.status
+      }))
+    ];
+    
+    return { success: true, printers: allPrinters };
   } catch (error) {
     console.error('Error listing printers:', error);
     return { success: false, error: error.message, printers: [] };

@@ -27,6 +27,7 @@ import { BillSummary } from './BillSummary';
 import { DiscountModal } from './DiscountModal';
 import { CustomerModal } from './CustomerModal';
 import { SplitPaymentModal } from './SplitPaymentModal';
+import type { KOTData, BillData } from '@/lib/escpos/templates';
 
 interface Customer {
   id: string;
@@ -52,7 +53,18 @@ export function BillActions() {
 
   const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
   const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
-  const { printRef, print, getBusinessInfo, formatCurrency, currencySymbol, gstMode } = usePrint();
+  const { 
+    printRef, 
+    print, 
+    printKOTDirect, 
+    printBillDirect, 
+    openCashDrawer,
+    getBusinessInfo, 
+    formatCurrency, 
+    currencySymbol, 
+    gstMode,
+    isElectron 
+  } = usePrint();
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showKOTPreview, setShowKOTPreview] = useState(false);
@@ -63,6 +75,7 @@ export function BillActions() {
   const [showSplitPayment, setShowSplitPayment] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const kotRef = useRef<HTMLDivElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -80,6 +93,46 @@ export function BillActions() {
 
   // Get business info for bill
   const businessInfo = getBusinessInfo();
+
+  // Calculate points customer will earn from this bill
+  const pointsToEarn = calculateLoyaltyPoints(finalAmount);
+
+  // Build KOT data for printing
+  const buildKOTData = (): KOTData => ({
+    tableNumber: selectedTable?.number,
+    tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+    items: kotItems,
+    billNumber: currentBillId?.slice(0, 8),
+    kotNumber: 1,
+    isParcel: isParcelMode,
+  });
+
+  // Build Bill data for printing
+  const buildBillData = (): BillData => ({
+    billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
+    tableNumber: selectedTable?.number,
+    tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+    items: cart,
+    subTotal,
+    discountAmount: discountAmount + loyaltyDiscount,
+    discountType: discountType || undefined,
+    discountValue: discountValue || undefined,
+    discountReason: discountReason || undefined,
+    cgstAmount,
+    sgstAmount,
+    totalAmount,
+    finalAmount,
+    isParcel: isParcelMode,
+    restaurantName: businessInfo.name,
+    address: businessInfo.address,
+    phone: businessInfo.phone,
+    gstin: businessInfo.gstNumber,
+    currencySymbol,
+    gstMode,
+    customerName: selectedCustomer?.name,
+    loyaltyPointsUsed: loyaltyPointsToUse,
+    loyaltyPointsEarned: pointsToEarn,
+  });
 
   // Keyboard shortcuts - F1 for direct KOT, F2 for direct Bill (no preview)
   useEffect(() => {
@@ -114,50 +167,95 @@ export function BillActions() {
     // Use capture phase to intercept before browser handles F1
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [hasPendingItems, hasItems, cart]);
+  }, [hasPendingItems, hasItems, cart, kotItems]);
 
-  // Direct print KOT without preview (F1)
+  // Direct print KOT without preview (F1) - Silent in Electron
   const handleDirectPrintKOT = async () => {
-    if (!hasPendingItems) {
-      toast.info('No new items to send to kitchen');
+    if (!hasPendingItems || isPrinting) {
+      if (!hasPendingItems) toast.info('No new items to send to kitchen');
       return;
     }
 
-    // Print directly without showing preview
-    await printKOT();
-    print('kitchen');
-    toast.success('KOT sent to kitchen');
+    setIsPrinting(true);
+    try {
+      // Send to kitchen database first
+      await printKOT();
+
+      // Print silently (Electron) or via browser
+      const kotData = buildKOTData();
+      const result = await printKOTDirect(kotData);
+      
+      if (result.success) {
+        toast.success(isElectron ? 'KOT printed to kitchen' : 'KOT sent to kitchen');
+      } else if (result.error) {
+        toast.error(`Print failed: ${result.error}`);
+        // Still show success for kitchen update
+        toast.success('Items sent to kitchen (print failed)');
+      }
+    } catch (error) {
+      console.error('KOT print error:', error);
+      toast.error('Failed to send KOT');
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   // Direct print Bill without preview (F2) - uses default payment method
   const handleDirectPrintBill = async () => {
-    if (!hasItems) {
-      toast.error('Add items to print bill');
+    if (!hasItems || isPrinting) {
+      if (!hasItems) toast.error('Add items to print bill');
       return;
     }
 
-    // First send any pending items to kitchen
-    if (hasPendingItems) {
-      await printKOT();
-    } else {
-      await saveOrUpdateBill();
+    setIsPrinting(true);
+    try {
+      // First send any pending items to kitchen
+      if (hasPendingItems) {
+        await printKOT();
+      } else {
+        await saveOrUpdateBill();
+      }
+
+      // Use default payment method from settings
+      const defaultMethod = settings.billing.defaultPaymentMethod;
+
+      // Print bill silently (Electron) or via browser
+      const billData = buildBillData();
+      billData.paymentMethod = defaultMethod;
+      
+      const result = await printBillDirect(billData);
+      
+      // Open cash drawer for cash payments (Electron only)
+      if (defaultMethod === 'cash' && isElectron) {
+        await openCashDrawer();
+      }
+
+      // Settle with default payment method
+      await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
+      
+      if (result.success) {
+        toast.success(`Bill settled with ${defaultMethod.toUpperCase()}`);
+      } else {
+        toast.success(`Bill settled (print: ${result.error || 'browser dialog'})`);
+      }
+    } catch (error) {
+      console.error('Bill print error:', error);
+      toast.error('Failed to settle bill');
+    } finally {
+      setIsPrinting(false);
     }
-
-    // Use default payment method from settings
-    const defaultMethod = settings.billing.defaultPaymentMethod;
-
-    // Print bill instantly
-    print('counter');
-
-    // Settle with default payment method - optimistic, runs in background
-    await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
-    toast.success(`Bill settled with ${defaultMethod.toUpperCase()}`);
   };
 
-  // Button click - show preview
-  const handlePrintKOT = () => {
+  // Button click - show preview (for non-Electron or when preview desired)
+  const handlePrintKOT = async () => {
     if (!hasPendingItems) {
       toast.info('No new items to send to kitchen');
+      return;
+    }
+
+    // In Electron, skip preview and print directly
+    if (isElectron) {
+      await handleDirectPrintKOT();
       return;
     }
 
@@ -166,8 +264,14 @@ export function BillActions() {
 
   const confirmPrintKOT = async () => {
     await printKOT();
-    print('kitchen');
+    
+    // Print via browser fallback
+    if (printRef.current) {
+      print('kitchen');
+    }
+    
     setShowKOTPreview(false);
+    toast.success('KOT sent to kitchen');
   };
 
   // Button click - show preview with customer/loyalty options
@@ -189,31 +293,73 @@ export function BillActions() {
 
   const handlePayment = async (method: 'cash' | 'card' | 'upi') => {
     setShowPaymentDialog(false);
-    setShowBillPreview(true);
+    setIsPrinting(true);
 
-    // Print bill instantly
-    print('counter');
+    try {
+      // Build bill data with payment method
+      const billData = buildBillData();
+      billData.paymentMethod = method;
 
-    // Settlement is optimistic - runs in background
-    await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
-    setShowBillPreview(false);
-    setSelectedCustomer(null);
-    setLoyaltyPointsToUse(0);
+      // Print bill
+      const result = await printBillDirect(billData);
+
+      // Open cash drawer for cash payments (Electron only)
+      if (method === 'cash' && isElectron) {
+        await openCashDrawer();
+      }
+
+      // Settlement is optimistic - runs in background
+      await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
+      
+      if (!result.success && !isElectron) {
+        setShowBillPreview(true);
+      } else {
+        toast.success(`Bill paid with ${method.toUpperCase()}`);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Payment failed');
+    } finally {
+      setIsPrinting(false);
+      setSelectedCustomer(null);
+      setLoyaltyPointsToUse(0);
+    }
   };
 
   const handleSplitPayment = async (payments: { method: 'cash' | 'card' | 'upi'; amount: number }[]) => {
     setShowSplitPayment(false);
     setShowPaymentDialog(false);
-    setShowBillPreview(true);
+    setIsPrinting(true);
 
-    // Print bill instantly
-    print('counter');
+    try {
+      // Build bill data
+      const billData = buildBillData();
+      billData.paymentMethod = 'Split';
 
-    // Settlement is optimistic - runs in background
-    await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
-    setShowBillPreview(false);
-    setSelectedCustomer(null);
-    setLoyaltyPointsToUse(0);
+      // Print bill
+      const result = await printBillDirect(billData);
+
+      // Open cash drawer if any cash payment (Electron only)
+      if (payments.some(p => p.method === 'cash') && isElectron) {
+        await openCashDrawer();
+      }
+
+      // Settlement
+      await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
+      
+      if (!result.success && !isElectron) {
+        setShowBillPreview(true);
+      } else {
+        toast.success('Split payment completed');
+      }
+    } catch (error) {
+      console.error('Split payment error:', error);
+      toast.error('Split payment failed');
+    } finally {
+      setIsPrinting(false);
+      setSelectedCustomer(null);
+      setLoyaltyPointsToUse(0);
+    }
   };
 
   const handleTotalAmountView = () => {
@@ -230,7 +376,6 @@ export function BillActions() {
 
   const handleSelectCustomer = (customer: Customer | null) => {
     setSelectedCustomer(customer);
-    // Reset loyalty points when customer changes
     setLoyaltyPointsToUse(0);
   };
 
@@ -239,9 +384,6 @@ export function BillActions() {
       setLoyaltyPointsToUse(points);
     }
   };
-
-  // Calculate points customer will earn from this bill
-  const pointsToEarn = calculateLoyaltyPoints(finalAmount);
 
   return (
     <>
@@ -274,7 +416,7 @@ export function BillActions() {
           </Button>
           <Button
             onClick={handlePrintKOT}
-            disabled={!hasPendingItems}
+            disabled={!hasPendingItems || isPrinting}
             variant="secondary"
             className="gap-1.5"
           >
@@ -284,7 +426,7 @@ export function BillActions() {
           </Button>
           <Button
             onClick={handlePrintBill}
-            disabled={!hasItems}
+            disabled={!hasItems || isPrinting}
             className="gap-1.5 bg-success hover:bg-success/90"
           >
             <Receipt className="h-4 w-4" />
@@ -316,13 +458,13 @@ export function BillActions() {
         loyaltyPointsToUse={loyaltyPointsToUse}
       />
 
-      {/* KOT Preview Dialog */}
+      {/* KOT Preview Dialog (Browser fallback only) */}
       <Dialog open={showKOTPreview} onOpenChange={setShowKOTPreview}>
         <DialogContent className="sm:max-w-max max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>KOT Preview</DialogTitle>
           </DialogHeader>
-          <div className="overflow-hidden">
+          <div className="overflow-hidden" ref={printRef}>
             <KOTTemplate
               ref={kotRef}
               tableNumber={selectedTable?.number}
@@ -342,13 +484,13 @@ export function BillActions() {
         </DialogContent>
       </Dialog>
 
-      {/* Bill Preview Dialog */}
+      {/* Bill Preview Dialog (Browser fallback only) */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
         <DialogContent className="sm:max-w-max max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Bill Preview</DialogTitle>
           </DialogHeader>
-          <div className="bg-white rounded-lg overflow-hidden">
+          <div className="bg-white rounded-lg overflow-hidden" ref={printRef}>
             <BillTemplate
               ref={billRef}
               billNumber={currentBillId?.slice(0, 8) || 'BILL-0000'}
@@ -371,6 +513,15 @@ export function BillActions() {
               loyaltyPointsUsed={loyaltyPointsToUse}
               loyaltyPointsEarned={pointsToEarn}
             />
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowBillPreview(false)}>
+              Close
+            </Button>
+            <Button onClick={() => { print('counter'); setShowBillPreview(false); }} className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print Bill
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -414,6 +565,7 @@ export function BillActions() {
               variant="outline"
               className="h-24 flex-col gap-2 hover:bg-success/10 hover:border-success hover:text-success"
               onClick={() => handlePayment('cash')}
+              disabled={isPrinting}
             >
               <Banknote className="h-8 w-8" />
               <span>Cash</span>
@@ -422,6 +574,7 @@ export function BillActions() {
               variant="outline"
               className="h-24 flex-col gap-2 hover:bg-blue-500/10 hover:border-blue-500 hover:text-blue-400"
               onClick={() => handlePayment('card')}
+              disabled={isPrinting}
             >
               <CreditCard className="h-8 w-8" />
               <span>Card</span>
@@ -430,6 +583,7 @@ export function BillActions() {
               variant="outline"
               className="h-24 flex-col gap-2 hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-400"
               onClick={() => handlePayment('upi')}
+              disabled={isPrinting}
             >
               <Smartphone className="h-8 w-8" />
               <span>UPI</span>
@@ -441,6 +595,7 @@ export function BillActions() {
                 setShowPaymentDialog(false);
                 setShowSplitPayment(true);
               }}
+              disabled={isPrinting}
             >
               <Split className="h-8 w-8" />
               <span>Split</span>
