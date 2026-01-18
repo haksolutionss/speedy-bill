@@ -7,34 +7,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useSettingsStore } from '@/store/settingsStore';
 import { discoverNetworkPrinters, discoverBluetoothPrinters } from '@/lib/printService';
+import { connectUSBPrinter, connectBluetoothPrinter } from '@/lib/escpos/printer';
+import { useThermalPrint } from '@/hooks/useThermalPrint';
 import { toast } from 'sonner';
-import { Printer, Search, Plus, Bluetooth, Wifi, Loader2, Trash2, Star } from 'lucide-react';
-import type { PrinterRole, PrintFormat, PrinterType } from '@/types/settings';
+import { Printer, Plus, Bluetooth, Wifi, Loader2, Trash2, Star, Usb, CircleDot, TestTube } from 'lucide-react';
+import type { PrinterRole, PrintFormat, PrinterType, Printer as PrinterConfig } from '@/types/settings';
 
 interface DiscoveredPrinter {
   ip?: string;
   id?: string;
   name: string;
   port?: number;
-  type: 'network' | 'bluetooth';
+  type: 'network' | 'bluetooth' | 'usb';
 }
 
 export function PrinterDiscovery() {
   const { printers, addPrinter, deletePrinter, setDefaultPrinter, loadPrinters } = useSettingsStore();
+  const { testPrint, checkPrinterStatus } = useThermalPrint();
   const [isScanning, setIsScanning] = useState(false);
-  const [scanType, setScanType] = useState<'network' | 'bluetooth' | null>(null);
+  const [scanType, setScanType] = useState<'network' | 'bluetooth' | 'usb' | null>(null);
   const [discoveredPrinters, setDiscoveredPrinters] = useState<DiscoveredPrinter[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDiscoveryResults, setShowDiscoveryResults] = useState(false);
+  const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
 
   // Manual add form
   const [newPrinter, setNewPrinter] = useState({
     name: '',
     ipAddress: '',
     port: 9100,
-    type: 'network' as PrinterType,
+    type: 'usb' as PrinterType,
     role: 'counter' as PrinterRole,
-    format: '76mm' as PrintFormat,
+    format: '80mm' as PrintFormat,
   });
 
   const handleNetworkScan = async () => {
@@ -102,6 +106,35 @@ export function PrinterDiscovery() {
     }
   };
 
+  const handleUSBConnect = async () => {
+    setIsScanning(true);
+    setScanType('usb');
+    
+    try {
+      toast.info('Select USB printer from device picker...');
+      const device = await connectUSBPrinter();
+      
+      if (device) {
+        const discovered: DiscoveredPrinter = {
+          id: `usb-${device.vendorId}-${device.productId}`,
+          name: device.productName || `USB Printer (${device.vendorId})`,
+          type: 'usb',
+        };
+        setDiscoveredPrinters([discovered]);
+        setShowDiscoveryResults(true);
+        toast.success('USB printer connected!');
+      } else {
+        toast.error('No USB printer selected or connection failed');
+      }
+    } catch (error) {
+      console.error('USB connection error:', error);
+      toast.error('USB connection failed. Make sure printer is connected.');
+    } finally {
+      setIsScanning(false);
+      setScanType(null);
+    }
+  };
+
   const handleAddDiscovered = async (discovered: DiscoveredPrinter, role: PrinterRole) => {
     try {
       await addPrinter({
@@ -110,11 +143,12 @@ export function PrinterDiscovery() {
         port: discovered.port || 9100,
         type: discovered.type,
         role,
-        format: '76mm',
+        format: '80mm',
         isActive: true,
         isDefault: false,
       });
       toast.success(`Added ${discovered.name}`);
+      setShowDiscoveryResults(false);
       loadPrinters();
     } catch (error) {
       toast.error('Failed to add printer');
@@ -122,15 +156,21 @@ export function PrinterDiscovery() {
   };
 
   const handleManualAdd = async () => {
-    if (!newPrinter.name || !newPrinter.ipAddress) {
-      toast.error('Name and IP address are required');
+    if (!newPrinter.name) {
+      toast.error('Printer name is required');
+      return;
+    }
+
+    // For USB/Bluetooth, IP is not required
+    if (newPrinter.type === 'network' && !newPrinter.ipAddress) {
+      toast.error('IP address is required for network printers');
       return;
     }
 
     try {
       await addPrinter({
         name: newPrinter.name,
-        ipAddress: newPrinter.ipAddress,
+        ipAddress: newPrinter.type === 'network' ? newPrinter.ipAddress : null,
         port: newPrinter.port,
         type: newPrinter.type,
         role: newPrinter.role,
@@ -144,13 +184,38 @@ export function PrinterDiscovery() {
         name: '',
         ipAddress: '',
         port: 9100,
-        type: 'network',
+        type: 'usb',
         role: 'counter',
-        format: '76mm',
+        format: '80mm',
       });
       loadPrinters();
     } catch (error) {
       toast.error('Failed to add printer');
+    }
+  };
+
+  const handleTestPrint = async (printer: PrinterConfig) => {
+    setTestingPrinterId(printer.id);
+    try {
+      toast.info(`Testing ${printer.name}...`);
+      const result = await testPrint(printer);
+      if (result.success) {
+        toast.success('Test print sent successfully!');
+      } else {
+        toast.error(result.error || 'Test print failed');
+      }
+    } catch (error) {
+      toast.error('Test print failed');
+    } finally {
+      setTestingPrinterId(null);
+    }
+  };
+
+  const getPrinterIcon = (type: PrinterType) => {
+    switch (type) {
+      case 'usb': return <Usb className="h-4 w-4 text-muted-foreground" />;
+      case 'bluetooth': return <Bluetooth className="h-4 w-4 text-muted-foreground" />;
+      default: return <Wifi className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -162,25 +227,25 @@ export function PrinterDiscovery() {
           Printer Configuration
         </CardTitle>
         <CardDescription>
-          Discover and configure printers for KOT and bill printing
+          Connect thermal printers for instant KOT and bill printing
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Discovery buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
-            onClick={handleNetworkScan}
+            onClick={handleUSBConnect}
             disabled={isScanning}
           >
-            {isScanning && scanType === 'network' ? (
+            {isScanning && scanType === 'usb' ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <Wifi className="h-4 w-4 mr-2" />
+              <Usb className="h-4 w-4 mr-2" />
             )}
-            Scan Network
+            Connect USB
           </Button>
-          
+
           <Button
             variant="outline"
             onClick={handleBluetoothScan}
@@ -192,6 +257,19 @@ export function PrinterDiscovery() {
               <Bluetooth className="h-4 w-4 mr-2" />
             )}
             Scan Bluetooth
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={handleNetworkScan}
+            disabled={isScanning}
+          >
+            {isScanning && scanType === 'network' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Wifi className="h-4 w-4 mr-2" />
+            )}
+            Scan Network
           </Button>
 
           <Button variant="outline" onClick={() => setShowAddModal(true)}>
@@ -205,29 +283,39 @@ export function PrinterDiscovery() {
           <Label>Configured Printers</Label>
           {printers.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              No printers configured. Scan or add one manually.
+              No printers configured. Connect USB or add one manually.
             </p>
           ) : (
             <div className="space-y-2">
               {printers.map(p => (
                 <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    {p.type === 'bluetooth' ? (
-                      <Bluetooth className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Wifi className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    {getPrinterIcon(p.type)}
                     <div>
                       <p className="font-medium flex items-center gap-2">
                         {p.name}
                         {p.isDefault && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                        <CircleDot className={`h-3 w-3 ${checkPrinterStatus(p.id) ? 'text-green-500' : 'text-muted-foreground'}`} />
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.ipAddress}{p.port ? `:${p.port}` : ''} • {p.role} • {p.format}
+                        {p.type.toUpperCase()} • {p.role} • {p.format}
+                        {p.ipAddress && ` • ${p.ipAddress}`}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleTestPrint(p)}
+                      disabled={testingPrinterId === p.id}
+                    >
+                      {testingPrinterId === p.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <TestTube className="h-4 w-4" />
+                      )}
+                    </Button>
                     {!p.isDefault && (
                       <Button
                         variant="ghost"
@@ -265,11 +353,14 @@ export function PrinterDiscovery() {
               ) : (
                 discoveredPrinters.map((p, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.ip || p.id}{p.port ? `:${p.port}` : ''}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {getPrinterIcon(p.type)}
+                      <div>
+                        <p className="font-medium">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.type.toUpperCase()}{p.ip ? ` • ${p.ip}` : ''}{p.port ? `:${p.port}` : ''}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <Button size="sm" variant="outline" onClick={() => handleAddDiscovered(p, 'kitchen')}>
@@ -304,25 +395,42 @@ export function PrinterDiscovery() {
                   onChange={(e) => setNewPrinter({ ...newPrinter, name: e.target.value })}
                 />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>IP Address</Label>
-                  <Input
-                    placeholder="192.168.1.100"
-                    value={newPrinter.ipAddress}
-                    onChange={(e) => setNewPrinter({ ...newPrinter, ipAddress: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Port</Label>
-                  <Input
-                    type="number"
-                    value={newPrinter.port}
-                    onChange={(e) => setNewPrinter({ ...newPrinter, port: parseInt(e.target.value) || 9100 })}
-                  />
-                </div>
+
+              <div className="space-y-2">
+                <Label>Connection Type</Label>
+                <Select
+                  value={newPrinter.type}
+                  onValueChange={(v) => setNewPrinter({ ...newPrinter, type: v as PrinterType })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="usb">USB Direct</SelectItem>
+                    <SelectItem value="bluetooth">Bluetooth</SelectItem>
+                    <SelectItem value="network">Network (IP)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              
+              {newPrinter.type === 'network' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>IP Address</Label>
+                    <Input
+                      placeholder="192.168.1.100"
+                      value={newPrinter.ipAddress}
+                      onChange={(e) => setNewPrinter({ ...newPrinter, ipAddress: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Port</Label>
+                    <Input
+                      type="number"
+                      value={newPrinter.port}
+                      onChange={(e) => setNewPrinter({ ...newPrinter, port: parseInt(e.target.value) || 9100 })}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -340,7 +448,7 @@ export function PrinterDiscovery() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Format</Label>
+                  <Label>Paper Size</Label>
                   <Select
                     value={newPrinter.format}
                     onValueChange={(v) => setNewPrinter({ ...newPrinter, format: v as PrintFormat })}
@@ -349,6 +457,7 @@ export function PrinterDiscovery() {
                     <SelectContent>
                       <SelectItem value="58mm">58mm Thermal</SelectItem>
                       <SelectItem value="76mm">76mm Thermal</SelectItem>
+                      <SelectItem value="80mm">80mm Thermal</SelectItem>
                       <SelectItem value="a5">A5</SelectItem>
                       <SelectItem value="a4">A4</SelectItem>
                     </SelectContent>

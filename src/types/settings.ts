@@ -37,7 +37,7 @@ export interface CurrencySettings {
 }
 
 export type PrinterRole = 'kitchen' | 'counter' | 'bar';
-export type PrintFormat = 'a4' | 'a5' | '76mm' | '58mm';
+export type PrintFormat = 'a4' | 'a5' | '80mm' | '76mm' | '58mm';
 export type PrinterType = 'network' | 'bluetooth' | 'usb';
 
 export interface Printer {
