@@ -264,7 +264,7 @@ export function EditViewBillingModule({
 
     // Filter active portions
     const activePortions = product.portions.filter(p => p.is_active !== false);
-    
+
     if (activePortions.length === 0) {
       return;
     }
@@ -624,15 +624,15 @@ export function EditViewBillingModule({
         .select('loyalty_points')
         .eq('id', customerId)
         .single();
-      
+
       if (customerData) {
         const newPoints = Math.max(0, customerData.loyalty_points - usedPoints + earnedPoints);
-        
+
         await supabase
           .from('customers')
           .update({ loyalty_points: newPoints })
           .eq('id', customerId);
-        
+
         console.log('[EditBill] Updated customer loyalty:', { customerId, usedPoints, earnedPoints, newPoints });
       }
     } catch (error) {
@@ -680,7 +680,7 @@ export function EditViewBillingModule({
 
       // Print bill instantly
       print('counter');
-      
+
       setShowBillPreview(true);
       toast.success('Bill settled successfully');
 
@@ -741,7 +741,7 @@ export function EditViewBillingModule({
 
       // Print bill instantly
       print('counter');
-      
+
       setShowBillPreview(true);
       toast.success('Bill settled successfully');
 

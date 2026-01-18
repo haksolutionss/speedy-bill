@@ -54,7 +54,7 @@ export function PaymentModal({
 }: PaymentModalProps) {
   const { settings } = useSettingsStore();
   const currencySymbol = settings?.currency?.symbol ?? '₹';
-  
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
