@@ -1,0 +1,21 @@
+{
+  "name": "pos-print-agent",
+  "version": "1.0.0",
+  "description": "Local Print Agent for POS thermal printers",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "install-service": "node install-service.js"
+  },
+  "dependencies": {
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-network": "^3.0.0-alpha.4",
+    "escpos-usb": "^3.0.0-alpha.4",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "SpeedyBill POS",
+  "license": "MIT"
+}

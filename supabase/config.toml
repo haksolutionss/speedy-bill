@@ -1,1 +1,4 @@
 project_id = "ngqolhfjvjahfwmfrqpj"
+
+[functions.print-queue]
+verify_jwt = false
