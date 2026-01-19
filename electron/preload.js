@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer } = require('electron');
  * This creates a bridge between the React app and Electron's Node.js capabilities
  */
 
+console.log('SpeedyBill POS: Electron preload script loaded');
+
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -16,6 +18,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * Get list of all available printers (USB and system printers)
    */
   listPrinters: () => ipcRenderer.invoke('printer:list'),
+  
+  /**
+   * Discover all printers (USB + Network + System)
+   * This is the main auto-discovery function
+   */
+  discoverPrinters: () => ipcRenderer.invoke('printer:discover'),
+  
+  /**
+   * Quick network scan for printers
+   */
+  scanNetworkPrinters: () => ipcRenderer.invoke('printer:scan-network'),
+  
+  /**
+   * Full network scan (slower but more thorough)
+   */
+  fullNetworkScan: () => ipcRenderer.invoke('printer:full-network-scan'),
   
   /**
    * Print to a USB thermal printer
@@ -62,6 +80,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('printer:status', { type, config }),
 
   // ============================================
+  // Auto-Discovery Events
+  // ============================================
+  
+  /**
+   * Listen for printer discovery results (called on app startup)
+   */
+  onPrintersDiscovered: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('printers:discovered', handler);
+    return () => ipcRenderer.removeListener('printers:discovered', handler);
+  },
+
+  // ============================================
   // App Information
   // ============================================
   
@@ -87,5 +118,3 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 // Add a global flag that can be checked synchronously
 contextBridge.exposeInMainWorld('isElectronApp', true);
-
-console.log('SpeedyBill POS: Electron preload script loaded');

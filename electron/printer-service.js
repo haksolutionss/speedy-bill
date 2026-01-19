@@ -1,8 +1,10 @@
 const net = require('net');
+const os = require('os');
 
 /**
  * PrinterService - Handles all printer operations in Electron main process
  * Supports USB and Network thermal printers with ESC/POS commands
+ * Includes auto-discovery for both USB and network printers
  */
 class PrinterService {
   constructor() {
@@ -29,8 +31,197 @@ class PrinterService {
   }
 
   // ============================================
+  // Auto-Discovery System
+  // ============================================
+
+  /**
+   * Discover all printers - USB and Network
+   * Called on app startup and on-demand
+   */
+  async discoverAllPrinters() {
+    console.log('Starting printer discovery...');
+    
+    const [usbResult, networkResult, systemResult] = await Promise.all([
+      this.listUSBPrintersAsync(),
+      this.quickNetworkScan(),
+      this.getSystemPrinters()
+    ]);
+
+    const allPrinters = [
+      ...usbResult.printers,
+      ...networkResult.printers,
+      ...systemResult.printers
+    ];
+
+    console.log(`Discovery complete: Found ${allPrinters.length} printer(s)`);
+    
+    return {
+      success: true,
+      printers: allPrinters,
+      counts: {
+        usb: usbResult.printers.length,
+        network: networkResult.printers.length,
+        system: systemResult.printers.length
+      }
+    };
+  }
+
+  /**
+   * Get system printers (detected by OS - WiFi/Network printers)
+   */
+  async getSystemPrinters() {
+    // This will be called from main process with webContents.getPrintersAsync()
+    // Placeholder - actual implementation is in main.js
+    return { printers: [] };
+  }
+
+  /**
+   * Quick network scan for printers on common IPs
+   */
+  async quickNetworkScan(timeout = 500) {
+    const printers = [];
+    const localNetworks = this.getLocalNetworks();
+    
+    console.log('Scanning networks:', localNetworks);
+    
+    for (const network of localNetworks) {
+      const baseIP = network.split('.').slice(0, 3).join('.');
+      const scanPromises = [];
+      
+      // Common printer IP endings
+      const ipEndings = [
+        // Common DHCP reserved ranges for printers
+        ...Array.from({ length: 20 }, (_, i) => 100 + i), // 100-119
+        ...Array.from({ length: 20 }, (_, i) => 200 + i), // 200-219
+        ...Array.from({ length: 10 }, (_, i) => 240 + i), // 240-249
+        // Common static IPs
+        1, 2, 10, 50, 99, 150, 250, 251, 252, 253, 254
+      ];
+      
+      for (const ending of new Set(ipEndings)) {
+        const ip = `${baseIP}.${ending}`;
+        scanPromises.push(this.checkPrinterPort(ip, 9100, timeout));
+      }
+      
+      const results = await Promise.allSettled(scanPromises);
+      
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          printers.push(result.value);
+        }
+      }
+    }
+    
+    console.log(`Network scan found ${printers.length} printer(s)`);
+    return { success: true, printers };
+  }
+
+  /**
+   * Full network scan (slower but more thorough)
+   */
+  async fullNetworkScan(timeout = 300) {
+    const printers = [];
+    const localNetworks = this.getLocalNetworks();
+    
+    console.log('Full network scan on:', localNetworks);
+    
+    for (const network of localNetworks) {
+      const baseIP = network.split('.').slice(0, 3).join('.');
+      
+      // Scan in batches to avoid overwhelming the network
+      const batchSize = 50;
+      for (let start = 1; start <= 254; start += batchSize) {
+        const end = Math.min(start + batchSize - 1, 254);
+        const scanPromises = [];
+        
+        for (let i = start; i <= end; i++) {
+          const ip = `${baseIP}.${i}`;
+          scanPromises.push(this.checkPrinterPort(ip, 9100, timeout));
+        }
+        
+        const results = await Promise.allSettled(scanPromises);
+        
+        for (const result of results) {
+          if (result.status === 'fulfilled' && result.value) {
+            printers.push(result.value);
+          }
+        }
+      }
+    }
+    
+    console.log(`Full scan found ${printers.length} printer(s)`);
+    return { success: true, printers };
+  }
+
+  /**
+   * Get local network addresses
+   */
+  getLocalNetworks() {
+    const networks = [];
+    const interfaces = os.networkInterfaces();
+    
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        // Only IPv4 and non-internal interfaces
+        if (iface.family === 'IPv4' && !iface.internal) {
+          networks.push(iface.address);
+        }
+      }
+    }
+    
+    return networks;
+  }
+
+  /**
+   * Check if a printer is available at IP:port
+   */
+  checkPrinterPort(ip, port, timeout = 500) {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      
+      socket.setTimeout(timeout);
+      
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve({
+          ip,
+          port,
+          name: `Network Printer (${ip})`,
+          type: 'network',
+          status: 'discovered'
+        });
+      });
+      
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve(null);
+      });
+      
+      socket.on('error', () => {
+        socket.destroy();
+        resolve(null);
+      });
+      
+      socket.connect(port, ip);
+    });
+  }
+
+  // ============================================
   // USB Printer Operations
   // ============================================
+
+  /**
+   * List all available USB printers (async version)
+   */
+  async listUSBPrintersAsync() {
+    try {
+      const printers = this.listUSBPrinters();
+      return { success: true, printers };
+    } catch (error) {
+      console.error('Error listing USB printers:', error);
+      return { success: false, printers: [], error: error.message };
+    }
+  }
 
   /**
    * List all available USB printers
@@ -67,9 +258,12 @@ class PrinterService {
       // Common thermal printer vendor IDs
       const printerVendors = [
         0x0416, // Winbond (many thermal printers)
+        0x04b8, // EPSON
         0x0483, // STMicroelectronics
+        0x0519, // Star Micronics
         0x0525, // PLX Technology
         0x067b, // Prolific (USB-Serial)
+        0x0dd4, // Custom
         0x0fe6, // ICS Advent
         0x1504, // EPSON
         0x154f, // SNBC
@@ -110,8 +304,9 @@ class PrinterService {
               productId: descriptor.idProduct,
               manufacturer,
               product,
-              name: product || `USB Printer (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
-              type: 'usb'
+              name: product || manufacturer || `USB Printer (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
+              type: 'usb',
+              status: 'discovered'
             });
           } catch (e) {
             // Device might be in use or inaccessible
@@ -122,7 +317,8 @@ class PrinterService {
               product: 'Unknown',
               name: `USB Device (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
               type: 'usb',
-              inUse: true
+              inUse: true,
+              status: 'in-use'
             });
           }
         }
