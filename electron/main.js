@@ -34,9 +34,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: true,
     },
-    icon: path.join(__dirname, '../public/favicon.ico'),
+    icon: path.join(__dirname, 'assets/icon.ico'),
     title: 'SpeedyBill POS',
-    show: false, // Don't show until ready
+    show: true, // Don't show until ready
     backgroundColor: '#0a0a0b',
   });
 
@@ -72,16 +72,16 @@ function createWindow() {
 
   // Determine if we're in development or production
   const isDev = !app.isPackaged;
-  
+
   if (isDev) {
     // In development, load from Vite dev server
     mainWindow.loadURL('http://localhost:8080');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built React app
-    const indexPath = path.join(__dirname, '../dist/index.html');
+    const indexPath = path.join(process.resourcesPath, 'app.asar/dist/index.html');
     console.log('Loading production app from:', indexPath);
     mainWindow.loadFile(indexPath);
+
   }
 
   // Show window when ready
@@ -101,7 +101,12 @@ function createWindow() {
     }
   });
 
-  // Create application menu
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith('http://localhost') && !url.startsWith('file://')) {
+      event.preventDefault();
+    }
+  });
+
   const menuTemplate = [
     {
       label: 'File',
@@ -153,7 +158,7 @@ function showAboutDialog() {
 // App lifecycle events
 app.whenReady().then(() => {
   createWindow();
-  
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -176,11 +181,11 @@ ipcMain.handle('printer:list', async () => {
   try {
     // Get USB printers from our service
     const usbResult = await printerService.listPrinters();
-    
+
     // Also get system printers (for WiFi/network printers detected by OS)
     const systemPrinters = mainWindow ? mainWindow.webContents.getPrintersAsync() : Promise.resolve([]);
     const sysPrinters = await systemPrinters;
-    
+
     const allPrinters = [
       ...(usbResult.printers || []),
       ...sysPrinters.map(p => ({
@@ -191,7 +196,7 @@ ipcMain.handle('printer:list', async () => {
         status: p.status
       }))
     ];
-    
+
     return { success: true, printers: allPrinters };
   } catch (error) {
     console.error('Error listing printers:', error);

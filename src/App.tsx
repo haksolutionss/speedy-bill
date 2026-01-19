@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route } from "react-router-dom";
 import { ReduxProvider } from "@/providers/ReduxProvider";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -32,6 +32,13 @@ const queryClient = new QueryClient({
   },
 });
 
+const isElectron =
+  typeof window !== "undefined" &&
+  !!(window as any).electron;
+
+
+const Router = isElectron ? HashRouter : BrowserRouter;
+
 const App = () => (
   <ReduxProvider>
     <QueryClientProvider client={queryClient}>
@@ -39,7 +46,7 @@ const App = () => (
         <RealtimeSubscription />
         <Toaster />
         <Sonner position="top-right" />
-        <BrowserRouter>
+        <Router>
           <AuthGuard>
             <AppLayout>
               <Routes>
@@ -59,7 +66,7 @@ const App = () => (
               </Routes>
             </AppLayout>
           </AuthGuard>
-        </BrowserRouter>
+        </Router>
       </TooltipProvider>
     </QueryClientProvider>
   </ReduxProvider>
