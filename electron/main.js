@@ -78,10 +78,28 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:8080');
     mainWindow.webContents.openDevTools();
   } else {
-    const indexPath = path.join(process.resourcesPath, 'app.asar/dist/index.html');
+    // In production, load the built app
+    // Try multiple paths for compatibility
+    let indexPath;
+    
+    // Check if running from asar
+    if (app.isPackaged) {
+      indexPath = path.join(__dirname, '../dist/index.html');
+    } else {
+      indexPath = path.join(__dirname, '../dist/index.html');
+    }
+    
     console.log('Loading production app from:', indexPath);
-    mainWindow.loadFile(indexPath);
-
+    console.log('__dirname:', __dirname);
+    console.log('app.getAppPath():', app.getAppPath());
+    
+    mainWindow.loadFile(indexPath).catch(err => {
+      console.error('Failed to load index.html:', err);
+      // Fallback path
+      const fallbackPath = path.join(app.getAppPath(), 'dist/index.html');
+      console.log('Trying fallback path:', fallbackPath);
+      mainWindow.loadFile(fallbackPath);
+    });
   }
 
   // Show window when ready
