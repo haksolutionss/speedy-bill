@@ -78,27 +78,29 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:8080');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built app
-    // Try multiple paths for compatibility
-    let indexPath;
-    
-    // Check if running from asar
-    if (app.isPackaged) {
-      indexPath = path.join(__dirname, '../dist/index.html');
-    } else {
-      indexPath = path.join(__dirname, '../dist/index.html');
-    }
+    // In production, load the built app from the asar archive
+    // Path resolution: __dirname points to electron/ inside app.asar
+    // So ../dist/index.html resolves to app.asar/dist/index.html
+    const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
     
     console.log('Loading production app from:', indexPath);
     console.log('__dirname:', __dirname);
+    console.log('app.isPackaged:', app.isPackaged);
     console.log('app.getAppPath():', app.getAppPath());
     
     mainWindow.loadFile(indexPath).catch(err => {
-      console.error('Failed to load index.html:', err);
-      // Fallback path
-      const fallbackPath = path.join(app.getAppPath(), 'dist/index.html');
+      console.error('Failed to load index.html from primary path:', err);
+      
+      // Fallback: try loading from app path directly
+      const fallbackPath = path.join(app.getAppPath(), 'dist', 'index.html');
       console.log('Trying fallback path:', fallbackPath);
-      mainWindow.loadFile(fallbackPath);
+      
+      mainWindow.loadFile(fallbackPath).catch(err2 => {
+        console.error('Failed to load from fallback path:', err2);
+        
+        // Show error in window
+        mainWindow.loadURL(`data:text/html,<h1>Failed to load application</h1><p>Primary: ${indexPath}</p><p>Fallback: ${fallbackPath}</p><p>Error: ${err.message}</p>`);
+      });
     });
   }
 

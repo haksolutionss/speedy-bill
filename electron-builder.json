@@ -4,18 +4,31 @@
   "productName": "SpeedyBill POS",
   "copyright": "Copyright © 2024 SpeedyBill",
   "asar": true,
+  "asarUnpack": [
+    "node_modules/usb/**/*",
+    "**/*.node"
+  ],
   "directories": {
     "buildResources": "build",
     "output": "release"
   },
   "files": [
     "dist/**/*",
-    "electron/**/*"
+    "electron/**/*",
+    "!**/*.map",
+    "!**/node_modules/.cache/**",
+    "!**/node_modules/**/*.md",
+    "!**/node_modules/**/test/**",
+    "!**/node_modules/**/tests/**",
+    "!**/node_modules/**/*.ts"
   ],
   "extraResources": [],
   "extraMetadata": {
     "main": "electron/main.js"
   },
+  "npmRebuild": true,
+  "nodeGypRebuild": false,
+  "buildDependenciesFromSource": false,
   "win": {
     "target": [
       {
@@ -27,7 +40,7 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "public/favicon.ico",
+    "icon": "electron/assets/icon.ico",
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "requestedExecutionLevel": "asInvoker"
   },
@@ -39,9 +52,6 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "SpeedyBill POS",
-    "installerIcon": "public/favicon.ico",
-    "uninstallerIcon": "public/favicon.ico",
-    "installerHeaderIcon": "public/favicon.ico",
     "runAfterFinish": true
   },
   "portable": {
@@ -49,16 +59,13 @@
   },
   "mac": {
     "target": ["dmg", "zip"],
-    "icon": "public/favicon.ico",
+    "icon": "electron/assets/icon.ico",
     "category": "public.app-category.business"
   },
   "linux": {
     "target": ["AppImage", "deb"],
-    "icon": "public/favicon.ico",
+    "icon": "electron/assets/icon.ico",
     "category": "Office"
   },
-  "publish": null,
-  "electronDownload": {
-    "mirror": "https://npmmirror.com/mirrors/electron/"
-  }
+  "publish": null
 }
