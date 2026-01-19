@@ -3,12 +3,16 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { generateKOTCommands, generateBillCommands, KOTData, BillData } from '@/lib/escpos/templates';
 import { formatToPaperWidth } from '@/lib/escpos/commands';
 import type { Printer } from '@/types/settings';
+import { toast } from 'sonner';
 
 // Type declarations for Electron API exposed via preload
 declare global {
   interface Window {
     electronAPI?: {
       listPrinters: () => Promise<{ success: boolean; printers: any[]; error?: string }>;
+      discoverPrinters: () => Promise<{ usb: any[]; network: any[]; system: any[] }>;
+      scanNetworkPrinters: () => Promise<{ success: boolean; printers: any[]; error?: string }>;
+      fullNetworkScan: () => Promise<{ success: boolean; printers: any[]; error?: string }>;
       printToUSB: (vendorId: number, productId: number, data: Uint8Array | string, format: string) => Promise<{ success: boolean; error?: string }>;
       printToNetwork: (ip: string, port: number, data: Uint8Array | string, format: string) => Promise<{ success: boolean; error?: string }>;
       testPrinter: (type: string, config: any) => Promise<{ success: boolean; error?: string }>;
@@ -16,6 +20,7 @@ declare global {
       getPrinterStatus: (type: string, config: any) => Promise<{ success: boolean; status: string; error?: string }>;
       isElectron: () => Promise<boolean>;
       getVersion: () => Promise<string>;
+      onPrintersDiscovered: (callback: (data: any) => void) => () => void;
       platform: string;
       isWindows: boolean;
       isMac: boolean;
@@ -31,6 +36,12 @@ interface PrintResult {
   error?: string;
 }
 
+interface DiscoveredPrinters {
+  usb: any[];
+  network: any[];
+  system: any[];
+}
+
 interface USBPrinterInfo {
   vendorId: number;
   productId: number;
@@ -41,28 +52,71 @@ interface USBPrinterInfo {
 
 /**
  * Hook for printing via Electron's main process
- * This bypasses all browser security restrictions by using Node.js directly
+ * Includes auto-discovery of USB and network printers
  */
 export const useElectronPrint = () => {
   const { settings } = useSettingsStore();
   const [isElectron, setIsElectron] = useState(false);
   const [usbPrinters, setUsbPrinters] = useState<USBPrinterInfo[]>([]);
+  const [networkPrinters, setNetworkPrinters] = useState<any[]>([]);
+  const [systemPrinters, setSystemPrinters] = useState<any[]>([]);
   const [printerStatus, setPrinterStatus] = useState<Record<string, string>>({});
+  const [isDiscovering, setIsDiscovering] = useState(false);
 
-  // Check if running in Electron
+  // Check if running in Electron and listen for auto-discovery
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
     const checkElectron = async () => {
       if (window.isElectronApp && window.electronAPI) {
         try {
           const result = await window.electronAPI.isElectron();
           setIsElectron(result);
+          
+          if (result) {
+            // Listen for auto-discovered printers on startup
+            unsubscribe = window.electronAPI.onPrintersDiscovered((data: DiscoveredPrinters) => {
+              console.log('Printers auto-discovered:', data);
+              setUsbPrinters(data.usb || []);
+              setNetworkPrinters(data.network || []);
+              setSystemPrinters(data.system || []);
+              
+              const total = (data.usb?.length || 0) + (data.network?.length || 0) + (data.system?.length || 0);
+              if (total > 0) {
+                toast.success(`Found ${total} printer(s)`, {
+                  description: `USB: ${data.usb?.length || 0}, Network: ${data.network?.length || 0}, System: ${data.system?.length || 0}`
+                });
+              }
+            });
+          }
         } catch {
           setIsElectron(false);
         }
       }
     };
+    
     checkElectron();
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
+
+  // Manual discovery trigger
+  const discoverPrinters = useCallback(async () => {
+    if (!isElectron || !window.electronAPI) return null;
+    
+    setIsDiscovering(true);
+    try {
+      const result = await window.electronAPI.discoverPrinters();
+      setUsbPrinters(result.usb || []);
+      setNetworkPrinters(result.network || []);
+      setSystemPrinters(result.system || []);
+      return result;
+    } finally {
+      setIsDiscovering(false);
+    }
+  }, [isElectron]);
 
   // Scan for USB printers
   const scanUSBPrinters = useCallback(async () => {

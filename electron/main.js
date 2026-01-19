@@ -175,6 +175,51 @@ function showAboutDialog() {
   });
 }
 
+// ============================================
+// Auto-Discovery on App Start
+// ============================================
+
+async function discoverPrintersOnStartup() {
+  if (!mainWindow) return;
+  
+  console.log('Auto-discovering printers on startup...');
+  
+  try {
+    // Get USB printers from our service
+    const usbResult = await printerService.discoverAllPrinters();
+    
+    // Get system printers (detected by OS - WiFi/Network printers)
+    const systemPrinters = await mainWindow.webContents.getPrintersAsync();
+    
+    const allPrinters = {
+      usb: usbResult.printers.filter(p => p.type === 'usb'),
+      network: usbResult.printers.filter(p => p.type === 'network'),
+      system: systemPrinters.map(p => ({
+        name: p.displayName || p.name,
+        type: 'system',
+        isDefault: p.isDefault,
+        status: p.status === 0 ? 'ready' : 'offline',
+        description: p.description,
+        printerName: p.name
+      }))
+    };
+    
+    console.log('Discovered printers:', {
+      usb: allPrinters.usb.length,
+      network: allPrinters.network.length,
+      system: allPrinters.system.length
+    });
+    
+    // Send discovered printers to renderer
+    mainWindow.webContents.send('printers:discovered', allPrinters);
+    
+    return allPrinters;
+  } catch (error) {
+    console.error('Error during printer discovery:', error);
+    return { usb: [], network: [], system: [] };
+  }
+}
+
 // App lifecycle events
 app.whenReady().then(() => {
   createWindow();
@@ -183,6 +228,12 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
+  });
+  
+  // Auto-discover printers after window is ready
+  mainWindow.webContents.once('did-finish-load', () => {
+    // Small delay to ensure React app is initialized
+    setTimeout(discoverPrintersOnStartup, 2000);
   });
 });
 
@@ -195,6 +246,11 @@ app.on('window-all-closed', () => {
 // ============================================
 // IPC Handlers for Printer Communication
 // ============================================
+
+// Discover all printers (USB + Network + System)
+ipcMain.handle('printer:discover', async () => {
+  return discoverPrintersOnStartup();
+});
 
 // Get list of available printers (includes system printers)
 ipcMain.handle('printer:list', async () => {
@@ -209,7 +265,7 @@ ipcMain.handle('printer:list', async () => {
     const allPrinters = [
       ...(usbResult.printers || []),
       ...sysPrinters.map(p => ({
-        name: p.name,
+        name: p.displayName || p.name,
         type: 'system',
         displayName: p.displayName,
         isDefault: p.isDefault,
@@ -220,6 +276,26 @@ ipcMain.handle('printer:list', async () => {
     return { success: true, printers: allPrinters };
   } catch (error) {
     console.error('Error listing printers:', error);
+    return { success: false, error: error.message, printers: [] };
+  }
+});
+
+// Quick network scan for printers
+ipcMain.handle('printer:scan-network', async () => {
+  try {
+    return await printerService.quickNetworkScan();
+  } catch (error) {
+    console.error('Network scan error:', error);
+    return { success: false, error: error.message, printers: [] };
+  }
+});
+
+// Full network scan
+ipcMain.handle('printer:full-network-scan', async () => {
+  try {
+    return await printerService.fullNetworkScan();
+  } catch (error) {
+    console.error('Full network scan error:', error);
     return { success: false, error: error.message, printers: [] };
   }
 });
