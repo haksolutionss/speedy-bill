@@ -29,11 +29,13 @@ Add these entries to your `package.json`:
   "main": "electron/main.js",
   "scripts": {
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && electron .\"",
-    "electron:build": "set ELECTRON=true && npm run build && electron-builder --win",
-    "electron:build:portable": "set ELECTRON=true && npm run build && electron-builder --win portable"
+    "electron:build": "npm run build && electron-builder --win",
+    "electron:build:portable": "npm run build && electron-builder --win portable"
   }
 }
 ```
+
+> **Note:** The `ELECTRON=true` environment variable is no longer needed as the app now uses relative paths and HashRouter by default for Electron compatibility.
 
 ### 3. Development Mode
 
@@ -62,6 +64,18 @@ After running `npm run electron:build`, you'll find:
 
 - `release/SpeedyBill POS-Setup-1.0.0.exe` - Windows installer
 - `release/SpeedyBill POS-Portable-1.0.0.exe` - Portable executable
+- `release/win-unpacked/` - Unpacked application directory (for testing)
+
+## Important Notes for Building
+
+### Routing Fix (HashRouter)
+The app automatically uses `HashRouter` when running in Electron. This is required because:
+- Electron uses `file://` protocol in production
+- `BrowserRouter` requires a server to handle routes
+- `HashRouter` works with static files and `file://` protocol
+
+### Relative Paths
+All asset paths use `./` (relative) instead of `/` (absolute). This ensures assets load correctly from the packaged app.
 
 ## Printer Configuration
 

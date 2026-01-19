@@ -3,7 +3,9 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 export default defineConfig(({ mode }) => {
-  const isElectron = process.env.ELECTRON === "true";
+  // Always use relative paths for Electron compatibility
+  // Hash router handles routing in both web and Electron
+  const base = "./";
 
   return {
     server: {
@@ -11,8 +13,8 @@ export default defineConfig(({ mode }) => {
       port: 8080,
     },
 
-    // Electron requires relative paths
-    base: isElectron ? "./" : "/",
+    // Use relative paths for Electron file:// protocol compatibility
+    base,
 
     plugins: [
       react(),
@@ -25,7 +27,18 @@ export default defineConfig(({ mode }) => {
     },
 
     build: {
-      // ensures clean rel
+      outDir: "dist",
+      emptyOutDir: true,
+      // Ensure assets use relative paths
+      assetsDir: "assets",
+      rollupOptions: {
+        output: {
+          // Ensure chunk names don't have problematic characters
+          chunkFileNames: "assets/[name]-[hash].js",
+          entryFileNames: "assets/[name]-[hash].js",
+          assetFileNames: "assets/[name]-[hash].[ext]",
+        },
+      },
     },
   };
 });

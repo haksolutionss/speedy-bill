@@ -32,10 +32,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Check for Electron environment - we expose electronAPI and isElectronApp from preload
 const isElectron =
   typeof window !== "undefined" &&
-  !!(window as any).electron;
-
+  ((window as any).isElectronApp === true ||
+   typeof (window as any).electronAPI !== "undefined" || 
+   navigator.userAgent.toLowerCase().includes('electron'));
 
 const Router = isElectron ? HashRouter : BrowserRouter;
 
