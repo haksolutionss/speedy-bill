@@ -151,11 +151,32 @@ All asset paths use `./` (relative) instead of `/` (absolute). This ensures asse
 ```bash
 # Clear cache and rebuild
 npm cache clean --force
-rm -rf node_modules
+rmdir /s /q node_modules
+del /s /q release
 npm install
 
-# For USB module issues
-npm rebuild
+# Rebuild the app
+npm run build
+electron-builder --win
+```
+
+### "Cannot find path for dependency" Error
+
+If you see this error during build:
+```
+cannot find path for dependency  name=undefined reference=undefined
+```
+
+This is usually caused by the `usb` native module. The app handles this gracefully:
+- Network printing works without the USB module
+- USB printing requires the native module to be properly compiled
+
+Try these fixes:
+```bash
+# Rebuild native modules
+npm rebuild usb
+
+# Or if USB isn't needed, you can proceed - network printing will work
 ```
 
 ## Distribution

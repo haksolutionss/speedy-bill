@@ -9,13 +9,22 @@ class PrinterService {
     this.connectedDevices = new Map();
     this.PRINTER_PORT = 9100; // Default thermal printer port
     this.usbModule = null;
-    
-    // Try to load USB module (may fail if not installed or no native bindings)
+    this.initUSBModule();
+  }
+
+  /**
+   * Initialize USB module with graceful fallback
+   * The USB module is optional - network printing works without it
+   */
+  initUSBModule() {
     try {
+      // Try to load USB module - may fail in packaged app or without native bindings
       this.usbModule = require('usb');
+      console.log('USB module loaded successfully');
     } catch (error) {
       console.warn('USB module not available:', error.message);
       console.warn('USB printer support will be disabled. Network printers still work.');
+      this.usbModule = null;
     }
   }
 
