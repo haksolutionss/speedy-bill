@@ -4,7 +4,6 @@
   "description": "SpeedyBill Desktop POS Application",
   "author": "SpeedyBill",
   "main": "electron/main.js",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
