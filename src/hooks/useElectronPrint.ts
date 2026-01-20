@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { generateKOTCommands, generateBillCommands, KOTData, BillData } from '@/lib/escpos/templates';
 import { formatToPaperWidth } from '@/lib/escpos/commands';
+import { usePrinterAutoAdd } from './usePrinterAutoAdd';
 import type { Printer } from '@/types/settings';
 import { toast } from 'sonner';
 
@@ -56,6 +57,7 @@ interface USBPrinterInfo {
  */
 export const useElectronPrint = () => {
   const { settings } = useSettingsStore();
+  const { autoAddPrinters } = usePrinterAutoAdd();
   const [isElectron, setIsElectron] = useState(false);
   const [usbPrinters, setUsbPrinters] = useState<USBPrinterInfo[]>([]);
   const [networkPrinters, setNetworkPrinters] = useState<any[]>([]);
@@ -75,7 +77,7 @@ export const useElectronPrint = () => {
           
           if (result) {
             // Listen for auto-discovered printers on startup
-            unsubscribe = window.electronAPI.onPrintersDiscovered((data: DiscoveredPrinters) => {
+            unsubscribe = window.electronAPI.onPrintersDiscovered(async (data: DiscoveredPrinters) => {
               console.log('Printers auto-discovered:', data);
               setUsbPrinters(data.usb || []);
               setNetworkPrinters(data.network || []);
@@ -85,6 +87,13 @@ export const useElectronPrint = () => {
               if (total > 0) {
                 toast.success(`Found ${total} printer(s)`, {
                   description: `USB: ${data.usb?.length || 0}, Network: ${data.network?.length || 0}, System: ${data.system?.length || 0}`
+                });
+                
+                // Auto-add discovered printers with smart role assignment
+                await autoAddPrinters({
+                  usb: data.usb?.map(p => ({ ...p, type: 'usb' as const })),
+                  network: data.network?.map(p => ({ ...p, type: 'network' as const })),
+                  system: data.system?.map(p => ({ ...p, type: 'system' as const })),
                 });
               }
             });
@@ -287,8 +296,12 @@ export const useElectronPrint = () => {
   return {
     isElectron,
     usbPrinters,
+    networkPrinters,
+    systemPrinters,
     printerStatus,
+    isDiscovering,
     scanUSBPrinters,
+    discoverPrinters,
     checkPrinterStatus,
     printRaw,
     printKOT,
