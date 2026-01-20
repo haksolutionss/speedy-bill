@@ -85,9 +85,45 @@ export function PrinterDiscovery() {
   };
 
   const handleDownloadAgent = () => {
-    // Open the agent folder in a new tab for download
-    window.open('/pos-print-agent/README.md', '_blank');
-    toast.info('Download the agent files and run: npm install && npm start');
+    // Download the print agent as a zip file
+    const agentUrl = `${window.location.origin}/pos-print-agent/`;
+    
+    // Create instructions dialog content
+    const instructions = `
+SpeedyBill POS Print Agent Setup
+================================
+
+1. Download the print agent files from: ${agentUrl}
+
+2. Create a folder on your POS machine (e.g., C:\\SpeedyBill-Agent)
+
+3. Copy these files to the folder:
+   - package.json
+   - agent.js  
+   - README.md
+
+4. Open Command Prompt in that folder and run:
+   npm install
+   npm start
+
+5. The agent will run on http://localhost:8765
+
+6. Keep the agent running while using SpeedyBill POS
+
+Note: The agent must be running on the same machine as your printers.
+    `.trim();
+    
+    // Copy instructions to clipboard
+    navigator.clipboard.writeText(instructions).then(() => {
+      toast.success('Setup instructions copied to clipboard!', {
+        description: 'Follow the steps to set up the print agent',
+        duration: 5000
+      });
+    }).catch(() => {
+      // Fallback: open readme in new tab
+      window.open('/pos-print-agent/README.md', '_blank');
+      toast.info('Check the README for setup instructions');
+    });
   };
 
   return (

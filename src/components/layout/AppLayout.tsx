@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { PrinterStatusIndicator } from '@/components/billing/PrinterStatusIndicator';
 import type { StaffPermissions } from '@/types/settings';
 
 interface NavItem {
@@ -105,14 +106,17 @@ export function AppLayout({ children }: AppLayoutProps) {
             ))}
           </nav>
 
-          {user && (
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-sm text-sidebar-foreground/70">{user.name || user.mobile}</span>
-              <Button variant="ghost" size="sm" onClick={logout}>
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          <div className="ml-auto flex items-center gap-3">
+            <PrinterStatusIndicator compact />
+            {user && (
+              <>
+                <span className="text-sm text-sidebar-foreground/70">{user.name || user.mobile}</span>
+                <Button variant="ghost" size="sm" onClick={logout}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <main className="pt-12">
