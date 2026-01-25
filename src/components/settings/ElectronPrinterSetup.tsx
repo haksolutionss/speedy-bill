@@ -58,6 +58,7 @@ export const ElectronPrinterSetup: React.FC = () => {
 
     const checkStatuses = async () => {
       for (const printer of printers || []) {
+        console.log("Helllo,", printer)
         await checkPrinterStatus(printer);
       }
     };

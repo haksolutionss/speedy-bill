@@ -37,19 +37,20 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
     if (!isElectron) return;
     setIsChecking(true);
     const newDiagnostics: Record<string, PrinterDiagnostics> = {};
-    
+
     try {
       const results = await Promise.all(
         printers.map(async (printer) => {
+          console.log("ssettinhgg", printer)
           const result = await checkPrinterStatus(printer);
           return { id: printer.id, result };
         })
       );
-      
+
       results.forEach(({ id, result }) => {
         newDiagnostics[id] = result;
       });
-      
+
       setDiagnostics(newDiagnostics);
     } finally {
       setIsChecking(false);
@@ -60,7 +61,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
   const getOverallStatus = () => {
     if (!isElectron) return 'browser';
     if (printers.length === 0) return 'none';
-    
+
     const statuses = printers.map(p => printerStatus[p.id] || diagnostics[p.id]?.status);
     if (statuses.every(s => s === 'connected')) return 'all-connected';
     if (statuses.some(s => s === 'connected')) return 'partial';
@@ -233,9 +234,9 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                 <p className="text-xs text-muted-foreground mb-2">
                   No printers configured. Add printers in Settings.
                 </p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full text-xs"
                   onClick={() => navigate('/settings')}
                 >
@@ -256,7 +257,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                   const status = printerStatus[printer.id] || diagnostics[printer.id]?.status || 'unknown';
                   const diag = diagnostics[printer.id];
                   const isExpanded = expandedPrinter === printer.id;
-                  
+
                   return (
                     <div
                       key={printer.id}
@@ -282,7 +283,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                           {getStatusIcon(status)}
                         </div>
                       </button>
-                      
+
                       {/* Expanded diagnostics */}
                       {isExpanded && (
                         <div className="px-3 pb-3 border-t border-border/50">
@@ -291,7 +292,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                               {diag.message}
                             </p>
                           )}
-                          
+
                           {status !== 'connected' && status !== 'ready' && (
                             <div className="space-y-2 mt-2">
                               <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
@@ -301,31 +302,31 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                                 {diag?.troubleshooting?.map((tip, i) => (
                                   <li key={i}>{tip}</li>
                                 )) || (
-                                  <>
-                                    {printer.type === 'usb' && (
-                                      <>
-                                        <li>Check if printer is connected via USB</li>
-                                        <li>Verify printer is powered on</li>
-                                        <li>Try unplugging and reconnecting</li>
-                                      </>
-                                    )}
-                                    {printer.type === 'network' && (
-                                      <>
-                                        <li>Check if printer IP ({printer.ipAddress}) is correct</li>
-                                        <li>Verify printer is on the same network</li>
-                                        <li>Check if port {printer.port || 9100} is correct</li>
-                                      </>
-                                    )}
-                                    {printer.type === 'system' && (
-                                      <>
-                                        <li>Check Windows Printers & Scanners settings</li>
-                                        <li>Verify printer is not paused</li>
-                                        <li>Restart Windows Print Spooler service</li>
-                                        <li>Try setting as default printer in Windows</li>
-                                      </>
-                                    )}
-                                  </>
-                                )}
+                                    <>
+                                      {printer.type === 'usb' && (
+                                        <>
+                                          <li>Check if printer is connected via USB</li>
+                                          <li>Verify printer is powered on</li>
+                                          <li>Try unplugging and reconnecting</li>
+                                        </>
+                                      )}
+                                      {printer.type === 'network' && (
+                                        <>
+                                          <li>Check if printer IP ({printer.ipAddress}) is correct</li>
+                                          <li>Verify printer is on the same network</li>
+                                          <li>Check if port {printer.port || 9100} is correct</li>
+                                        </>
+                                      )}
+                                      {printer.type === 'system' && (
+                                        <>
+                                          <li>Check Windows Printers & Scanners settings</li>
+                                          <li>Verify printer is not paused</li>
+                                          <li>Restart Windows Print Spooler service</li>
+                                          <li>Try setting as default printer in Windows</li>
+                                        </>
+                                      )}
+                                    </>
+                                  )}
                               </ul>
                             </div>
                           )}
