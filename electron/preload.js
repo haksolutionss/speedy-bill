@@ -56,6 +56,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('printer:print-network', { ip, port, data, format }),
   
   /**
+   * Print to a system printer via Windows Print Spooler
+   * @param {string} printerName - System printer name
+   * @param {Uint8Array|string} data - ESC/POS commands or raw data
+   */
+  printToSystem: (printerName, data) =>
+    ipcRenderer.invoke('printer:print-system', { printerName, data }),
+  
+  /**
    * Test printer connection
    * @param {string} type - 'usb' or 'network'
    * @param {object} config - Printer configuration

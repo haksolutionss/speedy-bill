@@ -11,6 +11,8 @@ interface DiscoveredPrinter {
   ip?: string;
   port?: number;
   manufacturer?: string;
+  systemName?: string;
+  printerName?: string;
 }
 
 // Naming patterns for role assignment
@@ -119,7 +121,13 @@ export function usePrinterAutoAdd() {
         return existing.ipAddress === printer.ip;
       }
       
-      // Check name match
+      // Check system printer match
+      if (printer.type === 'system' && existing.type === 'system') {
+        return existing.systemName === printer.name || 
+               existing.name.toLowerCase() === printer.name.toLowerCase();
+      }
+      
+      // Check name match as fallback
       return existing.name.toLowerCase() === printer.name.toLowerCase();
     });
   }, [printers]);
@@ -160,11 +168,12 @@ export function usePrinterAutoAdd() {
     try {
       await addPrinter({
         name: printer.name,
-        type: printer.type === 'system' ? 'network' : printer.type,
+        type: printer.type,
         vendorId: printer.vendorId,
         productId: printer.productId,
-        ipAddress: printer.ip,
-        port: printer.port || 9100,
+        ipAddress: printer.type === 'network' ? printer.ip : undefined,
+        port: printer.type === 'network' ? (printer.port || 9100) : undefined,
+        systemName: printer.type === 'system' ? printer.name : undefined,
         role,
         format,
         isActive: true,
