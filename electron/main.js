@@ -83,22 +83,22 @@ function createWindow() {
     // Path resolution: __dirname points to electron/ inside app.asar
     // So ../dist/index.html resolves to app.asar/dist/index.html
     const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-    
+
     console.log('Loading production app from:', indexPath);
     console.log('__dirname:', __dirname);
     console.log('app.isPackaged:', app.isPackaged);
     console.log('app.getAppPath():', app.getAppPath());
-    
+
     mainWindow.loadFile(indexPath).catch(err => {
       console.error('Failed to load index.html from primary path:', err);
-      
+
       // Fallback: try loading from app path directly
       const fallbackPath = path.join(app.getAppPath(), 'dist', 'index.html');
       console.log('Trying fallback path:', fallbackPath);
-      
+
       mainWindow.loadFile(fallbackPath).catch(err2 => {
         console.error('Failed to load from fallback path:', err2);
-        
+
         // Show error in window
         mainWindow.loadURL(`data:text/html,<h1>Failed to load application</h1><p>Primary: ${indexPath}</p><p>Fallback: ${fallbackPath}</p><p>Error: ${err.message}</p>`);
       });
@@ -182,16 +182,16 @@ function showAboutDialog() {
 
 async function discoverPrintersOnStartup() {
   if (!mainWindow) return;
-  
+
   console.log('Auto-discovering printers on startup...');
-  
+
   try {
     // Get USB printers from our service
     const usbResult = await printerService.discoverAllPrinters();
-    
+
     // Get system printers (detected by OS - WiFi/Network printers)
     const systemPrinters = await mainWindow.webContents.getPrintersAsync();
-    
+
     const allPrinters = {
       usb: usbResult.printers.filter(p => p.type === 'usb'),
       network: usbResult.printers.filter(p => p.type === 'network'),
@@ -204,16 +204,16 @@ async function discoverPrintersOnStartup() {
         printerName: p.name
       }))
     };
-    
+
     console.log('Discovered printers:', {
       usb: allPrinters.usb.length,
       network: allPrinters.network.length,
       system: allPrinters.system.length
     });
-    
+
     // Send discovered printers to renderer
     mainWindow.webContents.send('printers:discovered', allPrinters);
-    
+
     return allPrinters;
   } catch (error) {
     console.error('Error during printer discovery:', error);
@@ -230,7 +230,7 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
-  
+
   // Auto-discover printers after window is ready
   mainWindow.webContents.once('did-finish-load', () => {
     // Small delay to ensure React app is initialized
@@ -330,12 +330,12 @@ ipcMain.handle('printer:print-system', async (event, { printerName, data }) => {
     if (process.platform !== 'win32') {
       return { success: false, error: 'System printing only supported on Windows' };
     }
-    
+
     // Write data to temp file and print via Windows
     const fs = require('fs');
     const os = require('os');
     const tempFile = path.join(os.tmpdir(), `speedybill_print_${Date.now()}.bin`);
-    
+
     // Convert data to buffer
     let buffer;
     if (data instanceof Uint8Array) {
@@ -350,15 +350,15 @@ ipcMain.handle('printer:print-system', async (event, { printerName, data }) => {
     } else {
       buffer = Buffer.from(data);
     }
-    
+
     fs.writeFileSync(tempFile, buffer);
-    
+
     // Print using Windows COPY command to printer port
     return new Promise((resolve) => {
       exec(`copy /b "${tempFile}" "${printerName}"`, (error, stdout, stderr) => {
         // Clean up temp file
-        try { fs.unlinkSync(tempFile); } catch {}
-        
+        try { fs.unlinkSync(tempFile); } catch { }
+
         if (error) {
           console.error('System print error:', error);
           resolve({ success: false, error: error.message });
@@ -424,19 +424,19 @@ async function getSystemPrinterStatus(printerName) {
   if (!mainWindow) {
     return { success: false, status: 'error', error: 'Application not ready' };
   }
-  
+
   try {
     const printers = await mainWindow.webContents.getPrintersAsync();
-    const printer = printers.find(p => 
-      p.name === printerName || 
+    const printer = printers.find(p =>
+      p.name === printerName ||
       p.displayName === printerName ||
       p.name.includes(printerName) ||
       p.displayName?.includes(printerName)
     );
-    
+
     if (!printer) {
-      return { 
-        success: true, 
+      return {
+        success: true,
         status: 'disconnected',
         error: 'Printer not found in system. Check if it\'s connected and powered on.',
         troubleshooting: [
@@ -447,7 +447,7 @@ async function getSystemPrinterStatus(printerName) {
         ]
       };
     }
-    
+
     // Windows printer status codes
     // 0 = Ready, 1 = Paused, 2 = Error, 3 = Deleting, 4 = Paper Jam, 5 = Out of Paper, etc.
     const statusMap = {
@@ -478,20 +478,20 @@ async function getSystemPrinterStatus(printerName) {
       24: { status: 'server_unknown', message: 'Print server status unknown.' },
       25: { status: 'power_save', message: 'Printer is in power save mode.' },
     };
-    
+
     const statusInfo = statusMap[printer.status] || { status: 'connected', message: 'Ready' };
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       status: statusInfo.status === 'connected' || statusInfo.status === 'printing' || statusInfo.status === 'busy' ? 'connected' : statusInfo.status,
       message: statusInfo.message,
       isDefault: printer.isDefault,
       rawStatus: printer.status
     };
   } catch (error) {
-    return { 
-      success: false, 
-      status: 'error', 
+    return {
+      success: false,
+      status: 'error',
       error: error.message,
       troubleshooting: ['Restart the application', 'Check Windows print spooler service']
     };
@@ -501,14 +501,14 @@ async function getSystemPrinterStatus(printerName) {
 async function testSystemPrinter(printerName) {
   // Generate test print commands
   const testCommands = printerService.generateTestPrint();
-  
+
   // For system printers, we use the Windows print command
   const fs = require('fs');
   const os = require('os');
   const tempFile = path.join(os.tmpdir(), `speedybill_test_${Date.now()}.bin`);
-  
+
   fs.writeFileSync(tempFile, testCommands);
-  
+
   return new Promise((resolve) => {
     // Use PowerShell to send raw data to printer
     const psCommand = `
@@ -529,18 +529,18 @@ async function testSystemPrinter(printerName) {
         }
       }
     `;
-    
+
     exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
-      try { fs.unlinkSync(tempFile); } catch {}
-      
+      try { fs.unlinkSync(tempFile); } catch { }
+
       if (error || !stdout.includes('SUCCESS')) {
         // Fallback: Just check if printer exists
         mainWindow.webContents.getPrintersAsync().then(printers => {
-          const exists = printers.some(p => 
-            p.name.includes(printerName) || 
+          const exists = printers.some(p =>
+            p.name.includes(printerName) ||
             p.displayName?.includes(printerName)
           );
-          
+
           if (exists) {
             resolve({ success: true, message: 'Printer detected (test page may require manual verification)' });
           } else {
@@ -558,17 +558,17 @@ async function testSystemPrinter(printerName) {
 
 async function openSystemCashDrawer(printerName) {
   const drawerCommand = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
-  
+
   const fs = require('fs');
   const os = require('os');
   const tempFile = path.join(os.tmpdir(), `speedybill_drawer_${Date.now()}.bin`);
-  
+
   fs.writeFileSync(tempFile, drawerCommand);
-  
+
   return new Promise((resolve) => {
     exec(`copy /b "${tempFile}" "\\\\%COMPUTERNAME%\\${printerName}"`, (error) => {
-      try { fs.unlinkSync(tempFile); } catch {}
-      
+      try { fs.unlinkSync(tempFile); } catch { }
+
       if (error) {
         resolve({ success: false, error: 'Could not open cash drawer via system printer' });
       } else {
@@ -579,9 +579,9 @@ async function openSystemCashDrawer(printerName) {
 }
 
 // Check if running in Electron
-ipcMain.handle('app:is-electron', () => {
-  return true;
-});
+// ipcMain.handle('app:is-electron', () => {
+//   return true;
+// });
 
 // Get app version
 ipcMain.handle('app:version', () => {
