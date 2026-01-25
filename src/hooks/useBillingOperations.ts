@@ -15,15 +15,14 @@ import type { DbBillItem } from '@/types/database';
 // Helper function to clear cart items from Supabase
 async function clearCartFromSupabase(tableId: string) {
   if (!tableId) return;
-  
-  console.log('[BillingOps] Clearing cart from Supabase for table:', tableId);
-  
+
+
   try {
     const { error } = await supabase
       .from('cart_items')
       .delete()
       .eq('table_id', tableId);
-    
+
     if (error) {
       console.error('[BillingOps] Error clearing cart:', error);
     } else {
@@ -132,7 +131,7 @@ export function useBillingOperations() {
               current_amount: totals.finalAmount,
             },
           }).unwrap();
-          
+
           // Clear cart items from Supabase since they're now in bill_items
           await clearCartFromSupabase(selectedTable.id);
         }
@@ -244,27 +243,20 @@ export function useBillingOperations() {
               .select('loyalty_points')
               .eq('id', customerId)
               .single();
-            
+
             if (customerData) {
               // Calculate points to deduct (used) and add (earned)
               const usedPoints = loyaltyPointsUsed || 0;
               const billAmount = finalAmount ?? calculateBillTotals(cart, discountType, discountValue).finalAmount;
               const earnedPoints = calculateLoyaltyPoints(billAmount);
-              
+
               const newPoints = Math.max(0, customerData.loyalty_points - usedPoints + earnedPoints);
-              
+
               await supabase
                 .from('customers')
                 .update({ loyalty_points: newPoints })
                 .eq('id', customerId);
-              
-              console.log('[BillingOps] Updated customer loyalty points:', {
-                customerId,
-                oldPoints: customerData.loyalty_points,
-                usedPoints,
-                earnedPoints,
-                newPoints
-              });
+
             }
           }
 
@@ -278,12 +270,11 @@ export function useBillingOperations() {
                 current_amount: null,
               },
             }).unwrap();
-            
+
             // Clear any remaining cart items from Supabase
             await clearCartFromSupabase(tableToUpdate.id);
           }
 
-          console.log('[BillingOps] Bill settled successfully in background');
         } catch (error) {
           console.error('[BillingOps] Error settling bill in background:', error);
           // Error is logged but UI has already responded

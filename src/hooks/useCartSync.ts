@@ -51,7 +51,6 @@ export function useCartSync() {
     isLoadingRef.current = true;
 
     try {
-      console.log('[CartSync] Loading cart for table:', table.id, 'current_bill_id:', table.current_bill_id);
 
       // First check if table has an active bill - load from bill_items
       if (table.current_bill_id) {

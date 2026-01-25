@@ -5,16 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { 
-  Printer, 
-  Usb, 
-  Wifi, 
-  RefreshCw, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Printer,
+  Usb,
+  Wifi,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
   AlertTriangle,
   Monitor,
   Download,
@@ -27,20 +26,20 @@ import { isElectron, hasElectronAPI } from '@/lib/electron';
 import type { Printer as PrinterType, PrinterRole, PrintFormat } from '@/types/settings';
 
 export const ElectronPrinterSetup: React.FC = () => {
-  const { 
-    isElectron: isElectronEnv, 
-    usbPrinters, 
+  const {
+    isElectron: isElectronEnv,
+    usbPrinters,
     printerStatus,
-    scanUSBPrinters, 
+    scanUSBPrinters,
     testPrinter,
-    checkPrinterStatus 
+    checkPrinterStatus
   } = useElectronPrint();
-  
-  const { 
+
+  const {
     printers,
     addPrinter,
     updatePrinter,
-    deletePrinter 
+    deletePrinter
   } = useSettingsStore();
   const [isScanning, setIsScanning] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -56,16 +55,16 @@ export const ElectronPrinterSetup: React.FC = () => {
   // Check printer statuses periodically
   useEffect(() => {
     if (!isElectronEnv) return;
-    
+
     const checkStatuses = async () => {
       for (const printer of printers || []) {
         await checkPrinterStatus(printer);
       }
     };
-    
+
     checkStatuses();
     const interval = setInterval(checkStatuses, 30000);
-    
+
     return () => clearInterval(interval);
   }, [isElectronEnv, printers, checkPrinterStatus]);
 
@@ -86,10 +85,10 @@ export const ElectronPrinterSetup: React.FC = () => {
   };
 
   const handleAddUSBPrinter = async (usbPrinter: any) => {
-    const exists = printers.some(p => 
+    const exists = printers.some(p =>
       p.vendorId === usbPrinter.vendorId && p.productId === usbPrinter.productId
     );
-    
+
     if (exists) {
       toast.info('This printer is already configured');
       return;
@@ -134,7 +133,7 @@ export const ElectronPrinterSetup: React.FC = () => {
         isActive: true,
         isDefault: printers.length === 0,
       });
-      
+
       toast.success('Printer added successfully');
       setShowManualAdd(false);
       setManualPrinter({
@@ -152,9 +151,9 @@ export const ElectronPrinterSetup: React.FC = () => {
 
   const handleTestPrinter = async (printer: PrinterType) => {
     toast.loading('Printing test page...', { id: 'test-print' });
-    
+
     const result = await testPrinter(printer);
-    
+
     if (result.success) {
       toast.success('Test print successful!', { id: 'test-print' });
     } else {
@@ -221,7 +220,7 @@ export const ElectronPrinterSetup: React.FC = () => {
               </ul>
             </AlertDescription>
           </Alert>
-          
+
           <div className="flex flex-col gap-3">
             <Button className="w-full" size="lg">
               <Download className="h-4 w-4 mr-2" />
@@ -231,9 +230,8 @@ export const ElectronPrinterSetup: React.FC = () => {
               Version 1.0.0 • Windows 10/11 (64-bit)
             </p>
           </div>
-          
-          <Separator />
-          
+
+
           <div className="text-sm text-muted-foreground">
             <p className="font-medium mb-2">Installation Steps:</p>
             <ol className="list-decimal list-inside space-y-1">
@@ -277,8 +275,8 @@ export const ElectronPrinterSetup: React.FC = () => {
                 Connect thermal printers via USB
               </CardDescription>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleScanUSB}
               disabled={isScanning}
             >
@@ -291,7 +289,7 @@ export const ElectronPrinterSetup: React.FC = () => {
           {usbPrinters.length > 0 ? (
             <div className="space-y-2">
               {usbPrinters.map((printer, index) => (
-                <div 
+                <div
                   key={`${printer.vendorId}-${printer.productId}`}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
@@ -300,7 +298,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                     <div>
                       <p className="font-medium">{printer.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        VID: {printer.vendorId.toString(16).toUpperCase()} | 
+                        VID: {printer.vendorId.toString(16).toUpperCase()} |
                         PID: {printer.productId.toString(16).toUpperCase()}
                       </p>
                     </div>
@@ -332,7 +330,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                 Manage your printer settings
               </CardDescription>
             </div>
-            <Button 
+            <Button
               variant="outline"
               onClick={() => setShowManualAdd(!showManualAdd)}
             >
@@ -357,7 +355,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                   <Label>Type</Label>
                   <Select
                     value={manualPrinter.type}
-                    onValueChange={(value: 'usb' | 'network') => 
+                    onValueChange={(value: 'usb' | 'network') =>
                       setManualPrinter(prev => ({ ...prev, type: value }))
                     }
                   >
@@ -398,7 +396,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                   <Label>Role</Label>
                   <Select
                     value={manualPrinter.role}
-                    onValueChange={(value: PrinterRole) => 
+                    onValueChange={(value: PrinterRole) =>
                       setManualPrinter(prev => ({ ...prev, role: value }))
                     }
                   >
@@ -415,7 +413,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                   <Label>Paper Width</Label>
                   <Select
                     value={manualPrinter.format}
-                    onValueChange={(value: PrintFormat) => 
+                    onValueChange={(value: PrintFormat) =>
                       setManualPrinter(prev => ({ ...prev, format: value }))
                     }
                   >
@@ -441,7 +439,7 @@ export const ElectronPrinterSetup: React.FC = () => {
           {printers.length > 0 ? (
             <div className="space-y-3">
               {printers.map((printer) => (
-                <div 
+                <div
                   key={printer.id}
                   className="p-4 border rounded-lg space-y-3"
                 >
@@ -463,7 +461,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {printer.type === 'network' 
+                          {printer.type === 'network'
                             ? `${printer.ipAddress}:${printer.port}`
                             : `USB Device`
                           } • {printer.format}
@@ -472,16 +470,16 @@ export const ElectronPrinterSetup: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusIcon(printerStatus[printer.id] || 'unknown')}
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleTestPrinter(printer)}
                       >
                         <TestTube className="h-4 w-4 mr-1" />
                         Test
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="destructive"
                         onClick={() => handleRemovePrinter(printer.id)}
                       >
@@ -496,7 +494,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                       <Label className="text-xs">Role:</Label>
                       <Select
                         value={printer.role}
-                        onValueChange={(value: PrinterRole) => 
+                        onValueChange={(value: PrinterRole) =>
                           handleUpdatePrinter(printer.id, { role: value })
                         }
                       >
@@ -513,7 +511,7 @@ export const ElectronPrinterSetup: React.FC = () => {
                       <Label className="text-xs">Paper:</Label>
                       <Select
                         value={printer.format}
-                        onValueChange={(value: PrintFormat) => 
+                        onValueChange={(value: PrintFormat) =>
                           handleUpdatePrinter(printer.id, { format: value })
                         }
                       >
