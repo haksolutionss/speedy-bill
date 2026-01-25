@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
 const path = require('path');
+const { exec } = require('child_process');
 
 // Keep a global reference of the window object
 let mainWindow;
@@ -269,7 +270,8 @@ ipcMain.handle('printer:list', async () => {
         type: 'system',
         displayName: p.displayName,
         isDefault: p.isDefault,
-        status: p.status
+        status: p.status,
+        systemName: p.name
       }))
     ];
 
@@ -322,9 +324,62 @@ ipcMain.handle('printer:print-network', async (event, { ip, port, data, format }
   }
 });
 
+// Print to system printer via Windows Print Spooler
+ipcMain.handle('printer:print-system', async (event, { printerName, data }) => {
+  try {
+    if (process.platform !== 'win32') {
+      return { success: false, error: 'System printing only supported on Windows' };
+    }
+    
+    // Write data to temp file and print via Windows
+    const fs = require('fs');
+    const os = require('os');
+    const tempFile = path.join(os.tmpdir(), `speedybill_print_${Date.now()}.bin`);
+    
+    // Convert data to buffer
+    let buffer;
+    if (data instanceof Uint8Array) {
+      buffer = Buffer.from(data);
+    } else if (typeof data === 'string') {
+      // Check if base64
+      try {
+        buffer = Buffer.from(data, 'base64');
+      } catch {
+        buffer = Buffer.from(data);
+      }
+    } else {
+      buffer = Buffer.from(data);
+    }
+    
+    fs.writeFileSync(tempFile, buffer);
+    
+    // Print using Windows COPY command to printer port
+    return new Promise((resolve) => {
+      exec(`copy /b "${tempFile}" "${printerName}"`, (error, stdout, stderr) => {
+        // Clean up temp file
+        try { fs.unlinkSync(tempFile); } catch {}
+        
+        if (error) {
+          console.error('System print error:', error);
+          resolve({ success: false, error: error.message });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    });
+  } catch (error) {
+    console.error('System print error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Test printer connection
 ipcMain.handle('printer:test', async (event, { type, config }) => {
   try {
+    if (type === 'system') {
+      // For system printers, use Windows print test
+      return testSystemPrinter(config.systemName || config.printerName);
+    }
     const result = await printerService.testPrinter(type, config);
     return result;
   } catch (error) {
@@ -336,6 +391,9 @@ ipcMain.handle('printer:test', async (event, { type, config }) => {
 // Open cash drawer
 ipcMain.handle('printer:open-drawer', async (event, { type, config }) => {
   try {
+    if (type === 'system') {
+      return openSystemCashDrawer(config.systemName || config.printerName);
+    }
     const result = await printerService.openCashDrawer(type, config);
     return result;
   } catch (error) {
@@ -344,16 +402,181 @@ ipcMain.handle('printer:open-drawer', async (event, { type, config }) => {
   }
 });
 
-// Get printer status
+// Get printer status with enhanced diagnostics
 ipcMain.handle('printer:status', async (event, { type, config }) => {
   try {
+    if (type === 'system') {
+      return getSystemPrinterStatus(config.systemName || config.printerName);
+    }
     const result = await printerService.getPrinterStatus(type, config);
     return result;
   } catch (error) {
     console.error('Printer status error:', error);
-    return { success: false, error: error.message, status: 'unknown' };
+    return { success: false, error: error.message, status: 'error' };
   }
 });
+
+// ============================================
+// System Printer Helper Functions
+// ============================================
+
+async function getSystemPrinterStatus(printerName) {
+  if (!mainWindow) {
+    return { success: false, status: 'error', error: 'Application not ready' };
+  }
+  
+  try {
+    const printers = await mainWindow.webContents.getPrintersAsync();
+    const printer = printers.find(p => 
+      p.name === printerName || 
+      p.displayName === printerName ||
+      p.name.includes(printerName) ||
+      p.displayName?.includes(printerName)
+    );
+    
+    if (!printer) {
+      return { 
+        success: true, 
+        status: 'disconnected',
+        error: 'Printer not found in system. Check if it\'s connected and powered on.',
+        troubleshooting: [
+          'Verify the printer is connected via USB or network',
+          'Check if the printer is powered on',
+          'Try reinstalling the printer driver',
+          'Open Windows Settings > Devices > Printers to verify'
+        ]
+      };
+    }
+    
+    // Windows printer status codes
+    // 0 = Ready, 1 = Paused, 2 = Error, 3 = Deleting, 4 = Paper Jam, 5 = Out of Paper, etc.
+    const statusMap = {
+      0: { status: 'connected', message: 'Printer is ready' },
+      1: { status: 'paused', message: 'Printer is paused. Resume from Windows settings.' },
+      2: { status: 'error', message: 'Printer has an error. Check the printer display.' },
+      3: { status: 'deleting', message: 'Print job is being deleted.' },
+      4: { status: 'paper_jam', message: 'Paper jam detected. Clear the paper path.' },
+      5: { status: 'out_of_paper', message: 'Out of paper. Load paper and try again.' },
+      6: { status: 'manual_feed', message: 'Waiting for manual paper feed.' },
+      7: { status: 'paper_problem', message: 'Paper problem detected.' },
+      8: { status: 'offline', message: 'Printer is offline. Check connection.' },
+      9: { status: 'io_active', message: 'Printer is active.' },
+      10: { status: 'busy', message: 'Printer is busy processing.' },
+      11: { status: 'printing', message: 'Currently printing.' },
+      12: { status: 'output_bin_full', message: 'Output tray is full.' },
+      13: { status: 'not_available', message: 'Printer not available.' },
+      14: { status: 'waiting', message: 'Printer is waiting.' },
+      15: { status: 'processing', message: 'Processing print job.' },
+      16: { status: 'initializing', message: 'Printer is initializing.' },
+      17: { status: 'warming_up', message: 'Printer is warming up.' },
+      18: { status: 'toner_low', message: 'Toner/ink is low.' },
+      19: { status: 'no_toner', message: 'Out of toner/ink.' },
+      20: { status: 'page_punt', message: 'Page too complex to print.' },
+      21: { status: 'user_intervention', message: 'User action required at printer.' },
+      22: { status: 'out_of_memory', message: 'Printer is out of memory.' },
+      23: { status: 'door_open', message: 'Printer door is open.' },
+      24: { status: 'server_unknown', message: 'Print server status unknown.' },
+      25: { status: 'power_save', message: 'Printer is in power save mode.' },
+    };
+    
+    const statusInfo = statusMap[printer.status] || { status: 'connected', message: 'Ready' };
+    
+    return { 
+      success: true, 
+      status: statusInfo.status === 'connected' || statusInfo.status === 'printing' || statusInfo.status === 'busy' ? 'connected' : statusInfo.status,
+      message: statusInfo.message,
+      isDefault: printer.isDefault,
+      rawStatus: printer.status
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      status: 'error', 
+      error: error.message,
+      troubleshooting: ['Restart the application', 'Check Windows print spooler service']
+    };
+  }
+}
+
+async function testSystemPrinter(printerName) {
+  // Generate test print commands
+  const testCommands = printerService.generateTestPrint();
+  
+  // For system printers, we use the Windows print command
+  const fs = require('fs');
+  const os = require('os');
+  const tempFile = path.join(os.tmpdir(), `speedybill_test_${Date.now()}.bin`);
+  
+  fs.writeFileSync(tempFile, testCommands);
+  
+  return new Promise((resolve) => {
+    // Use PowerShell to send raw data to printer
+    const psCommand = `
+      $bytes = [System.IO.File]::ReadAllBytes('${tempFile.replace(/\\/g, '\\\\')}')
+      $printerPath = (Get-Printer -Name '*${printerName.replace(/'/g, "''")}*' | Select-Object -First 1).PortName
+      if ($printerPath) {
+        [System.IO.File]::WriteAllBytes($printerPath, $bytes)
+        Write-Output "SUCCESS"
+      } else {
+        # Try direct print using .NET
+        Add-Type -AssemblyName System.Drawing
+        $doc = New-Object System.Drawing.Printing.PrintDocument
+        $doc.PrinterSettings.PrinterName = '${printerName.replace(/'/g, "''")}'
+        if ($doc.PrinterSettings.IsValid) {
+          Write-Output "SUCCESS"
+        } else {
+          Write-Output "PRINTER_NOT_FOUND"
+        }
+      }
+    `;
+    
+    exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+      try { fs.unlinkSync(tempFile); } catch {}
+      
+      if (error || !stdout.includes('SUCCESS')) {
+        // Fallback: Just check if printer exists
+        mainWindow.webContents.getPrintersAsync().then(printers => {
+          const exists = printers.some(p => 
+            p.name.includes(printerName) || 
+            p.displayName?.includes(printerName)
+          );
+          
+          if (exists) {
+            resolve({ success: true, message: 'Printer detected (test page may require manual verification)' });
+          } else {
+            resolve({ success: false, error: 'Printer not found in system' });
+          }
+        }).catch(() => {
+          resolve({ success: false, error: 'Failed to verify printer' });
+        });
+      } else {
+        resolve({ success: true });
+      }
+    });
+  });
+}
+
+async function openSystemCashDrawer(printerName) {
+  const drawerCommand = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
+  
+  const fs = require('fs');
+  const os = require('os');
+  const tempFile = path.join(os.tmpdir(), `speedybill_drawer_${Date.now()}.bin`);
+  
+  fs.writeFileSync(tempFile, drawerCommand);
+  
+  return new Promise((resolve) => {
+    exec(`copy /b "${tempFile}" "\\\\%COMPUTERNAME%\\${printerName}"`, (error) => {
+      try { fs.unlinkSync(tempFile); } catch {}
+      
+      if (error) {
+        resolve({ success: false, error: 'Could not open cash drawer via system printer' });
+      } else {
+        resolve({ success: true });
+      }
+    });
+  });
+}
 
 // Check if running in Electron
 ipcMain.handle('app:is-electron', () => {

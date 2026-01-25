@@ -38,7 +38,7 @@ export interface CurrencySettings {
 
 export type PrinterRole = 'kitchen' | 'counter' | 'bar';
 export type PrintFormat = 'a4' | 'a5' | '80mm' | '76mm' | '58mm';
-export type PrinterType = 'network' | 'bluetooth' | 'usb';
+export type PrinterType = 'network' | 'bluetooth' | 'usb' | 'system';
 
 export interface Printer {
   id: string;
@@ -53,6 +53,8 @@ export interface Printer {
   // USB printer identifiers (for Electron)
   vendorId?: number;
   productId?: number;
+  // System printer name (for Windows print spooler)
+  systemName?: string;
 }
 
 export type SyncMode = 'realtime' | 'polling';
