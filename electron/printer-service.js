@@ -31,180 +31,60 @@ class PrinterService {
   }
 
   // ============================================
-  // Auto-Discovery System
+  // Auto-Discovery System (USB ONLY)
   // ============================================
 
   /**
-   * Discover all printers - USB and Network
-   * Called on app startup and on-demand
+   * Discover USB printers only
+   * Network and System printers are commented out for simplicity
    */
   async discoverAllPrinters() {
-    console.log('Starting printer discovery...');
+    console.log('Starting USB printer discovery...');
     
-    const [usbResult, networkResult, systemResult] = await Promise.all([
-      this.listUSBPrintersAsync(),
-      this.quickNetworkScan(),
-      this.getSystemPrinters()
-    ]);
+    const usbResult = await this.listUSBPrintersAsync();
 
-    const allPrinters = [
-      ...usbResult.printers,
-      ...networkResult.printers,
-      ...systemResult.printers
-    ];
-
-    console.log(`Discovery complete: Found ${allPrinters.length} printer(s)`);
+    console.log(`Discovery complete: Found ${usbResult.printers.length} USB printer(s)`);
+    console.log('USB Printers:', JSON.stringify(usbResult.printers, null, 2));
     
     return {
       success: true,
-      printers: allPrinters,
+      printers: usbResult.printers,
       counts: {
         usb: usbResult.printers.length,
-        network: networkResult.printers.length,
-        system: systemResult.printers.length
+        network: 0,
+        system: 0
       }
     };
   }
 
-  /**
-   * Get system printers (detected by OS - WiFi/Network printers)
-   */
+  // COMMENTED OUT - Network and System printer discovery
+  // We're focusing on USB only for posytude printer
+  /*
   async getSystemPrinters() {
-    // This will be called from main process with webContents.getPrintersAsync()
-    // Placeholder - actual implementation is in main.js
     return { printers: [] };
   }
 
-  /**
-   * Quick network scan for printers on common IPs
-   */
   async quickNetworkScan(timeout = 500) {
-    const printers = [];
-    const localNetworks = this.getLocalNetworks();
-    
-    console.log('Scanning networks:', localNetworks);
-    
-    for (const network of localNetworks) {
-      const baseIP = network.split('.').slice(0, 3).join('.');
-      const scanPromises = [];
-      
-      // Common printer IP endings
-      const ipEndings = [
-        // Common DHCP reserved ranges for printers
-        ...Array.from({ length: 20 }, (_, i) => 100 + i), // 100-119
-        ...Array.from({ length: 20 }, (_, i) => 200 + i), // 200-219
-        ...Array.from({ length: 10 }, (_, i) => 240 + i), // 240-249
-        // Common static IPs
-        1, 2, 10, 50, 99, 150, 250, 251, 252, 253, 254
-      ];
-      
-      for (const ending of new Set(ipEndings)) {
-        const ip = `${baseIP}.${ending}`;
-        scanPromises.push(this.checkPrinterPort(ip, 9100, timeout));
-      }
-      
-      const results = await Promise.allSettled(scanPromises);
-      
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          printers.push(result.value);
-        }
-      }
-    }
-    
-    console.log(`Network scan found ${printers.length} printer(s)`);
-    return { success: true, printers };
+    // Network scan disabled - USB only
+    return { success: true, printers: [] };
   }
+  */
 
-  /**
-   * Full network scan (slower but more thorough)
-   */
+  // COMMENTED OUT - Full network scan
+  // We're focusing on USB only for posytude printer
+  /*
   async fullNetworkScan(timeout = 300) {
-    const printers = [];
-    const localNetworks = this.getLocalNetworks();
-    
-    console.log('Full network scan on:', localNetworks);
-    
-    for (const network of localNetworks) {
-      const baseIP = network.split('.').slice(0, 3).join('.');
-      
-      // Scan in batches to avoid overwhelming the network
-      const batchSize = 50;
-      for (let start = 1; start <= 254; start += batchSize) {
-        const end = Math.min(start + batchSize - 1, 254);
-        const scanPromises = [];
-        
-        for (let i = start; i <= end; i++) {
-          const ip = `${baseIP}.${i}`;
-          scanPromises.push(this.checkPrinterPort(ip, 9100, timeout));
-        }
-        
-        const results = await Promise.allSettled(scanPromises);
-        
-        for (const result of results) {
-          if (result.status === 'fulfilled' && result.value) {
-            printers.push(result.value);
-          }
-        }
-      }
-    }
-    
-    console.log(`Full scan found ${printers.length} printer(s)`);
-    return { success: true, printers };
+    return { success: true, printers: [] };
   }
 
-  /**
-   * Get local network addresses
-   */
   getLocalNetworks() {
-    const networks = [];
-    const interfaces = os.networkInterfaces();
-    
-    for (const name of Object.keys(interfaces)) {
-      for (const iface of interfaces[name]) {
-        // Only IPv4 and non-internal interfaces
-        if (iface.family === 'IPv4' && !iface.internal) {
-          networks.push(iface.address);
-        }
-      }
-    }
-    
-    return networks;
+    return [];
   }
 
-  /**
-   * Check if a printer is available at IP:port
-   */
   checkPrinterPort(ip, port, timeout = 500) {
-    return new Promise((resolve) => {
-      const socket = new net.Socket();
-      
-      socket.setTimeout(timeout);
-      
-      socket.on('connect', () => {
-        socket.destroy();
-        resolve({
-          ip,
-          port,
-          name: `Network Printer (${ip})`,
-          type: 'network',
-          status: 'discovered'
-        });
-      });
-      
-      socket.on('timeout', () => {
-        socket.destroy();
-        resolve(null);
-      });
-      
-      socket.on('error', () => {
-        socket.destroy();
-        resolve(null);
-      });
-      
-      socket.connect(port, ip);
-    });
+    return Promise.resolve(null);
   }
+  */
 
   // ============================================
   // USB Printer Operations
@@ -245,9 +125,11 @@ class PrinterService {
 
   /**
    * Get all USB devices that look like printers
+   * Enhanced to detect posytude and similar thermal printers
    */
   listUSBPrinters() {
     if (!this.usbModule) {
+      console.log('USB module not available');
       return [];
     }
 
@@ -255,75 +137,104 @@ class PrinterService {
       const devices = this.usbModule.getDeviceList();
       const printers = [];
 
-      // Common thermal printer vendor IDs
+      console.log(`Found ${devices.length} USB devices total`);
+
+      // Common thermal printer vendor IDs (including posytude)
       const printerVendors = [
-        0x0416, // Winbond (many thermal printers)
+        0x0416, // Winbond (posytude and many other thermal printers)
+        0x0483, // STMicroelectronics (common in POS printers)
         0x04b8, // EPSON
-        0x0483, // STMicroelectronics
         0x0519, // Star Micronics
         0x0525, // PLX Technology
-        0x067b, // Prolific (USB-Serial)
-        0x0dd4, // Custom
+        0x067b, // Prolific (USB-Serial adapters)
+        0x0dd4, // Custom Engineering
         0x0fe6, // ICS Advent
-        0x1504, // EPSON
+        0x1504, // EPSON (alternate)
         0x154f, // SNBC
-        0x1659, // SII
-        0x1a86, // QinHeng (CH340)
+        0x1659, // SII (Seiko)
+        0x1a86, // QinHeng Electronics (CH340/CH341)
         0x1fc9, // NXP
         0x20d1, // Simba
         0x2730, // Citizen
         0x28e9, // GD32
-        0x4b43, // Custom
+        0x4b43, // Custom (alternate)
         0x6868, // Cashino
+        0x0fe6, // Kontron
+        0x0471, // Philips (some POS devices)
+        0x1234, // Generic USB device (common placeholder)
       ];
 
       for (const device of devices) {
         const descriptor = device.deviceDescriptor;
+        const vendorIdHex = descriptor.idVendor.toString(16).padStart(4, '0');
+        const productIdHex = descriptor.idProduct.toString(16).padStart(4, '0');
         
         // Check if it's a known printer vendor or has printer class
         const isPrinterVendor = printerVendors.includes(descriptor.idVendor);
         const isPrinterClass = descriptor.bDeviceClass === 7; // Printer class
         
+        // Log all devices for debugging
+        console.log(`USB Device: VID=${vendorIdHex} PID=${productIdHex} Class=${descriptor.bDeviceClass} isPrinterVendor=${isPrinterVendor}`);
+        
         if (isPrinterVendor || isPrinterClass) {
+          let manufacturer = '';
+          let product = '';
+          let deviceOpened = false;
+          
           try {
             device.open();
-            let manufacturer = '';
-            let product = '';
+            deviceOpened = true;
             
             try {
-              manufacturer = device.getStringDescriptor(descriptor.iManufacturer) || '';
-              product = device.getStringDescriptor(descriptor.iProduct) || '';
+              if (descriptor.iManufacturer) {
+                manufacturer = device.getStringDescriptor(descriptor.iManufacturer) || '';
+              }
+              if (descriptor.iProduct) {
+                product = device.getStringDescriptor(descriptor.iProduct) || '';
+              }
             } catch (e) {
-              // Some devices don't provide string descriptors
+              console.log(`Could not get string descriptors for ${vendorIdHex}:${productIdHex}`);
             }
             
             device.close();
+            deviceOpened = false;
             
-            printers.push({
+            const printerInfo = {
               vendorId: descriptor.idVendor,
               productId: descriptor.idProduct,
               manufacturer,
               product,
-              name: product || manufacturer || `USB Printer (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
+              name: product || manufacturer || `USB Printer (${vendorIdHex}:${productIdHex})`,
               type: 'usb',
-              status: 'discovered'
-            });
+              status: 'connected'
+            };
+            
+            console.log('✓ Found USB Printer:', printerInfo);
+            printers.push(printerInfo);
+            
           } catch (e) {
-            // Device might be in use or inaccessible
-            printers.push({
+            // Device might be in use or inaccessible - still add it
+            if (deviceOpened) {
+              try { device.close(); } catch {}
+            }
+            
+            const printerInfo = {
               vendorId: descriptor.idVendor,
               productId: descriptor.idProduct,
               manufacturer: 'Unknown',
               product: 'Unknown',
-              name: `USB Device (${descriptor.idVendor.toString(16)}:${descriptor.idProduct.toString(16)})`,
+              name: `USB Printer (${vendorIdHex}:${productIdHex})`,
               type: 'usb',
-              inUse: true,
               status: 'in-use'
-            });
+            };
+            
+            console.log('⚠ USB Printer (in use):', printerInfo, 'Error:', e.message);
+            printers.push(printerInfo);
           }
         }
       }
 
+      console.log(`Total USB printers found: ${printers.length}`);
       return printers;
     } catch (error) {
       console.error('Error listing USB printers:', error);

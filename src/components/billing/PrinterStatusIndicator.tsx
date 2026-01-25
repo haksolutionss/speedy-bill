@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Printer, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Wifi, Usb, Monitor, HelpCircle, Settings } from 'lucide-react';
+import { Printer, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Usb, HelpCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -18,20 +18,27 @@ interface PrinterDiagnostics {
   troubleshooting?: string[];
 }
 
+/**
+ * USB Printer Status Indicator
+ * Shows real-time connection status for configured USB printers
+ */
 export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicatorProps) {
   const { printers } = useSettingsStore();
-  const { isElectron, printerStatus, checkPrinterStatus } = useElectronPrint();
+  const { isElectron, printerStatus, checkPrinterStatus, usbPrinters } = useElectronPrint();
   const [isChecking, setIsChecking] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Record<string, PrinterDiagnostics>>({});
   const [expandedPrinter, setExpandedPrinter] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Filter to USB printers only
+  const usbConfiguredPrinters = printers.filter(p => p.type === 'usb');
+
   // Check statuses on mount
   useEffect(() => {
-    if (isElectron && printers.length > 0) {
+    if (isElectron && usbConfiguredPrinters.length > 0) {
       refreshStatuses();
     }
-  }, [isElectron, printers.length]);
+  }, [isElectron, usbConfiguredPrinters.length]);
 
   const refreshStatuses = useCallback(async () => {
     if (!isElectron) return;
@@ -40,8 +47,8 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
 
     try {
       const results = await Promise.all(
-        printers.map(async (printer) => {
-          console.log("ssettinhgg", printer)
+        usbConfiguredPrinters.map(async (printer) => {
+          console.log("Checking USB printer status:", printer.name);
           const result = await checkPrinterStatus(printer);
           return { id: printer.id, result };
         })
@@ -55,14 +62,14 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
     } finally {
       setIsChecking(false);
     }
-  }, [isElectron, printers, checkPrinterStatus]);
+  }, [isElectron, usbConfiguredPrinters, checkPrinterStatus]);
 
-  // Calculate overall status
+  // Calculate overall status (USB only)
   const getOverallStatus = () => {
     if (!isElectron) return 'browser';
-    if (printers.length === 0) return 'none';
+    if (usbConfiguredPrinters.length === 0) return 'none';
 
-    const statuses = printers.map(p => printerStatus[p.id] || diagnostics[p.id]?.status);
+    const statuses = usbConfiguredPrinters.map(p => printerStatus[p.id] || diagnostics[p.id]?.status);
     if (statuses.every(s => s === 'connected')) return 'all-connected';
     if (statuses.some(s => s === 'connected')) return 'partial';
     if (statuses.some(s => s === 'error' || s === 'disconnected' || s === 'offline')) return 'error';
@@ -81,25 +88,10 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
       case 'offline':
         return <XCircle className="h-3 w-3 text-destructive" />;
       case 'timeout':
-      case 'paused':
-      case 'paper_jam':
-      case 'out_of_paper':
+      case 'in-use':
         return <AlertTriangle className="h-3 w-3 text-amber-500 dark:text-amber-400" />;
       default:
         return <HelpCircle className="h-3 w-3 text-muted-foreground" />;
-    }
-  };
-
-  const getPrinterTypeIcon = (type: string) => {
-    switch (type) {
-      case 'usb':
-        return <Usb className="h-3 w-3 text-muted-foreground" />;
-      case 'network':
-        return <Wifi className="h-3 w-3 text-muted-foreground" />;
-      case 'system':
-        return <Monitor className="h-3 w-3 text-muted-foreground" />;
-      default:
-        return <Printer className="h-3 w-3 text-muted-foreground" />;
     }
   };
 
@@ -121,15 +113,15 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
   const getIndicatorText = () => {
     switch (overallStatus) {
       case 'all-connected':
-        return 'All printers ready';
+        return 'USB printer ready';
       case 'partial':
         return 'Some printers offline';
       case 'error':
-        return 'Printers offline';
+        return 'USB printer offline';
       case 'browser':
         return 'Browser mode';
       case 'none':
-        return 'No printers';
+        return 'No USB printers';
       default:
         return 'Checking...';
     }
@@ -143,10 +135,9 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
       offline: 'Offline',
       error: 'Error',
       timeout: 'Timeout',
-      paused: 'Paused',
-      paper_jam: 'Paper Jam',
-      out_of_paper: 'No Paper',
+      'in-use': 'In Use',
       unavailable: 'Not Available',
+      unsupported: 'Not Supported',
       unknown: 'Unknown',
     };
     return labels[status] || status;
@@ -162,9 +153,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
       case 'error':
         return 'text-destructive';
       case 'timeout':
-      case 'paused':
-      case 'paper_jam':
-      case 'out_of_paper':
+      case 'in-use':
         return 'text-amber-600 dark:text-amber-400';
       default:
         return 'text-muted-foreground';
@@ -172,7 +161,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
   };
 
   const getConnectedCount = () => {
-    return printers.filter(p => {
+    return usbConfiguredPrinters.filter(p => {
       const status = printerStatus[p.id] || diagnostics[p.id]?.status;
       return status === 'connected' || status === 'ready';
     }).length;
@@ -184,19 +173,19 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
         <PopoverTrigger asChild>
           <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
             <div className="relative">
-              <Printer className="h-4 w-4" />
+              <Usb className="h-4 w-4" />
               <span className={cn(
                 "absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full",
                 getIndicatorColor()
               )} />
             </div>
-            <span className="text-xs hidden sm:inline">{printers.length}</span>
+            <span className="text-xs hidden sm:inline">{usbConfiguredPrinters.length}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium text-sm">Printer Status</h4>
+              <h4 className="font-medium text-sm">USB Printers</h4>
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -226,14 +215,19 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                   Browser Mode Active
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Direct thermal printing requires the desktop app. Bills will print via browser dialog.
+                  Direct USB thermal printing requires the desktop app. Bills will print via browser dialog.
                 </p>
               </div>
-            ) : printers.length === 0 ? (
+            ) : usbConfiguredPrinters.length === 0 ? (
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground mb-2">
-                  No printers configured. Add printers in Settings.
+                  No USB printers configured. Connect a USB thermal printer and it will be auto-detected.
                 </p>
+                {usbPrinters.length > 0 && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-2">
+                    {usbPrinters.length} USB printer(s) detected but not configured.
+                  </p>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -249,11 +243,11 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                 {/* Summary */}
                 <div className="flex items-center justify-between px-2 py-1 rounded bg-muted/30">
                   <span className="text-xs text-muted-foreground">
-                    {getConnectedCount()} of {printers.length} connected
+                    {getConnectedCount()} of {usbConfiguredPrinters.length} USB printers connected
                   </span>
                 </div>
 
-                {printers.map((printer) => {
+                {usbConfiguredPrinters.map((printer) => {
                   const status = printerStatus[printer.id] || diagnostics[printer.id]?.status || 'unknown';
                   const diag = diagnostics[printer.id];
                   const isExpanded = expandedPrinter === printer.id;
@@ -268,11 +262,11 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                         onClick={() => setExpandedPrinter(isExpanded ? null : printer.id)}
                       >
                         <div className="flex items-center gap-2">
-                          {getPrinterTypeIcon(printer.type)}
+                          <Usb className="h-3 w-3 text-muted-foreground" />
                           <div className="text-left">
                             <p className="text-xs font-medium truncate max-w-[140px]">{printer.name}</p>
                             <p className="text-[10px] text-muted-foreground capitalize">
-                              {printer.role} • {printer.type}
+                              {printer.role} • VID:{printer.vendorId?.toString(16)} PID:{printer.productId?.toString(16)}
                             </p>
                           </div>
                         </div>
@@ -303,28 +297,11 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
                                   <li key={i}>{tip}</li>
                                 )) || (
                                     <>
-                                      {printer.type === 'usb' && (
-                                        <>
-                                          <li>Check if printer is connected via USB</li>
-                                          <li>Verify printer is powered on</li>
-                                          <li>Try unplugging and reconnecting</li>
-                                        </>
-                                      )}
-                                      {printer.type === 'network' && (
-                                        <>
-                                          <li>Check if printer IP ({printer.ipAddress}) is correct</li>
-                                          <li>Verify printer is on the same network</li>
-                                          <li>Check if port {printer.port || 9100} is correct</li>
-                                        </>
-                                      )}
-                                      {printer.type === 'system' && (
-                                        <>
-                                          <li>Check Windows Printers & Scanners settings</li>
-                                          <li>Verify printer is not paused</li>
-                                          <li>Restart Windows Print Spooler service</li>
-                                          <li>Try setting as default printer in Windows</li>
-                                        </>
-                                      )}
+                                      <li>Check if the USB cable is properly connected</li>
+                                      <li>Verify the printer is powered on</li>
+                                      <li>Try unplugging the USB cable, wait 5 seconds, then reconnect</li>
+                                      <li>Restart the application after reconnecting</li>
+                                      <li>Check Device Manager for driver issues</li>
                                     </>
                                   )}
                               </ul>
@@ -358,7 +335,7 @@ export function PrinterStatusIndicator({ compact = false }: PrinterStatusIndicat
   return (
     <div className="flex items-center gap-2">
       <div className="relative">
-        <Printer className="h-4 w-4 text-muted-foreground" />
+        <Usb className="h-4 w-4 text-muted-foreground" />
         <span className={cn(
           "absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full",
           getIndicatorColor()

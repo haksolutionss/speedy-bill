@@ -12,23 +12,6 @@ export function usePrint() {
   const { settings, printers: allPrinters, getPrinterByRole } = useSettingsStore();
   const electronPrint = useElectronPrint();
 
-  // For testing: Add vendor and product IDs to the printer object
-  const printersWithUSBIds = allPrinters.filter(printer => {
-    if (printer.type == 'system' && printer.name.includes('Generic / Text Only')) {
-      return {
-        ...printer,
-        vendorId: 0o416,
-        productId: 5011
-      };
-    }
-  });
-
-  console.log(
-    "printersWithUSBIds", printersWithUSBIds
-  )
-
-  const printers = printersWithUSBIds[0];
-
   // Unified print function - uses Electron when available, fallback to browser
   const print = useCallback(async (
     role: 'kitchen' | 'counter' | 'bar' = 'counter',
@@ -160,19 +143,14 @@ export function usePrint() {
     console.log('🍽️  KOT DIRECT PRINT');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // const kitchenPrinter = getPrinterByRole('kitchen');
-    // console.log('🔍 Kitchen Printer Lookup:');
-    // console.log('   - Found:', !!kitchenPrinter);
-    // if (kitchenPrinter) {
-    //   console.log('   - Name:', kitchenPrinter.name);
-    //   console.log('   - Format:', kitchenPrinter.format);
-    // }
+    const kitchenPrinter = getPrinterByRole('kitchen');
+    console.log('🔍 Kitchen Printer Lookup:', kitchenPrinter);
 
     console.log('🖥️  Environment:', electronPrint.isElectron ? 'Electron' : 'Browser');
 
-    if (electronPrint.isElectron) {
+    if (electronPrint.isElectron && kitchenPrinter) {
       console.log('\n📝 Generating KOT Commands...');
-      const paperWidth = formatToPaperWidth('80mm');
+      const paperWidth = formatToPaperWidth(kitchenPrinter.format || '80mm');
       console.log('   - Paper Width:', paperWidth);
       console.log('   - KOT Data:', kotData);
 
@@ -180,7 +158,7 @@ export function usePrint() {
       console.log('   - Commands Size:', commands.length, 'bytes');
 
       console.log('\n🚀 Sending to Kitchen Printer...');
-      const result = await electronPrint.printRaw(printers, commands);
+      const result = await electronPrint.printRaw(kitchenPrinter, commands);
       console.log('   - Result:', result);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
       return { success: result.success, method: 'electron', error: result.error };
@@ -303,6 +281,6 @@ export function usePrint() {
     currencySymbol: settings.currency.symbol,
     gstMode: settings.tax.gstMode,
     isElectron: electronPrint.isElectron,
-    printers,
+    usbPrinters: electronPrint.usbPrinters,
   };
 }

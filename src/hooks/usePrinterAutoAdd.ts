@@ -11,8 +11,8 @@ interface DiscoveredPrinter {
   ip?: string;
   port?: number;
   manufacturer?: string;
-  systemName?: string;
-  printerName?: string;
+  product?: string;
+  status?: string;
 }
 
 // Naming patterns for role assignment
@@ -43,9 +43,9 @@ const COUNTER_PATTERNS = [
   /main/i,
 ];
 
-// Known thermal printer vendor IDs
+// Known thermal printer vendor IDs (USB only)
 const THERMAL_PRINTER_VENDORS: Record<number, string> = {
-  0x0416: 'Winbond',
+  0x0416: 'Winbond/Posytude',  // Posytude and many other thermal printers
   0x0483: 'STMicroelectronics',
   0x0525: 'PLX Technology',
   0x04B8: 'Epson',
@@ -55,13 +55,15 @@ const THERMAL_PRINTER_VENDORS: Record<number, string> = {
   0x0FE6: 'ICS',
   0x154F: 'SNBC',
   0x1504: 'SNBC',
-  0x1A86: 'QinHeng',
+  0x1A86: 'QinHeng/CH340',
   0x1CB0: 'GP Printer',
   0x1FC9: 'NXP',
   0x20D1: 'Xprinter',
   0x28E9: 'GD32',
   0x416D: 'MUNBYN',
   0x4B43: 'XP-80C',
+  0x0471: 'Philips',
+  0x1234: 'Generic',
 };
 
 /**
@@ -106,29 +108,18 @@ export function usePrinterAutoAdd() {
   }, []);
 
   /**
-   * Check if printer is already configured
+   * Check if printer is already configured (USB only)
    */
   const isPrinterConfigured = useCallback((printer: DiscoveredPrinter): boolean => {
+    // Only USB printers are supported
+    if (printer.type !== 'usb') return true; // Skip non-USB
+    
     return printers.some(existing => {
-      // Check USB match
-      if (printer.type === 'usb' && existing.type === 'usb') {
+      if (existing.type === 'usb') {
         return existing.vendorId === printer.vendorId && 
                existing.productId === printer.productId;
       }
-      
-      // Check network match
-      if (printer.type === 'network' && existing.type === 'network') {
-        return existing.ipAddress === printer.ip;
-      }
-      
-      // Check system printer match
-      if (printer.type === 'system' && existing.type === 'system') {
-        return existing.systemName === printer.name || 
-               existing.name.toLowerCase() === printer.name.toLowerCase();
-      }
-      
-      // Check name match as fallback
-      return existing.name.toLowerCase() === printer.name.toLowerCase();
+      return false;
     });
   }, [printers]);
 
@@ -141,21 +132,27 @@ export function usePrinterAutoAdd() {
   }, []);
 
   /**
-   * Auto-add a single discovered printer
+   * Auto-add a single discovered USB printer
    */
   const autoAddPrinter = useCallback(async (
     printer: DiscoveredPrinter,
     options?: { skipConfirmation?: boolean }
   ): Promise<boolean> => {
-    // Skip if already configured
-    if (isPrinterConfigured(printer)) {
-      console.log(`Printer ${printer.name} already configured, skipping`);
+    // Only USB printers are supported
+    if (printer.type !== 'usb') {
+      console.log(`Skipping non-USB printer: ${printer.name} (type: ${printer.type})`);
       return false;
     }
 
-    // Skip if not a thermal printer (for USB)
-    if (printer.type === 'usb' && !isThermalPrinter(printer.vendorId)) {
-      console.log(`Printer ${printer.name} not a thermal printer, skipping`);
+    // Skip if already configured
+    if (isPrinterConfigured(printer)) {
+      console.log(`USB Printer ${printer.name} already configured, skipping`);
+      return false;
+    }
+
+    // Skip if not a thermal printer
+    if (!isThermalPrinter(printer.vendorId)) {
+      console.log(`USB Device ${printer.name} not a thermal printer, skipping`);
       return false;
     }
 
@@ -166,29 +163,28 @@ export function usePrinterAutoAdd() {
     const existingDefault = printers.find(p => p.role === role && p.isDefault);
 
     try {
+      console.log(`Auto-adding USB printer: ${printer.name} as ${role} (${format})`);
+      
       await addPrinter({
-        name: printer.name,
-        type: printer.type,
+        name: printer.name || `USB Printer (${printer.vendorId?.toString(16)}:${printer.productId?.toString(16)})`,
+        type: 'usb',
         vendorId: printer.vendorId,
         productId: printer.productId,
-        ipAddress: printer.type === 'network' ? printer.ip : undefined,
-        port: printer.type === 'network' ? (printer.port || 9100) : undefined,
-        systemName: printer.type === 'system' ? printer.name : undefined,
         role,
         format,
         isActive: true,
-        isDefault: !existingDefault, // Make default if no existing default for this role
+        isDefault: !existingDefault,
       });
 
       return true;
     } catch (error) {
-      console.error(`Failed to add printer ${printer.name}:`, error);
+      console.error(`Failed to add USB printer ${printer.name}:`, error);
       return false;
     }
   }, [printers, isPrinterConfigured, isThermalPrinter, detectRole, detectFormat, addPrinter]);
 
   /**
-   * Auto-add multiple discovered printers
+   * Auto-add multiple discovered USB printers
    */
   const autoAddPrinters = useCallback(async (
     discoveredPrinters: {
@@ -197,16 +193,15 @@ export function usePrinterAutoAdd() {
       system?: DiscoveredPrinter[];
     }
   ): Promise<{ added: number; skipped: number }> => {
-    const allPrinters: DiscoveredPrinter[] = [
-      ...(discoveredPrinters.usb || []).map(p => ({ ...p, type: 'usb' as const })),
-      ...(discoveredPrinters.network || []).map(p => ({ ...p, type: 'network' as const })),
-      ...(discoveredPrinters.system || []).map(p => ({ ...p, type: 'system' as const })),
-    ];
+    // Only process USB printers
+    const usbPrinters = (discoveredPrinters.usb || []).map(p => ({ ...p, type: 'usb' as const }));
 
     let added = 0;
     let skipped = 0;
 
-    for (const printer of allPrinters) {
+    console.log(`Processing ${usbPrinters.length} USB printer(s) for auto-add`);
+
+    for (const printer of usbPrinters) {
       const wasAdded = await autoAddPrinter(printer);
       if (wasAdded) {
         added++;
@@ -216,8 +211,8 @@ export function usePrinterAutoAdd() {
     }
 
     if (added > 0) {
-      toast.success(`Auto-configured ${added} printer(s)`, {
-        description: `Roles assigned based on printer names`
+      toast.success(`Auto-configured ${added} USB printer(s)`, {
+        description: `Roles assigned based on printer names. Go to Settings > Printers to customize.`
       });
       await loadPrinters();
     }
