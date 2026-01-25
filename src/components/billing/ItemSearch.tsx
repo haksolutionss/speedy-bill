@@ -70,12 +70,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   }, [selectedTable?.section_id]);
 
   const handleSelectProduct = useCallback((product: ProductWithPortions) => {
-    console.log('[ItemSearch] handleSelectProduct called:', { 
-      productName: product.name, 
-      portionsCount: product.portions?.length,
-      portions: product.portions 
-    });
-    
+
     setSelectedProduct(product);
 
     if (!product.portions || product.portions.length === 0) {
@@ -85,7 +80,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
     // Filter active portions
     const activePortions = product.portions.filter(p => p.is_active !== false);
-    
+
     if (activePortions.length === 0) {
       console.error('[ItemSearch] Product has no active portions:', product);
       return;
@@ -93,14 +88,12 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
     if (activePortions.length === 1) {
       // Single portion - go directly to quantity
-      console.log('[ItemSearch] Single portion, going to quantity step');
       setSelectedPortion(activePortions[0]);
       setStep('quantity');
       setShowPortionSelect(false);
       setTimeout(() => quantityRef.current?.focus(), 50);
     } else {
       // Multiple portions - show selection with prices
-      console.log('[ItemSearch] Multiple portions, showing selection');
       setStep('portion');
       setShowPortionSelect(true);
       setSelectedIndex(0);
@@ -108,34 +101,23 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   }, []);
 
   const handleSelectPortion = useCallback((portion: DbProductPortion) => {
-    console.log('[ItemSearch] handleSelectPortion called:', { portion });
     setSelectedPortion(portion);
     setStep('quantity');
     setShowPortionSelect(false);
     setTimeout(() => {
-      console.log('[ItemSearch] Focusing quantity input, ref exists:', !!quantityRef.current);
       quantityRef.current?.focus();
     }, 50);
   }, []);
 
   const handleAddItem = useCallback(() => {
-    console.log('[ItemSearch] handleAddItem called:', { 
-      selectedProduct: selectedProduct?.name, 
-      selectedPortion: selectedPortion?.size, 
-      quantity 
-    });
-    
+
     if (!selectedProduct || !selectedPortion) {
       console.error('[ItemSearch] Cannot add item - missing product or portion');
       return;
     }
 
     const qty = parseInt(quantity) || 1;
-    console.log('[ItemSearch] Adding to cart:', { 
-      product: selectedProduct.name, 
-      portion: selectedPortion.size, 
-      qty 
-    });
+
     addToCart(selectedProduct, selectedPortion.size, qty);
 
     // Reset state
@@ -226,7 +208,6 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [step, selectedProduct, selectedIndex, handleSelectPortion]);
 
-  console.log("step", step)
   return (
     <div className="relative" ref={containerRef}>
       {/* Search Input */}
