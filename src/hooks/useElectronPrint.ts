@@ -16,9 +16,16 @@ declare global {
       fullNetworkScan: () => Promise<{ success: boolean; printers: any[]; error?: string }>;
       printToUSB: (vendorId: number, productId: number, data: Uint8Array | string, format: string) => Promise<{ success: boolean; error?: string }>;
       printToNetwork: (ip: string, port: number, data: Uint8Array | string, format: string) => Promise<{ success: boolean; error?: string }>;
+      printToSystem: (printerName: string, data: Uint8Array | string) => Promise<{ success: boolean; error?: string }>;
       testPrinter: (type: string, config: any) => Promise<{ success: boolean; error?: string }>;
       openCashDrawer: (type: string, config: any) => Promise<{ success: boolean; error?: string }>;
-      getPrinterStatus: (type: string, config: any) => Promise<{ success: boolean; status: string; error?: string }>;
+      getPrinterStatus: (type: string, config: any) => Promise<{ 
+        success: boolean; 
+        status: string; 
+        error?: string;
+        message?: string;
+        troubleshooting?: string[];
+      }>;
       isElectron: () => Promise<boolean>;
       getVersion: () => Promise<string>;
       onPrintersDiscovered: (callback: (data: any) => void) => () => void;
@@ -146,25 +153,49 @@ export const useElectronPrint = () => {
     }
   }, [isElectron]);
 
-  // Get printer status
-  const checkPrinterStatus = useCallback(async (printer: Printer) => {
+  // Get printer status with diagnostics
+  const checkPrinterStatus = useCallback(async (printer: Printer): Promise<{
+    status: string;
+    message?: string;
+    troubleshooting?: string[];
+  }> => {
     if (!isElectron || !window.electronAPI) {
-      return 'unavailable';
+      return { status: 'unavailable', message: 'Not running in desktop app' };
     }
 
     try {
-      const config = printer.type === 'usb' 
-        ? { vendorId: printer.vendorId, productId: printer.productId }
-        : { ip: printer.ipAddress, port: printer.port };
+      let config: any;
+      
+      if (printer.type === 'usb') {
+        config = { vendorId: printer.vendorId, productId: printer.productId };
+      } else if (printer.type === 'network') {
+        config = { ip: printer.ipAddress, port: printer.port };
+      } else if (printer.type === 'system') {
+        config = { systemName: printer.systemName || printer.name };
+      } else {
+        return { status: 'error', message: 'Unknown printer type' };
+      }
       
       const result = await window.electronAPI.getPrinterStatus(printer.type, config);
+      
       if (result.success) {
         setPrinterStatus(prev => ({ ...prev, [printer.id]: result.status }));
-        return result.status;
+        return {
+          status: result.status,
+          message: result.message,
+          troubleshooting: result.troubleshooting
+        };
       }
-      return 'error';
+      
+      setPrinterStatus(prev => ({ ...prev, [printer.id]: 'error' }));
+      return { 
+        status: 'error', 
+        message: result.error,
+        troubleshooting: result.troubleshooting 
+      };
     } catch (error) {
-      return 'error';
+      setPrinterStatus(prev => ({ ...prev, [printer.id]: 'error' }));
+      return { status: 'error', message: 'Failed to check printer status' };
     }
   }, [isElectron]);
 
@@ -179,7 +210,11 @@ export const useElectronPrint = () => {
       
       if (printer.type === 'usb') {
         if (!printer.vendorId || !printer.productId) {
-          return { success: false, method: 'electron', error: 'USB printer not configured' };
+          return { 
+            success: false, 
+            method: 'electron', 
+            error: 'USB printer not properly configured. Please reconfigure with vendor and product IDs.' 
+          };
         }
         result = await window.electronAPI.printToUSB(
           printer.vendorId,
@@ -189,7 +224,11 @@ export const useElectronPrint = () => {
         );
       } else if (printer.type === 'network') {
         if (!printer.ipAddress) {
-          return { success: false, method: 'electron', error: 'Network printer IP not configured' };
+          return { 
+            success: false, 
+            method: 'electron', 
+            error: 'Network printer IP address not configured. Go to Settings > Printers to add the IP.' 
+          };
         }
         result = await window.electronAPI.printToNetwork(
           printer.ipAddress,
@@ -197,18 +236,47 @@ export const useElectronPrint = () => {
           data,
           printer.format
         );
+      } else if (printer.type === 'system') {
+        const printerName = printer.systemName || printer.name;
+        if (!printerName) {
+          return { 
+            success: false, 
+            method: 'electron', 
+            error: 'System printer name not configured.' 
+          };
+        }
+        result = await window.electronAPI.printToSystem(printerName, data);
       } else {
-        return { success: false, method: 'electron', error: 'Unsupported printer type' };
+        return { 
+          success: false, 
+          method: 'electron', 
+          error: `Unsupported printer type: ${printer.type}. Supported types: USB, Network, System.` 
+        };
       }
 
       if (result.success) {
         return { success: true, method: 'electron' };
       } else {
-        return { success: false, method: 'electron', error: result.error };
+        // Provide actionable error message
+        let errorMsg = result.error || 'Print failed';
+        
+        if (errorMsg.includes('timeout')) {
+          errorMsg = 'Printer connection timed out. Check if the printer is powered on and connected.';
+        } else if (errorMsg.includes('ECONNREFUSED')) {
+          errorMsg = 'Printer refused connection. Verify the IP address and port are correct.';
+        } else if (errorMsg.includes('not found')) {
+          errorMsg = 'Printer not found. Ensure it\'s connected and try rediscovering printers.';
+        }
+        
+        return { success: false, method: 'electron', error: errorMsg };
       }
     } catch (error) {
       console.error('Electron print error:', error);
-      return { success: false, method: 'electron', error: error instanceof Error ? error.message : 'Unknown error' };
+      return { 
+        success: false, 
+        method: 'electron', 
+        error: error instanceof Error ? error.message : 'Unknown printing error occurred' 
+      };
     }
   }, [isElectron]);
 
@@ -253,9 +321,17 @@ export const useElectronPrint = () => {
     }
 
     try {
-      const config = printer.type === 'usb'
-        ? { vendorId: printer.vendorId, productId: printer.productId }
-        : { ip: printer.ipAddress, port: printer.port };
+      let config: any;
+      
+      if (printer.type === 'usb') {
+        config = { vendorId: printer.vendorId, productId: printer.productId };
+      } else if (printer.type === 'network') {
+        config = { ip: printer.ipAddress, port: printer.port };
+      } else if (printer.type === 'system') {
+        config = { systemName: printer.systemName || printer.name, printerName: printer.name };
+      } else {
+        return { success: false, method: 'electron', error: 'Unknown printer type' };
+      }
       
       const result = await window.electronAPI.testPrinter(printer.type, config);
       
@@ -281,9 +357,17 @@ export const useElectronPrint = () => {
     }
 
     try {
-      const config = counterPrinter.type === 'usb'
-        ? { vendorId: counterPrinter.vendorId, productId: counterPrinter.productId }
-        : { ip: counterPrinter.ipAddress, port: counterPrinter.port };
+      let config: any;
+      
+      if (counterPrinter.type === 'usb') {
+        config = { vendorId: counterPrinter.vendorId, productId: counterPrinter.productId };
+      } else if (counterPrinter.type === 'network') {
+        config = { ip: counterPrinter.ipAddress, port: counterPrinter.port };
+      } else if (counterPrinter.type === 'system') {
+        config = { systemName: counterPrinter.systemName || counterPrinter.name };
+      } else {
+        return false;
+      }
       
       const result = await window.electronAPI.openCashDrawer(counterPrinter.type, config);
       return result.success;
