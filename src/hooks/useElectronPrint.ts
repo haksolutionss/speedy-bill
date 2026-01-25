@@ -44,10 +44,11 @@ interface PrintResult {
   error?: string;
 }
 
+// USB ONLY - Simplified for posytude printer
 interface DiscoveredPrinters {
   usb: any[];
-  network: any[];
-  system: any[];
+  network: any[]; // Not used
+  system: any[];  // Not used
 }
 
 interface USBPrinterInfo {
@@ -56,19 +57,18 @@ interface USBPrinterInfo {
   name: string;
   manufacturer?: string;
   product?: string;
+  status?: string;
 }
 
 /**
  * Hook for printing via Electron's main process
- * Includes auto-discovery of USB and network printers
+ * SIMPLIFIED: USB printers only (no network/system printers)
  */
 export const useElectronPrint = () => {
   const { settings } = useSettingsStore();
   const { autoAddPrinters } = usePrinterAutoAdd();
   const [isElectron, setIsElectron] = useState(false);
   const [usbPrinters, setUsbPrinters] = useState<USBPrinterInfo[]>([]);
-  const [networkPrinters, setNetworkPrinters] = useState<any[]>([]);
-  const [systemPrinters, setSystemPrinters] = useState<any[]>([]);
   const [printerStatus, setPrinterStatus] = useState<Record<string, string>>({});
   const [isDiscovering, setIsDiscovering] = useState(false);
 
@@ -80,30 +80,30 @@ export const useElectronPrint = () => {
   // Check if running in Electron and listen for auto-discovery
   useEffect(() => {
     if (window.isElectronApp && window.electronAPI) {
-      console.log('Running inside Electron');
+      console.log('Running inside Electron - USB printer mode');
       setIsElectron(true);
 
       const unsubscribe = window.electronAPI.onPrintersDiscovered(async (data) => {
-        console.log('Printers auto-discovered:', data);
+        console.log('USB Printers discovered:', data.usb);
 
         setUsbPrinters(data.usb || []);
-        setNetworkPrinters(data.network || []);
-        setSystemPrinters(data.system || []);
 
-        const total =
-          (data.usb?.length || 0) +
-          (data.network?.length || 0) +
-          (data.system?.length || 0);
+        const total = data.usb?.length || 0;
 
         if (total > 0) {
-          toast.success(`Found ${total} printer(s)`, {
-            description: `USB: ${data.usb?.length || 0}, Network: ${data.network?.length || 0}, System: ${data.system?.length || 0}`
+          toast.success(`Found ${total} USB printer(s)`, {
+            description: data.usb.map((p: USBPrinterInfo) => p.name).join(', ')
           });
 
+          // Auto-add USB printers only
           await autoAddPrinters({
-            usb: data.usb?.map(p => ({ ...p, type: 'usb' })),
-            network: data.network?.map(p => ({ ...p, type: 'network' })),
-            system: data.system?.map(p => ({ ...p, type: 'system' })),
+            usb: data.usb?.map((p: USBPrinterInfo) => ({ ...p, type: 'usb' as const })),
+            network: [],
+            system: [],
+          });
+        } else {
+          toast.warning('No USB printers found', {
+            description: 'Please connect a USB thermal printer and restart the app'
           });
         }
       });
@@ -115,8 +115,7 @@ export const useElectronPrint = () => {
     }
   }, []);
 
-
-  // Manual discovery trigger
+  // Manual discovery trigger (USB only)
   const discoverPrinters = useCallback(async () => {
     if (!isElectron || !window.electronAPI) return null;
 
@@ -124,8 +123,6 @@ export const useElectronPrint = () => {
     try {
       const result = await window.electronAPI.discoverPrinters();
       setUsbPrinters(result.usb || []);
-      setNetworkPrinters(result.network || []);
-      setSystemPrinters(result.system || []);
       return result;
     } finally {
       setIsDiscovering(false);
@@ -151,7 +148,7 @@ export const useElectronPrint = () => {
     }
   }, [isElectron]);
 
-  // Get printer status with diagnostics
+  // Get printer status with diagnostics (USB only)
   const checkPrinterStatus = useCallback(async (printer: Printer): Promise<{
     status: string;
     message?: string;
@@ -161,20 +158,18 @@ export const useElectronPrint = () => {
       return { status: 'unavailable', message: 'Not running in desktop app' };
     }
 
+    // Only support USB printers
+    if (printer.type !== 'usb') {
+      return { 
+        status: 'unsupported', 
+        message: 'Only USB printers are supported. Please configure a USB printer.',
+        troubleshooting: ['Go to Settings > Printers', 'Add a USB thermal printer']
+      };
+    }
+
     try {
-      let config: any;
-
-      if (printer.type === 'usb') {
-        config = { vendorId: printer.vendorId, productId: printer.productId };
-      } else if (printer.type === 'network') {
-        config = { ip: printer.ipAddress, port: printer.port };
-      } else if (printer.type === 'system') {
-        config = { systemName: printer.systemName || printer.name };
-      } else {
-        return { status: 'error', message: 'Unknown printer type' };
-      }
-
-      const result = await window.electronAPI.getPrinterStatus(printer.type, config);
+      const config = { vendorId: printer.vendorId, productId: printer.productId };
+      const result = await window.electronAPI.getPrinterStatus('usb', config);
 
       if (result.success) {
         setPrinterStatus(prev => ({ ...prev, [printer.id]: result.status }));
@@ -189,7 +184,12 @@ export const useElectronPrint = () => {
       return {
         status: 'error',
         message: result.error,
-        troubleshooting: result.troubleshooting
+        troubleshooting: [
+          'Check USB cable connection',
+          'Ensure printer is powered on',
+          'Try unplugging and reconnecting the USB',
+          'Restart the application'
+        ]
       };
     } catch (error) {
       setPrinterStatus(prev => ({ ...prev, [printer.id]: 'error' }));
@@ -197,79 +197,57 @@ export const useElectronPrint = () => {
     }
   }, [isElectron]);
 
-  // Print raw ESC/POS data
+  // Print raw ESC/POS data (USB only)
   const printRaw = useCallback(async (printer: Printer, data: Uint8Array): Promise<PrintResult> => {
     if (!isElectron || !window.electronAPI) {
-      return { success: false, method: 'browser', error: 'Not running in Electron' };
+      return { success: false, method: 'browser', error: 'Not running in Electron. Please use the desktop app for direct USB printing.' };
+    }
+
+    // Only USB printing is supported
+    if (printer?.type !== 'usb') {
+      return {
+        success: false,
+        method: 'electron',
+        error: `Only USB printers are supported. Current printer type: ${printer?.type || 'none'}. Please configure a USB printer in Settings.`
+      };
+    }
+
+    if (!printer.vendorId || !printer.productId) {
+      return {
+        success: false,
+        method: 'electron',
+        error: `USB printer "${printer.name}" is missing vendor/product IDs. Please remove and re-add the printer, or check that it's properly connected.`
+      };
     }
 
     try {
-      let result;
-      console.log("Printer", printer)
-      if (printer?.type === 'usb') {
-        if (!printer.vendorId || !printer.productId) {
-          return {
-            success: false,
-            method: 'electron',
-            error: 'USB printer not properly configured. Please reconfigure with vendor and product IDs.'
-          };
-        }
-        result = await window.electronAPI.printToUSB(
-          printer.vendorId,
-          printer.productId,
-          data,
-          printer.format
-        );
-      } else if (printer.type === 'network') {
-        if (!printer.ipAddress) {
-          return {
-            success: false,
-            method: 'electron',
-            error: 'Network printer IP address not configured. Go to Settings > Printers to add the IP.'
-          };
-        }
-        result = await window.electronAPI.printToNetwork(
-          printer.ipAddress,
-          printer.port || 9100,
-          data,
-          printer.format
-        );
-      } else if (printer.type === 'system') {
-        const printerName = printer.systemName || printer.name;
-        if (!printerName) {
-          return {
-            success: false,
-            method: 'electron',
-            error: 'System printer name not configured.'
-          };
-        }
-        result = await window.electronAPI.printToSystem(printerName, data);
-      } else {
-        return {
-          success: false,
-          method: 'electron',
-          error: `Unsupported printer type: ${printer.type}. Supported types: USB, Network, System.`
-        };
-      }
+      console.log(`Printing to USB: VID=${printer.vendorId.toString(16)} PID=${printer.productId.toString(16)}`);
+      
+      const result = await window.electronAPI.printToUSB(
+        printer.vendorId,
+        printer.productId,
+        data,
+        printer.format
+      );
 
       if (result.success) {
         return { success: true, method: 'electron' };
       } else {
-        // Provide actionable error message
         let errorMsg = result.error || 'Print failed';
+        let troubleshooting = '';
 
-        if (errorMsg.includes('timeout')) {
-          errorMsg = 'Printer connection timed out. Check if the printer is powered on and connected.';
-        } else if (errorMsg.includes('ECONNREFUSED')) {
-          errorMsg = 'Printer refused connection. Verify the IP address and port are correct.';
-        } else if (errorMsg.includes('not found')) {
-          errorMsg = 'Printer not found. Ensure it\'s connected and try rediscovering printers.';
+        if (errorMsg.includes('not found')) {
+          troubleshooting = ' Make sure the printer is connected and powered on.';
+        } else if (errorMsg.includes('interface')) {
+          troubleshooting = ' Try unplugging the printer, wait 5 seconds, then plug it back in.';
+        } else if (errorMsg.includes('endpoint')) {
+          troubleshooting = ' The printer may need a driver update or restart.';
         }
 
-        return { success: false, method: 'electron', error: errorMsg };
+        return { success: false, method: 'electron', error: errorMsg + troubleshooting };
       }
     } catch (error) {
-      console.error('Electron print error:', error);
+      console.error('Electron USB print error:', error);
       return {
         success: false,
         method: 'electron',
@@ -312,26 +290,19 @@ export const useElectronPrint = () => {
     return printRaw(counterPrinter, commands);
   }, [isElectron, settings.printers, printRaw]);
 
-  // Test printer
+  // Test printer (USB only)
   const testPrinter = useCallback(async (printer: Printer): Promise<PrintResult> => {
     if (!isElectron || !window.electronAPI) {
       return { success: false, method: 'browser', error: 'Not running in Electron' };
     }
 
+    if (printer.type !== 'usb') {
+      return { success: false, method: 'electron', error: 'Only USB printers are supported' };
+    }
+
     try {
-      let config: any;
-
-      if (printer.type === 'usb') {
-        config = { vendorId: printer.vendorId, productId: printer.productId };
-      } else if (printer.type === 'network') {
-        config = { ip: printer.ipAddress, port: printer.port };
-      } else if (printer.type === 'system') {
-        config = { systemName: printer.systemName || printer.name, printerName: printer.name };
-      } else {
-        return { success: false, method: 'electron', error: 'Unknown printer type' };
-      }
-
-      const result = await window.electronAPI.testPrinter(printer.type, config);
+      const config = { vendorId: printer.vendorId, productId: printer.productId };
+      const result = await window.electronAPI.testPrinter('usb', config);
 
       if (result.success) {
         return { success: true, method: 'electron' };
@@ -343,31 +314,21 @@ export const useElectronPrint = () => {
     }
   }, [isElectron]);
 
-  // Open cash drawer
+  // Open cash drawer (USB only)
   const openCashDrawer = useCallback(async (): Promise<boolean> => {
     if (!isElectron || !window.electronAPI) {
       return false;
     }
 
-    const counterPrinter = settings.printers?.find(p => p.role === 'counter' && p.isActive);
+    const counterPrinter = settings.printers?.find(p => p.role === 'counter' && p.isActive && p.type === 'usb');
     if (!counterPrinter) {
+      console.warn('No USB counter printer configured for cash drawer');
       return false;
     }
 
     try {
-      let config: any;
-
-      if (counterPrinter.type === 'usb') {
-        config = { vendorId: counterPrinter.vendorId, productId: counterPrinter.productId };
-      } else if (counterPrinter.type === 'network') {
-        config = { ip: counterPrinter.ipAddress, port: counterPrinter.port };
-      } else if (counterPrinter.type === 'system') {
-        config = { systemName: counterPrinter.systemName || counterPrinter.name };
-      } else {
-        return false;
-      }
-
-      const result = await window.electronAPI.openCashDrawer(counterPrinter.type, config);
+      const config = { vendorId: counterPrinter.vendorId, productId: counterPrinter.productId };
+      const result = await window.electronAPI.openCashDrawer('usb', config);
       return result.success;
     } catch (error) {
       console.error('Failed to open cash drawer:', error);
@@ -378,8 +339,6 @@ export const useElectronPrint = () => {
   return {
     isElectron,
     usbPrinters,
-    networkPrinters,
-    systemPrinters,
     printerStatus,
     isDiscovering,
     scanUSBPrinters,

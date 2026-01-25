@@ -177,39 +177,25 @@ function showAboutDialog() {
 }
 
 // ============================================
-// Auto-Discovery on App Start
+// Auto-Discovery on App Start (USB ONLY)
 // ============================================
 
 async function discoverPrintersOnStartup() {
   if (!mainWindow) return;
 
-  console.log('Auto-discovering printers on startup...');
+  console.log('Auto-discovering USB printers on startup...');
 
   try {
     // Get USB printers from our service
     const usbResult = await printerService.discoverAllPrinters();
 
-    // Get system printers (detected by OS - WiFi/Network printers)
-    const systemPrinters = await mainWindow.webContents.getPrintersAsync();
-
     const allPrinters = {
       usb: usbResult.printers.filter(p => p.type === 'usb'),
-      network: usbResult.printers.filter(p => p.type === 'network'),
-      system: systemPrinters.map(p => ({
-        name: p.displayName || p.name,
-        type: 'system',
-        isDefault: p.isDefault,
-        status: p.status === 0 ? 'ready' : 'offline',
-        description: p.description,
-        printerName: p.name
-      }))
+      network: [], // Disabled - USB only
+      system: []   // Disabled - USB only
     };
 
-    console.log('Discovered printers:', {
-      usb: allPrinters.usb.length,
-      network: allPrinters.network.length,
-      system: allPrinters.system.length
-    });
+    console.log('Discovered USB printers:', allPrinters.usb);
 
     // Send discovered printers to renderer
     mainWindow.webContents.send('printers:discovered', allPrinters);
@@ -253,34 +239,28 @@ ipcMain.handle('printer:discover', async () => {
   return discoverPrintersOnStartup();
 });
 
-// Get list of available printers (includes system printers)
+// Get list of available USB printers
 ipcMain.handle('printer:list', async () => {
   try {
-    // Get USB printers from our service
+    // Get USB printers from our service only
     const usbResult = await printerService.listPrinters();
-
-    // Also get system printers (for WiFi/network printers detected by OS)
-    const systemPrinters = mainWindow ? mainWindow.webContents.getPrintersAsync() : Promise.resolve([]);
-    const sysPrinters = await systemPrinters;
-
-    const allPrinters = [
-      ...(usbResult.printers || []),
-      ...sysPrinters.map(p => ({
-        name: p.displayName || p.name,
-        type: 'system',
-        displayName: p.displayName,
-        isDefault: p.isDefault,
-        status: p.status,
-        systemName: p.name
-      }))
-    ];
-
-    return { success: true, printers: allPrinters };
+    return { success: true, printers: usbResult.printers || [] };
   } catch (error) {
     console.error('Error listing printers:', error);
     return { success: false, error: error.message, printers: [] };
   }
 });
+
+// COMMENTED OUT - Network scan handlers (USB only for now)
+/*
+ipcMain.handle('printer:scan-network', async () => {
+  return { success: true, printers: [] };
+});
+
+ipcMain.handle('printer:full-network-scan', async () => {
+  return { success: true, printers: [] };
+});
+*/
 
 // Quick network scan for printers
 ipcMain.handle('printer:scan-network', async () => {
