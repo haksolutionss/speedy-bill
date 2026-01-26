@@ -17,7 +17,7 @@ export function PrinterStatusIndicator() {
   // Periodic status check
   useEffect(() => {
     if (!isElectron || !printer) return;
-    
+
     const interval = setInterval(() => {
       refreshStatus();
     }, 30000); // Check every 30 seconds
@@ -35,7 +35,7 @@ export function PrinterStatusIndicator() {
     setIsTesting(true);
     const result = await testPrint();
     setIsTesting(false);
-    
+
     if (!result.success) {
       console.error('Test print failed:', result.error);
     }
@@ -92,8 +92,8 @@ export function PrinterStatusIndicator() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="sm"
           className={cn(
             "gap-2 h-8 px-3",
@@ -172,9 +172,9 @@ export function PrinterStatusIndicator() {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="flex-1"
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -182,9 +182,9 @@ export function PrinterStatusIndicator() {
               <RefreshCw className={cn("h-4 w-4 mr-1", isRefreshing && "animate-spin")} />
               Refresh
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="flex-1"
               onClick={handleTestPrint}
               disabled={!printer || isTesting}
