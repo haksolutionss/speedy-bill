@@ -1,21 +1,17 @@
 /**
  * Electron detection and utilities
- * This module provides helper functions for detecting Electron environment
- * and accessing Electron-specific features
+ * Simplified for POSYTUDE YHD-8330 USB printer
  */
 
 /**
  * Check if the app is running inside Electron
  */
 export const isElectron = (): boolean => {
-  // Check for the flag set by preload script
   if (typeof window !== 'undefined' && window.isElectronApp) {
     return true;
   }
   
-  // Fallback checks
   if (typeof window !== 'undefined') {
-    // Check for Electron-specific user agent
     const userAgent = navigator.userAgent.toLowerCase();
     if (userAgent.includes('electron')) {
       return true;
@@ -37,20 +33,18 @@ export const hasElectronAPI = (): boolean => {
 /**
  * Get the current platform
  */
-export const getPlatform = (): 'windows' | 'mac' | 'linux' | 'browser' => {
+export const getPlatform = (): 'windows' | 'browser' => {
   if (!isElectron()) {
     return 'browser';
   }
   
   if (window.electronAPI?.isWindows) return 'windows';
-  if (window.electronAPI?.isMac) return 'mac';
-  if (window.electronAPI?.isLinux) return 'linux';
   
   return 'browser';
 };
 
 /**
- * Get Electron app version (or null if not in Electron)
+ * Get Electron app version
  */
 export const getAppVersion = async (): Promise<string | null> => {
   if (!hasElectronAPI()) {

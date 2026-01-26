@@ -107,7 +107,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
-            <PrinterStatusIndicator compact />
+            <PrinterStatusIndicator />
             {user && (
               <>
                 <span className="text-sm text-sidebar-foreground/70">{user.name || user.mobile}</span>

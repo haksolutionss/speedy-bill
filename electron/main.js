@@ -1,8 +1,7 @@
-const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
-const { exec } = require('child_process');
 
-// Keep a global reference of the window object
+// Keep a global reference
 let mainWindow;
 let printerService;
 
@@ -23,7 +22,6 @@ if (!gotTheLock) {
 }
 
 function createWindow() {
-  // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -37,98 +35,50 @@ function createWindow() {
     },
     icon: path.join(__dirname, 'assets/icon.ico'),
     title: 'SpeedyBill POS',
-    show: true, // Don't show until ready
+    show: true,
     backgroundColor: '#0a0a0b',
   });
 
-  // Initialize printer service (lazy load to handle missing usb module gracefully)
+  // Initialize printer service
   try {
     const PrinterService = require('./printer-service');
     printerService = new PrinterService();
+    console.log('✓ Printer service initialized');
   } catch (error) {
-    console.error('Failed to initialize printer service:', error.message);
-    // Create a mock printer service for development
-    printerService = {
-      listPrinters: async () => ({ success: true, printers: [] }),
-      printToUSB: async () => ({ success: false, error: 'USB module not available' }),
-      printToNetwork: async (ip, port, data) => {
-        const net = require('net');
-        return new Promise((resolve) => {
-          const socket = new net.Socket();
-          socket.setTimeout(10000);
-          socket.on('timeout', () => { socket.destroy(); resolve({ success: false, error: 'Connection timeout' }); });
-          socket.on('error', (err) => { resolve({ success: false, error: err.message }); });
-          socket.connect(port, ip, () => {
-            socket.write(Buffer.from(data), () => {
-              setTimeout(() => { socket.end(); resolve({ success: true }); }, 100);
-            });
-          });
-        });
-      },
-      testPrinter: async () => ({ success: false, error: 'Printer service not initialized' }),
-      openCashDrawer: async () => ({ success: false, error: 'Printer service not initialized' }),
-      getPrinterStatus: async () => ({ success: true, status: 'unknown' }),
-    };
+    console.error('✗ Printer service failed:', error.message);
+    printerService = createMockPrinterService();
   }
 
-  // Determine if we're in development or production
   const isDev = !app.isPackaged;
 
   if (isDev) {
-    // In development, load from Vite dev server
     mainWindow.loadURL('http://localhost:8080');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built app from the asar archive
-    // Path resolution: __dirname points to electron/ inside app.asar
-    // So ../dist/index.html resolves to app.asar/dist/index.html
     const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-
-    console.log('Loading production app from:', indexPath);
-    console.log('__dirname:', __dirname);
-    console.log('app.isPackaged:', app.isPackaged);
-    console.log('app.getAppPath():', app.getAppPath());
-
     mainWindow.loadFile(indexPath).catch(err => {
-      console.error('Failed to load index.html from primary path:', err);
-
-      // Fallback: try loading from app path directly
+      console.error('Failed to load:', err);
       const fallbackPath = path.join(app.getAppPath(), 'dist', 'index.html');
-      console.log('Trying fallback path:', fallbackPath);
-
       mainWindow.loadFile(fallbackPath).catch(err2 => {
-        console.error('Failed to load from fallback path:', err2);
-
-        // Show error in window
-        mainWindow.loadURL(`data:text/html,<h1>Failed to load application</h1><p>Primary: ${indexPath}</p><p>Fallback: ${fallbackPath}</p><p>Error: ${err.message}</p>`);
+        mainWindow.loadURL(`data:text/html,<h1>Failed to load</h1><p>${err.message}</p>`);
       });
     });
   }
 
-  // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
   });
 
-  // Handle load failures
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load:', errorCode, errorDescription);
+    console.error('Load failed:', errorCode, errorDescription);
     if (isDev) {
-      // In dev, retry loading after a delay (Vite might still be starting)
-      setTimeout(() => {
-        mainWindow.loadURL('http://localhost:8080');
-      }, 2000);
+      setTimeout(() => mainWindow.loadURL('http://localhost:8080'), 2000);
     }
   });
 
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('http://localhost') && !url.startsWith('file://')) {
-      event.preventDefault();
-    }
-  });
-
-  const menuTemplate = [
+  // Menu
+  const menu = Menu.buildFromTemplate([
     {
       label: 'File',
       submenu: [
@@ -140,10 +90,7 @@ function createWindow() {
     {
       label: 'View',
       submenu: [
-        { label: 'Toggle Fullscreen', accelerator: 'F11', click: () => mainWindow.setFullScreen(!mainWindow.isFullScreen()) },
-        { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', click: () => mainWindow.webContents.setZoomLevel(mainWindow.webContents.getZoomLevel() + 0.5) },
-        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => mainWindow.webContents.setZoomLevel(mainWindow.webContents.getZoomLevel() - 0.5) },
-        { label: 'Reset Zoom', accelerator: 'CmdOrCtrl+0', click: () => mainWindow.webContents.setZoomLevel(0) },
+        { label: 'Fullscreen', accelerator: 'F11', click: () => mainWindow.setFullScreen(!mainWindow.isFullScreen()) },
         { type: 'separator' },
         { label: 'Developer Tools', accelerator: 'F12', click: () => mainWindow.webContents.toggleDevTools() }
       ]
@@ -151,63 +98,64 @@ function createWindow() {
     {
       label: 'Help',
       submenu: [
-        { label: 'About SpeedyBill POS', click: () => showAboutDialog() }
+        { label: 'About', click: () => showAboutDialog() }
       ]
     }
-  ];
-
-  const menu = Menu.buildFromTemplate(menuTemplate);
+  ]);
   Menu.setApplicationMenu(menu);
 
-  // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+function createMockPrinterService() {
+  return {
+    listPrinters: async () => ({ success: true, printers: [] }),
+    discoverPrinters: async () => ({ success: true, printer: null, printers: [] }),
+    printToUSB: async () => ({ success: false, error: 'Printer service not initialized' }),
+    testPrinter: async () => ({ success: false, error: 'Printer service not initialized' }),
+    openCashDrawer: async () => ({ success: false, error: 'Printer service not initialized' }),
+    getPrinterStatus: async () => ({ success: false, status: 'unavailable' }),
+  };
+}
+
 function showAboutDialog() {
-  const { dialog } = require('electron');
   dialog.showMessageBox(mainWindow, {
     type: 'info',
     title: 'About SpeedyBill POS',
     message: 'SpeedyBill POS',
-    detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode.js: ${process.versions.node}\nChromium: ${process.versions.chrome}\n\nA professional Point of Sale system with thermal printer support.`,
+    detail: `Version: ${app.getVersion()}\nPrinter: POSYTUDE YHD-8330 (USB)\n\nOptimized for thermal receipt printing.`,
     buttons: ['OK']
   });
 }
 
-// ============================================
-// Auto-Discovery on App Start (USB ONLY)
-// ============================================
+// Auto-discover POSYTUDE printer on startup
+async function discoverPrinterOnStartup() {
+  if (!mainWindow || !printerService) return;
 
-async function discoverPrintersOnStartup() {
-  if (!mainWindow) return;
-
-  console.log('Auto-discovering USB printers on startup...');
-
+  console.log('Discovering POSYTUDE printer...');
+  
   try {
-    // Get USB printers from our service
-    const usbResult = await printerService.discoverAllPrinters();
+    const result = await printerService.discoverPrinters();
+    
+    if (result.printer) {
+      console.log('✓ POSYTUDE printer found:', result.printer.name);
+    } else {
+      console.log('✗ No POSYTUDE printer found');
+    }
 
-    const allPrinters = {
-      usb: usbResult.printers.filter(p => p.type === 'usb'),
-      network: [], // Disabled - USB only
-      system: []   // Disabled - USB only
-    };
-
-    console.log('Discovered USB printers:', allPrinters.usb);
-
-    // Send discovered printers to renderer
-    mainWindow.webContents.send('printers:discovered', allPrinters);
-
-    return allPrinters;
+    // Send to renderer
+    mainWindow.webContents.send('printer:discovered', result);
+    
+    return result;
   } catch (error) {
-    console.error('Error during printer discovery:', error);
-    return { usb: [], network: [], system: [] };
+    console.error('Discovery error:', error);
+    return { success: false, printer: null, printers: [] };
   }
 }
 
-// App lifecycle events
+// App lifecycle
 app.whenReady().then(() => {
   createWindow();
 
@@ -217,10 +165,9 @@ app.whenReady().then(() => {
     }
   });
 
-  // Auto-discover printers after window is ready
+  // Auto-discover after window loads
   mainWindow.webContents.once('did-finish-load', () => {
-    // Small delay to ensure React app is initialized
-    setTimeout(discoverPrintersOnStartup, 2000);
+    setTimeout(discoverPrinterOnStartup, 1500);
   });
 });
 
@@ -231,342 +178,61 @@ app.on('window-all-closed', () => {
 });
 
 // ============================================
-// IPC Handlers for Printer Communication
+// IPC Handlers - Simplified for POSYTUDE only
 // ============================================
 
-// Discover all printers (USB + Network + System)
+// Discover printer
 ipcMain.handle('printer:discover', async () => {
-  return discoverPrintersOnStartup();
+  return discoverPrinterOnStartup();
 });
 
-// Get list of available USB printers
+// List printers
 ipcMain.handle('printer:list', async () => {
   try {
-    // Get USB printers from our service only
-    const usbResult = await printerService.listPrinters();
-    return { success: true, printers: usbResult.printers || [] };
+    return await printerService.listPrinters();
   } catch (error) {
-    console.error('Error listing printers:', error);
     return { success: false, error: error.message, printers: [] };
   }
 });
 
-// COMMENTED OUT - Network scan handlers (USB only for now)
-/*
-ipcMain.handle('printer:scan-network', async () => {
-  return { success: true, printers: [] };
-});
-
-ipcMain.handle('printer:full-network-scan', async () => {
-  return { success: true, printers: [] };
-});
-*/
-
-// Quick network scan for printers
-ipcMain.handle('printer:scan-network', async () => {
+// Print to USB
+ipcMain.handle('printer:print-usb', async (event, { vendorId, productId, data }) => {
   try {
-    return await printerService.quickNetworkScan();
+    return await printerService.printToUSB(vendorId, productId, data);
   } catch (error) {
-    console.error('Network scan error:', error);
-    return { success: false, error: error.message, printers: [] };
-  }
-});
-
-// Full network scan
-ipcMain.handle('printer:full-network-scan', async () => {
-  try {
-    return await printerService.fullNetworkScan();
-  } catch (error) {
-    console.error('Full network scan error:', error);
-    return { success: false, error: error.message, printers: [] };
-  }
-});
-
-// Print to USB printer
-ipcMain.handle('printer:print-usb', async (event, { vendorId, productId, data, format }) => {
-  try {
-    const result = await printerService.printToUSB(vendorId, productId, data, format);
-    return result;
-  } catch (error) {
-    console.error('USB print error:', error);
     return { success: false, error: error.message };
   }
 });
 
-// Print to network printer
-ipcMain.handle('printer:print-network', async (event, { ip, port, data, format }) => {
+// Test printer
+ipcMain.handle('printer:test', async (event, { vendorId, productId }) => {
   try {
-    const result = await printerService.printToNetwork(ip, port, data, format);
-    return result;
+    return await printerService.testPrinter(vendorId, productId);
   } catch (error) {
-    console.error('Network print error:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// Print to system printer via Windows Print Spooler
-ipcMain.handle('printer:print-system', async (event, { printerName, data }) => {
-  try {
-    if (process.platform !== 'win32') {
-      return { success: false, error: 'System printing only supported on Windows' };
-    }
-
-    // Write data to temp file and print via Windows
-    const fs = require('fs');
-    const os = require('os');
-    const tempFile = path.join(os.tmpdir(), `speedybill_print_${Date.now()}.bin`);
-
-    // Convert data to buffer
-    let buffer;
-    if (data instanceof Uint8Array) {
-      buffer = Buffer.from(data);
-    } else if (typeof data === 'string') {
-      // Check if base64
-      try {
-        buffer = Buffer.from(data, 'base64');
-      } catch {
-        buffer = Buffer.from(data);
-      }
-    } else {
-      buffer = Buffer.from(data);
-    }
-
-    fs.writeFileSync(tempFile, buffer);
-
-    // Print using Windows COPY command to printer port
-    return new Promise((resolve) => {
-      exec(`copy /b "${tempFile}" "${printerName}"`, (error, stdout, stderr) => {
-        // Clean up temp file
-        try { fs.unlinkSync(tempFile); } catch { }
-
-        if (error) {
-          console.error('System print error:', error);
-          resolve({ success: false, error: error.message });
-        } else {
-          resolve({ success: true });
-        }
-      });
-    });
-  } catch (error) {
-    console.error('System print error:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// Test printer connection
-ipcMain.handle('printer:test', async (event, { type, config }) => {
-  try {
-    if (type === 'system') {
-      // For system printers, use Windows print test
-      return testSystemPrinter(config.systemName || config.printerName);
-    }
-    const result = await printerService.testPrinter(type, config);
-    return result;
-  } catch (error) {
-    console.error('Printer test error:', error);
     return { success: false, error: error.message };
   }
 });
 
 // Open cash drawer
-ipcMain.handle('printer:open-drawer', async (event, { type, config }) => {
+ipcMain.handle('printer:open-drawer', async (event, { vendorId, productId }) => {
   try {
-    if (type === 'system') {
-      return openSystemCashDrawer(config.systemName || config.printerName);
-    }
-    const result = await printerService.openCashDrawer(type, config);
-    return result;
+    return await printerService.openCashDrawer(vendorId, productId);
   } catch (error) {
-    console.error('Cash drawer error:', error);
     return { success: false, error: error.message };
   }
 });
 
-// Get printer status with enhanced diagnostics
-ipcMain.handle('printer:status', async (event, { type, config }) => {
+// Get printer status
+ipcMain.handle('printer:status', async (event, { vendorId, productId }) => {
   try {
-    if (type === 'system') {
-      return getSystemPrinterStatus(config.systemName || config.printerName);
-    }
-    const result = await printerService.getPrinterStatus(type, config);
-    return result;
+    return await printerService.getPrinterStatus(vendorId, productId);
   } catch (error) {
-    console.error('Printer status error:', error);
-    return { success: false, error: error.message, status: 'error' };
+    return { success: false, status: 'error', error: error.message };
   }
 });
 
-// ============================================
-// System Printer Helper Functions
-// ============================================
-
-async function getSystemPrinterStatus(printerName) {
-  if (!mainWindow) {
-    return { success: false, status: 'error', error: 'Application not ready' };
-  }
-
-  try {
-    const printers = await mainWindow.webContents.getPrintersAsync();
-    const printer = printers.find(p =>
-      p.name === printerName ||
-      p.displayName === printerName ||
-      p.name.includes(printerName) ||
-      p.displayName?.includes(printerName)
-    );
-
-    if (!printer) {
-      return {
-        success: true,
-        status: 'disconnected',
-        error: 'Printer not found in system. Check if it\'s connected and powered on.',
-        troubleshooting: [
-          'Verify the printer is connected via USB or network',
-          'Check if the printer is powered on',
-          'Try reinstalling the printer driver',
-          'Open Windows Settings > Devices > Printers to verify'
-        ]
-      };
-    }
-
-    // Windows printer status codes
-    // 0 = Ready, 1 = Paused, 2 = Error, 3 = Deleting, 4 = Paper Jam, 5 = Out of Paper, etc.
-    const statusMap = {
-      0: { status: 'connected', message: 'Printer is ready' },
-      1: { status: 'paused', message: 'Printer is paused. Resume from Windows settings.' },
-      2: { status: 'error', message: 'Printer has an error. Check the printer display.' },
-      3: { status: 'deleting', message: 'Print job is being deleted.' },
-      4: { status: 'paper_jam', message: 'Paper jam detected. Clear the paper path.' },
-      5: { status: 'out_of_paper', message: 'Out of paper. Load paper and try again.' },
-      6: { status: 'manual_feed', message: 'Waiting for manual paper feed.' },
-      7: { status: 'paper_problem', message: 'Paper problem detected.' },
-      8: { status: 'offline', message: 'Printer is offline. Check connection.' },
-      9: { status: 'io_active', message: 'Printer is active.' },
-      10: { status: 'busy', message: 'Printer is busy processing.' },
-      11: { status: 'printing', message: 'Currently printing.' },
-      12: { status: 'output_bin_full', message: 'Output tray is full.' },
-      13: { status: 'not_available', message: 'Printer not available.' },
-      14: { status: 'waiting', message: 'Printer is waiting.' },
-      15: { status: 'processing', message: 'Processing print job.' },
-      16: { status: 'initializing', message: 'Printer is initializing.' },
-      17: { status: 'warming_up', message: 'Printer is warming up.' },
-      18: { status: 'toner_low', message: 'Toner/ink is low.' },
-      19: { status: 'no_toner', message: 'Out of toner/ink.' },
-      20: { status: 'page_punt', message: 'Page too complex to print.' },
-      21: { status: 'user_intervention', message: 'User action required at printer.' },
-      22: { status: 'out_of_memory', message: 'Printer is out of memory.' },
-      23: { status: 'door_open', message: 'Printer door is open.' },
-      24: { status: 'server_unknown', message: 'Print server status unknown.' },
-      25: { status: 'power_save', message: 'Printer is in power save mode.' },
-    };
-
-    const statusInfo = statusMap[printer.status] || { status: 'connected', message: 'Ready' };
-
-    return {
-      success: true,
-      status: statusInfo.status === 'connected' || statusInfo.status === 'printing' || statusInfo.status === 'busy' ? 'connected' : statusInfo.status,
-      message: statusInfo.message,
-      isDefault: printer.isDefault,
-      rawStatus: printer.status
-    };
-  } catch (error) {
-    return {
-      success: false,
-      status: 'error',
-      error: error.message,
-      troubleshooting: ['Restart the application', 'Check Windows print spooler service']
-    };
-  }
-}
-
-async function testSystemPrinter(printerName) {
-  // Generate test print commands
-  const testCommands = printerService.generateTestPrint();
-
-  // For system printers, we use the Windows print command
-  const fs = require('fs');
-  const os = require('os');
-  const tempFile = path.join(os.tmpdir(), `speedybill_test_${Date.now()}.bin`);
-
-  fs.writeFileSync(tempFile, testCommands);
-
-  return new Promise((resolve) => {
-    // Use PowerShell to send raw data to printer
-    const psCommand = `
-      $bytes = [System.IO.File]::ReadAllBytes('${tempFile.replace(/\\/g, '\\\\')}')
-      $printerPath = (Get-Printer -Name '*${printerName.replace(/'/g, "''")}*' | Select-Object -First 1).PortName
-      if ($printerPath) {
-        [System.IO.File]::WriteAllBytes($printerPath, $bytes)
-        Write-Output "SUCCESS"
-      } else {
-        # Try direct print using .NET
-        Add-Type -AssemblyName System.Drawing
-        $doc = New-Object System.Drawing.Printing.PrintDocument
-        $doc.PrinterSettings.PrinterName = '${printerName.replace(/'/g, "''")}'
-        if ($doc.PrinterSettings.IsValid) {
-          Write-Output "SUCCESS"
-        } else {
-          Write-Output "PRINTER_NOT_FOUND"
-        }
-      }
-    `;
-
-    exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
-      try { fs.unlinkSync(tempFile); } catch { }
-
-      if (error || !stdout.includes('SUCCESS')) {
-        // Fallback: Just check if printer exists
-        mainWindow.webContents.getPrintersAsync().then(printers => {
-          const exists = printers.some(p =>
-            p.name.includes(printerName) ||
-            p.displayName?.includes(printerName)
-          );
-
-          if (exists) {
-            resolve({ success: true, message: 'Printer detected (test page may require manual verification)' });
-          } else {
-            resolve({ success: false, error: 'Printer not found in system' });
-          }
-        }).catch(() => {
-          resolve({ success: false, error: 'Failed to verify printer' });
-        });
-      } else {
-        resolve({ success: true });
-      }
-    });
-  });
-}
-
-async function openSystemCashDrawer(printerName) {
-  const drawerCommand = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
-
-  const fs = require('fs');
-  const os = require('os');
-  const tempFile = path.join(os.tmpdir(), `speedybill_drawer_${Date.now()}.bin`);
-
-  fs.writeFileSync(tempFile, drawerCommand);
-
-  return new Promise((resolve) => {
-    exec(`copy /b "${tempFile}" "\\\\%COMPUTERNAME%\\${printerName}"`, (error) => {
-      try { fs.unlinkSync(tempFile); } catch { }
-
-      if (error) {
-        resolve({ success: false, error: 'Could not open cash drawer via system printer' });
-      } else {
-        resolve({ success: true });
-      }
-    });
-  });
-}
-
-// Check if running in Electron
-// ipcMain.handle('app:is-electron', () => {
-//   return true;
-// });
-
-// Get app version
-ipcMain.handle('app:version', () => {
-  return app.getVersion();
-});
+// App version
+ipcMain.handle('app:version', () => app.getVersion());
 
 // ============================================
 // Error handling
