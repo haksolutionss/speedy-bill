@@ -16,15 +16,15 @@ export function usePrint() {
   // Print KOT
   const printKOT = useCallback(async (kotData: KOTData): Promise<{ success: boolean; method: string; error?: string }> => {
     console.log('🍽️ KOT Print Request');
-    
+
     // Use POSYTUDE printer in Electron
     if (posytude.isElectron && posytude.isConnected) {
       console.log('Using POSYTUDE USB printer for KOT');
       const result = await posytude.printKOT(kotData);
-      return { 
-        success: result.success, 
-        method: 'usb', 
-        error: result.error 
+      return {
+        success: result.success,
+        method: 'usb',
+        error: result.error
       };
     }
 
@@ -41,15 +41,15 @@ export function usePrint() {
   // Print Bill
   const printBill = useCallback(async (billData: BillData): Promise<{ success: boolean; method: string; error?: string }> => {
     console.log('🧾 Bill Print Request');
-    
+
     // Use POSYTUDE printer in Electron
     if (posytude.isElectron && posytude.isConnected) {
       console.log('Using POSYTUDE USB printer for Bill');
       const result = await posytude.printBill(billData);
-      return { 
-        success: result.success, 
-        method: 'usb', 
-        error: result.error 
+      return {
+        success: result.success,
+        method: 'usb',
+        error: result.error
       };
     }
 
@@ -73,7 +73,7 @@ export function usePrint() {
     } else if (data?.type === 'bill') {
       return printBill(data.payload as BillData);
     }
-    
+
     // Test print
     if (posytude.isElectron && posytude.isConnected) {
       const result = await posytude.testPrint();
@@ -124,7 +124,7 @@ export function usePrint() {
   return {
     // Refs
     printRef,
-    
+
     // Print functions
     print,
     printKOT,
@@ -132,14 +132,14 @@ export function usePrint() {
     printKOTDirect: printKOT,
     printBillDirect: printBill,
     openCashDrawer,
-    
+
     // Helpers
     getBusinessInfo,
     getTaxSettings,
     formatCurrency,
     currencySymbol: settings.currency.symbol,
     gstMode: settings.tax.gstMode,
-    
+
     // Status
     isElectron: posytude.isElectron,
     isPrinterConnected: posytude.isConnected,

@@ -6,10 +6,10 @@ class PrinterService {
   constructor() {
     this.usbModule = null;
     this.cachedPrinter = null;
-    
+
     // POSYTUDE YHD-8330 identifiers
     this.POSYTUDE_VENDOR_ID = 0x0416; // Winbond (posytude uses this)
-    
+
     this.initUSBModule();
   }
 
@@ -37,7 +37,7 @@ class PrinterService {
 
     try {
       const devices = this.usbModule.getDeviceList();
-      
+
       // Known thermal printer vendor IDs (prioritize POSYTUDE/Winbond)
       const thermalVendors = [
         0x0416, // Winbond - POSYTUDE YHD-8330
@@ -49,11 +49,11 @@ class PrinterService {
 
       for (const device of devices) {
         const { idVendor, idProduct } = device.deviceDescriptor;
-        
+
         if (thermalVendors.includes(idVendor)) {
           let name = 'POSYTUDE YHD-8330';
           let manufacturer = 'POSYTUDE';
-          
+
           try {
             device.open();
             if (device.deviceDescriptor.iProduct) {
@@ -118,8 +118,8 @@ class PrinterService {
    */
   async printToUSB(vendorId, productId, data) {
     if (!this.usbModule) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: 'USB module not available. Reinstall the application.',
         troubleshooting: ['Reinstall SpeedyBill POS', 'Check if antivirus is blocking USB access']
       };
@@ -128,10 +128,10 @@ class PrinterService {
     return new Promise((resolve) => {
       try {
         const device = this.usbModule.findByIds(vendorId, productId);
-        
+
         if (!device) {
-          resolve({ 
-            success: false, 
+          resolve({
+            success: false,
             error: 'Printer not found. Check connection.',
             troubleshooting: [
               'Ensure the USB cable is securely connected',
@@ -148,17 +148,23 @@ class PrinterService {
         const iface = device.interfaces[0];
         if (!iface) {
           device.close();
-          resolve({ 
-            success: false, 
+          resolve({
+            success: false,
             error: 'Printer interface not available',
             troubleshooting: ['Restart the printer', 'Reconnect USB cable']
           });
           return;
         }
 
-        // Detach kernel driver if needed (Linux)
-        if (iface.isKernelDriverActive && iface.isKernelDriverActive()) {
-          iface.detachKernelDriver();
+        // Detach kernel driver if needed (Linux/Mac)
+        if (process.platform !== 'win32') {
+          try {
+            if (iface.isKernelDriverActive && iface.isKernelDriverActive()) {
+              iface.detachKernelDriver();
+            }
+          } catch (e) {
+            console.warn('Could not detach kernel driver:', e);
+          }
         }
 
         iface.claim();
@@ -174,8 +180,8 @@ class PrinterService {
 
         if (!outEndpoint) {
           iface.release(() => device.close());
-          resolve({ 
-            success: false, 
+          resolve({
+            success: false,
             error: 'Printer endpoint not found',
             troubleshooting: ['Restart printer', 'Try different USB port']
           });
@@ -188,11 +194,11 @@ class PrinterService {
         // Send to printer
         outEndpoint.transfer(buffer, (error) => {
           iface.release(() => device.close());
-          
+
           if (error) {
             console.error('Print transfer error:', error);
-            resolve({ 
-              success: false, 
+            resolve({
+              success: false,
               error: error.message,
               troubleshooting: ['Check paper roll', 'Restart printer']
             });
@@ -204,8 +210,8 @@ class PrinterService {
 
       } catch (error) {
         console.error('USB print error:', error);
-        resolve({ 
-          success: false, 
+        resolve({
+          success: false,
           error: error.message,
           troubleshooting: [
             'Restart the application',
@@ -222,8 +228,8 @@ class PrinterService {
    */
   async getPrinterStatus(vendorId, productId) {
     if (!this.usbModule) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         status: 'unavailable',
         message: 'USB support not available',
         troubleshooting: ['Reinstall SpeedyBill POS']
@@ -232,16 +238,16 @@ class PrinterService {
 
     try {
       const device = this.usbModule.findByIds(vendorId, productId);
-      
+
       if (device) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           status: 'connected',
           message: 'Printer is ready'
         };
       } else {
-        return { 
-          success: true, 
+        return {
+          success: true,
           status: 'disconnected',
           message: 'Printer not found',
           troubleshooting: [
@@ -252,8 +258,8 @@ class PrinterService {
         };
       }
     } catch (error) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         status: 'error',
         message: error.message,
         troubleshooting: ['Restart the application']
@@ -284,27 +290,27 @@ class PrinterService {
   generateTestPrint() {
     const ESC = 0x1B;
     const GS = 0x1D;
-    
+
     const commands = [
       ESC, 0x40,           // Initialize
       ESC, 0x61, 0x01,     // Center align
       GS, 0x21, 0x11,      // Double size
     ];
-    
+
     const title = 'SPEEDYBILL POS\n';
     const line = '--------------------------------\n';
     const model = 'POSYTUDE YHD-8330\n';
     const status = 'Printer Connected!\n';
     const time = `${new Date().toLocaleString()}\n`;
-    
+
     const text = title + line + model + status + time + line + '\n\n\n';
-    
+
     const encoder = new TextEncoder();
     const textBytes = encoder.encode(text);
-    
+
     // Cut command
     const cut = [GS, 0x56, 0x42, 0x00];
-    
+
     return Buffer.concat([
       Buffer.from(commands),
       Buffer.from(textBytes),
@@ -326,7 +332,22 @@ class PrinterService {
       }
     }
     if (Array.isArray(data)) return Buffer.from(data);
-    throw new Error('Unsupported data type');
+
+    // Handle IPC serialization (object-like)
+    if (data && typeof data === 'object') {
+      // Check if it's a serialized Uint8Array or similar
+      if (data.constructor && data.constructor.name === 'Uint8Array') {
+        return Buffer.from(data);
+      }
+      // Try treating values as array
+      const values = Object.values(data);
+      if (values.length > 0 && typeof values[0] === 'number') {
+        return Buffer.from(values);
+      }
+    }
+
+    console.error('Invalid print data format:', typeof data, data);
+    throw new Error('Unsupported data type: ' + typeof data);
   }
 }
 

@@ -42,7 +42,7 @@ export function usePosytudePrinter() {
       // Listen for auto-discovery on startup
       const unsubscribe = window.electronAPI.onPrinterDiscovered((data) => {
         console.log('Printer discovery result:', data);
-        
+
         if (data.printer) {
           const p: PosytudePrinter = {
             vendorId: data.printer.vendorId,
@@ -57,8 +57,8 @@ export function usePosytudePrinter() {
           toast.success('Printer Connected', { description: p.name });
         } else {
           setPrinter(null);
-          setStatus({ 
-            status: 'disconnected', 
+          setStatus({
+            status: 'disconnected',
             message: 'No printer found',
             troubleshooting: [
               'Connect POSYTUDE printer via USB',
@@ -68,6 +68,9 @@ export function usePosytudePrinter() {
           });
         }
       });
+
+      // Active check to ensure state is synced
+      window.electronAPI.discoverPrinter().catch(e => console.error("Init check failed", e));
 
       return () => unsubscribe?.();
     } else {
@@ -84,11 +87,11 @@ export function usePosytudePrinter() {
 
     try {
       const result = await window.electronAPI.getPrinterStatus(
-        printer.vendorId, 
+        printer.vendorId,
         printer.productId
       );
       setStatus(result);
-      
+
       if (result.status === 'connected') {
         setPrinter(prev => prev ? { ...prev, status: 'connected' } : null);
       } else {
@@ -107,7 +110,7 @@ export function usePosytudePrinter() {
 
     try {
       const result = await window.electronAPI.discoverPrinter();
-      
+
       if (result.printer) {
         const p: PosytudePrinter = {
           vendorId: result.printer.vendorId,
@@ -122,8 +125,8 @@ export function usePosytudePrinter() {
         return p;
       } else {
         setPrinter(null);
-        setStatus({ 
-          status: 'disconnected', 
+        setStatus({
+          status: 'disconnected',
           message: 'Printer not found',
           troubleshooting: ['Check USB connection', 'Power cycle the printer']
         });
@@ -138,16 +141,16 @@ export function usePosytudePrinter() {
   // Print raw ESC/POS data
   const printRaw = useCallback(async (data: Uint8Array): Promise<PrintResult> => {
     if (!isElectron || !window.electronAPI) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: 'Desktop app required for printing',
         troubleshooting: ['Run SpeedyBill POS desktop application']
       };
     }
 
     if (!printer) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: 'No printer connected',
         troubleshooting: [
           'Connect POSYTUDE printer via USB',
@@ -184,9 +187,9 @@ export function usePosytudePrinter() {
       }
     } catch (error) {
       setPrinter(prev => prev ? { ...prev, status: 'error' } : null);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     } finally {
       setIsPrinting(false);
@@ -228,7 +231,7 @@ export function usePosytudePrinter() {
 
     try {
       const result = await window.electronAPI.openCashDrawer(
-        printer.vendorId, 
+        printer.vendorId,
         printer.productId
       );
       return result.success;
@@ -244,7 +247,7 @@ export function usePosytudePrinter() {
     status,
     isPrinting,
     isConnected: printer?.status === 'connected',
-    
+
     // Actions
     discoverPrinter,
     refreshStatus,

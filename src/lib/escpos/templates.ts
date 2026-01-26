@@ -44,7 +44,7 @@ export interface BillData {
 
 // Format currency for printing
 const formatAmount = (amount: number, symbol: string = '₹'): string => {
-  return `${symbol}${amount.toFixed(2)}`;
+  return `${symbol}${amount.toFixed(2)}`.padStart(10);
 };
 
 // Format date for printing
@@ -59,6 +59,7 @@ const formatTime = (): string => {
   return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
+
 /**
  * Generate ESC/POS commands for KOT printing
  */
@@ -66,11 +67,17 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
   const builder = new ESCPOSBuilder(paperWidth);
   const { tableNumber, tokenNumber, items, billNumber, kotNumber = 1, isParcel } = data;
 
+  const printTotalLine = (label: string, amount: number, symbol: string) => {
+    const left = label.padEnd(16);   // label width
+    const right = `${symbol}${amount.toFixed(2)}`.padStart(14); // amount width
+    builder.line(left + right);
+  };
+
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
-    .line('** KOT **')
+    // .line('** KOT **')
     .setFontSize(FontSize.NORMAL)
     .bold(false)
     .newline();
@@ -116,10 +123,10 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 
   // Items
   items.forEach((item, index) => {
-    const itemName = item.portion !== 'single' 
+    const itemName = item.portion !== 'single'
       ? `${index + 1}. ${item.productName} (${item.portion})`
       : `${index + 1}. ${item.productName}`;
-    
+
     builder.twoColumns(itemName, `x${item.quantity}`);
 
     // Notes for item
@@ -207,10 +214,10 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   // Items
   data.items.forEach((item, index) => {
-    const itemName = item.portion !== 'single' 
+    const itemName = item.portion !== 'single'
       ? `${index + 1}.${item.productName}(${item.portion})`
       : `${index + 1}.${item.productName}`;
-    
+
     builder.fourColumns(
       itemName,
       item.quantity.toString(),
@@ -229,8 +236,8 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   builder.twoColumns('Sub Total:', formatAmount(data.subTotal, symbol));
 
   if (data.discountAmount > 0) {
-    const discountLabel = data.discountType === 'percentage' 
-      ? `Discount (${data.discountValue}%):` 
+    const discountLabel = data.discountType === 'percentage'
+      ? `Discount (${data.discountValue}%):`
       : 'Discount:';
     builder.twoColumns(discountLabel, `-${formatAmount(data.discountAmount, symbol)}`);
   }
@@ -285,14 +292,14 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   }
 
   // Payment method
-  if (data.paymentMethod) {
-    builder
-      .dashedLine()
-      .align(Alignment.CENTER)
-      .inverse(true)
-      .line(` PAID BY: ${data.paymentMethod.toUpperCase()} `)
-      .inverse(false);
-  }
+  // if (data.paymentMethod) {
+  //   builder
+  //     .dashedLine()
+  //     .align(Alignment.CENTER)
+  //     .inverse(true)
+  //     .line(` PAID BY: ${data.paymentMethod.toUpperCase()} `)
+  //     .inverse(false);
+  // }
 
   // Customer & Loyalty
   if (data.customerName || data.loyaltyPointsUsed || data.loyaltyPointsEarned) {
