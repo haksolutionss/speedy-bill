@@ -150,7 +150,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             font-weight: bold;
             text-align: center;
             padding: 8px 0;
-            border-bottom: 1px dashed #000;
             margin-bottom: 8px;
           }
           .bill-items-header {
@@ -158,7 +157,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             justify-content: space-between;
             font-weight: bold;
             padding: 4px 0;
-            border-bottom: 1px solid #000;
           }
           .bill-items-header span:first-child {
             flex: 1;
@@ -179,7 +177,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             display: flex;
             justify-content: space-between;
             padding: 3px 0;
-            border-bottom: 1px dotted #ccc;
           }
           .bill-item span:first-child {
             flex: 1;
@@ -207,24 +204,33 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             border-top: 1px dashed #000;
             margin: 8px 0;
           }
-          .bill-totals {
-            padding: 4px 0;
-          }
-          .bill-total-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 2px 0;
-          }
-          .bill-total-row.final {
-            font-weight: bold;
-            font-size: 14px;
-            border-top: 2px solid #000;
-            padding-top: 8px;
-            margin-top: 4px;
-          }
+         
+        .bill-total-row {
+          display: flex;
+          justify-content: flex-end;
+          gap: 16px;
+        }
+
+        .bill-total-row span:first-child {
+          min-width: 160px;
+          text-align: right;
+        }
+
+        .bill-total-row span:last-child {
+          min-width: 80px;
+          text-align: right;
+        }
+
+        .bill-total-row.final {
+          font-weight: bold;
+          font-size: 14px;
+          border-top: 1px dashed #000;
+          padding-top: 4px;
+          margin-top: 4px;
+        }
+
           .bill-gst-breakdown {
             font-size: 9px;
-            margin-top: 8px;
             padding-top: 8px;
             border-top: 1px dashed #000;
           }
@@ -254,7 +260,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
           .bill-thank-you {
             font-size: 12px;
             font-weight: bold;
-            margin-bottom: 4px;
           }
         `}</style>
 
@@ -272,9 +277,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         <div className="bill-info">
           <span>Time: {timeStr}</span>
           {coverCount && <span>Covers: {coverCount}</span>}
-        </div>
-
-        <div className="bill-table-info">
           {isParcel ? `PARCEL - Token #${tokenNumber}` : `TABLE: ${tableNumber}`}
         </div>
 
@@ -342,7 +344,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
           </div>
         </div>
 
-        {Object.keys(gstBreakdown).length > 0 && (
+        {/* {Object.keys(gstBreakdown).length > 0 && (
           <div className="bill-gst-breakdown">
             <div className="bill-gst-header">
               <span>GST%</span>
@@ -364,7 +366,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
               </div>
             ))}
           </div>
-        )}
+        )} */}
 
         {paymentMethod && (
           <div className="bill-payment">
@@ -373,19 +375,16 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         )}
 
         {/* Loyalty Info */}
-        {(loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0 || customerName) && (
-          <div style={{ marginTop: '8px', padding: '4px 0', borderTop: '1px dashed #000', fontSize: '10px' }}>
+        {/* {(loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0 || customerName) && (
+          <div style={{ marginTop: '0px', padding: '4px 0', borderTop: '1px dashed #000', fontSize: '10px' }}>
             {customerName && <div>Customer: {customerName}</div>}
             {loyaltyPointsUsed > 0 && <div>Points Redeemed: {loyaltyPointsUsed}</div>}
             {loyaltyPointsEarned > 0 && <div>Points Earned: +{loyaltyPointsEarned}</div>}
           </div>
-        )}
+        )} */}
 
         <div className="bill-footer">
           <div className="bill-thank-you">Thank You! Visit Again!</div>
-          <div>--------------------------------</div>
-          <div>This is a computer generated invoice</div>
-          <div>E&OE</div>
         </div>
       </div>
     );
