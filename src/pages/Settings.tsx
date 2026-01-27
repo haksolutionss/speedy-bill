@@ -11,20 +11,68 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { PrinterDiscovery } from '@/components/settings/PrinterDiscovery';
 import { PortionTemplatesManager } from '@/components/settings/PortionTemplatesManager';
 import { toast } from 'sonner';
-import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save, Gift, CreditCard, Scale } from 'lucide-react';
+import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save, Gift, CreditCard, Scale, AlertCircle } from 'lucide-react';
 import type { TaxType, GstMode, Currency, PaymentMethod } from '@/types/settings';
 import { CURRENCY_OPTIONS, FONT_OPTIONS } from '@/types/settings';
+import { validateBusinessSettings, getFieldError, type ValidationError } from '@/utils/validation';
+import { cn } from '@/lib/utils';
 
 export default function Settings() {
   const { settings, updateSettings, loadPrinters } = useSettingsStore();
   const [activeTab, setActiveTab] = useState('business');
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadPrinters();
   }, [loadPrinters]);
 
+  // Validate on blur or change
+  const validateBusinessForm = () => {
+    const result = validateBusinessSettings(settings.business);
+    setValidationErrors(result.errors);
+    return result.isValid;
+  };
+
+  const handleBusinessFieldChange = (field: keyof typeof settings.business, value: string) => {
+    updateSettings('business', { ...settings.business, [field]: value });
+
+    // Mark field as touched
+    setTouchedFields(prev => new Set(prev).add(field));
+
+    // Validate after a short delay (debounce)
+    setTimeout(() => {
+      validateBusinessForm();
+    }, 300);
+  };
+
+  const handleBusinessFieldBlur = (field: string) => {
+    setTouchedFields(prev => new Set(prev).add(field));
+    validateBusinessForm();
+  };
+
   const handleSave = async () => {
+    // Mark all fields as touched
+    setTouchedFields(new Set(['name', 'phone', 'email', 'gstNumber', 'address']));
+
+    // Validate business settings
+    const isValid = validateBusinessForm();
+
+    if (!isValid) {
+      toast.error('Please fix validation errors before saving');
+      return;
+    }
+
     toast.success('Settings saved successfully');
+  };
+
+  const getError = (field: string) => {
+    if (!touchedFields.has(field)) return undefined;
+    return getFieldError(validationErrors, field);
+  };
+
+  const hasError = (field: string) => {
+    return touchedFields.has(field) && !!getError(field);
   };
 
   return (
@@ -42,7 +90,13 @@ export default function Settings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-max grid-cols-5">
-          <TabsTrigger value="business"><Building2 className="h-4 w-4 mr-2" />Business</TabsTrigger>
+          <TabsTrigger value="business">
+            <Building2 className="h-4 w-4 mr-2" />
+            Business
+            {validationErrors.length > 0 && touchedFields.size > 0 && (
+              <AlertCircle className="h-3 w-3 ml-2 text-destructive" />
+            )}
+          </TabsTrigger>
           <TabsTrigger value="tax"><Receipt className="h-4 w-4 mr-2" />Tax</TabsTrigger>
           <TabsTrigger value="portions"><Scale className="h-4 w-4 mr-2" />Portions</TabsTrigger>
           <TabsTrigger value="loyalty"><Gift className="h-4 w-4 mr-2" />Loyalty</TabsTrigger>
@@ -57,26 +111,126 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
+                {/* Restaurant Name */}
                 <div className="space-y-2">
-                  <Label>Restaurant Name</Label>
-                  <Input value={settings.business.name} onChange={(e) => updateSettings('business', { ...settings.business, name: e.target.value })} />
+                  <Label htmlFor="name" className={cn(hasError('name') && "text-destructive")}>
+                    Restaurant Name *
+                  </Label>
+                  <Input
+                    id="name"
+                    value={settings.business.name}
+                    onChange={(e) => handleBusinessFieldChange('name', e.target.value)}
+                    onBlur={() => handleBusinessFieldBlur('name')}
+                    className={cn(hasError('name') && "border-destructive focus-visible:ring-destructive")}
+                    placeholder="Enter restaurant name"
+                  />
+                  {hasError('name') && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {getError('name')}
+                    </p>
+                  )}
                 </div>
+
+                {/* Phone */}
                 <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input value={settings.business.phone} onChange={(e) => updateSettings('business', { ...settings.business, phone: e.target.value })} />
+                  <Label htmlFor="phone" className={cn(hasError('phone') && "text-destructive")}>
+                    Phone *
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={settings.business.phone}
+                    onChange={(e) => {
+                      // Only allow numbers, +, -, spaces, and parentheses
+                      const value = e.target.value.replace(/[^\d\s\-+()]/g, '');
+                      handleBusinessFieldChange('phone', value);
+                    }}
+                    onBlur={() => handleBusinessFieldBlur('phone')}
+                    className={cn(hasError('phone') && "border-destructive focus-visible:ring-destructive")}
+                    placeholder="+91 98765 43210"
+                    maxLength={20}
+                  />
+                  {hasError('phone') && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {getError('phone')}
+                    </p>
+                  )}
+                  {!hasError('phone') && settings.business.phone && (
+                    <p className="text-xs text-muted-foreground">
+                      {settings.business.phone.replace(/\D/g, '').length} digits entered
+                    </p>
+                  )}
                 </div>
+
+                {/* Email */}
                 <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={settings.business.email} onChange={(e) => updateSettings('business', { ...settings.business, email: e.target.value })} />
+                  <Label htmlFor="email" className={cn(hasError('email') && "text-destructive")}>
+                    Email *
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={settings.business.email}
+                    onChange={(e) => handleBusinessFieldChange('email', e.target.value)}
+                    onBlur={() => handleBusinessFieldBlur('email')}
+                    className={cn(hasError('email') && "border-destructive focus-visible:ring-destructive")}
+                    placeholder="restaurant@example.com"
+                  />
+                  {hasError('email') && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {getError('email')}
+                    </p>
+                  )}
                 </div>
+
+                {/* GST Number */}
                 <div className="space-y-2">
-                  <Label>GST Number</Label>
-                  <Input value={settings.business.gstNumber} onChange={(e) => updateSettings('business', { ...settings.business, gstNumber: e.target.value })} />
+                  <Label htmlFor="gstNumber" className={cn(hasError('gstNumber') && "text-destructive")}>
+                    GST Number
+                  </Label>
+                  <Input
+                    id="gstNumber"
+                    value={settings.business.gstNumber}
+                    onChange={(e) => handleBusinessFieldChange('gstNumber', e.target.value.toUpperCase())}
+                    onBlur={() => handleBusinessFieldBlur('gstNumber')}
+                    className={cn(hasError('gstNumber') && "border-destructive focus-visible:ring-destructive")}
+                    placeholder="22AAAAA0000A1Z5"
+                    maxLength={15}
+                  />
+                  {hasError('gstNumber') && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {getError('gstNumber')}
+                    </p>
+                  )}
+                  {!hasError('gstNumber') && settings.business.gstNumber && (
+                    <p className="text-xs text-muted-foreground">15 characters required</p>
+                  )}
                 </div>
               </div>
+
+              {/* Address */}
               <div className="space-y-2">
-                <Label>Address</Label>
-                <Input value={settings.business.address} onChange={(e) => updateSettings('business', { ...settings.business, address: e.target.value })} />
+                <Label htmlFor="address" className={cn(hasError('address') && "text-destructive")}>
+                  Address *
+                </Label>
+                <Input
+                  id="address"
+                  value={settings.business.address}
+                  onChange={(e) => handleBusinessFieldChange('address', e.target.value)}
+                  onBlur={() => handleBusinessFieldBlur('address')}
+                  className={cn(hasError('address') && "border-destructive focus-visible:ring-destructive")}
+                  placeholder="Enter complete business address"
+                />
+                {hasError('address') && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {getError('address')}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
