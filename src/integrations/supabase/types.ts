@@ -363,6 +363,33 @@ export type Database = {
           },
         ]
       }
+      portion_templates: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       print_jobs: {
         Row: {
           agent_id: string | null
@@ -450,6 +477,7 @@ export type Database = {
           product_id: string
           section_prices: Json | null
           size: string
+          template_id: string | null
           updated_at: string
         }
         Insert: {
@@ -460,6 +488,7 @@ export type Database = {
           product_id: string
           section_prices?: Json | null
           size: string
+          template_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -470,6 +499,7 @@ export type Database = {
           product_id?: string
           section_prices?: Json | null
           size?: string
+          template_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -478,6 +508,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_portions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "portion_templates"
             referencedColumns: ["id"]
           },
         ]

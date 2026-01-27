@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/accordion';
 import { Plus, Trash2, Loader2, MapPin } from 'lucide-react';
 import type { DbCategory, ProductWithPortions, DbTableSection } from '@/types/database';
+import { usePortionTemplates } from '@/hooks/usePortionTemplates';
 
 const sectionPriceSchema = z.object({
   sectionId: z.string(),
@@ -54,9 +55,9 @@ interface ProductFormProps {
   isLoading?: boolean;
 }
 
-const PORTION_SIZES = ['250gm', '500gm', '1kg', '100gm'];
-
 export function ProductForm({ categories, sections = [], initialData, onSubmit, isLoading }: ProductFormProps) {
+  // Fetch portion templates
+  const { data: portionTemplates = [] } = usePortionTemplates();
   const {
     register,
     handleSubmit,
@@ -239,11 +240,19 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
                       <SelectValue placeholder="Select size" />
                     </SelectTrigger>
                     <SelectContent>
-                      {PORTION_SIZES.map((size) => (
-                        <SelectItem key={size} value={size}>
-                          {size.charAt(0).toUpperCase() + size.slice(1)}
+                      {portionTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.name}>
+                          {template.name}
                         </SelectItem>
                       ))}
+                      {/* Fallback if no templates exist */}
+                      {portionTemplates.length === 0 && (
+                        <>
+                          <SelectItem value="Full">Full</SelectItem>
+                          <SelectItem value="Half">Half</SelectItem>
+                          <SelectItem value="Quarter">Quarter</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                   {errors.portions?.[index]?.size && (
