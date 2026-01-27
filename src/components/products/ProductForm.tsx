@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/accordion';
 import { Plus, Trash2, Loader2, MapPin } from 'lucide-react';
 import type { DbCategory, ProductWithPortions, DbTableSection } from '@/types/database';
-import { usePortionTemplates } from '@/hooks/usePortionTemplates';
+import { usePortionSizes } from '@/hooks/usePortionSizes';
 
 const sectionPriceSchema = z.object({
   sectionId: z.string(),
@@ -31,7 +31,7 @@ const sectionPriceSchema = z.object({
 
 const portionSchema = z.object({
   id: z.string().optional(),
-  size: z.string().min(1, 'Size is required'),
+  size_id: z.string().uuid('Invalid portion size'),
   price: z.number().min(0.01, 'Price must be greater than 0'),
   sectionPrices: z.array(sectionPriceSchema).optional(),
 });
@@ -57,7 +57,7 @@ interface ProductFormProps {
 
 export function ProductForm({ categories, sections = [], initialData, onSubmit, isLoading }: ProductFormProps) {
   // Fetch portion templates
-  const { data: portionTemplates = [] } = usePortionTemplates();
+  const { data: portionSizes = [] } = usePortionSizes();
   const {
     register,
     handleSubmit,
@@ -76,7 +76,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         gst_rate: Number(initialData.gst_rate),
         portions: initialData.portions.map((p) => ({
           id: p.id,
-          size: p.size,
+          size_id: p.size_id,
           price: Number(p.price),
           sectionPrices: sections.map(s => ({
             sectionId: s.id,
@@ -92,7 +92,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         description: '',
         gst_rate: 5,
         portions: [{
-          size: '500gm',
+          size_id: '500gm',
           price: 0,
           sectionPrices: sections.map(s => ({
             sectionId: s.id,
@@ -128,7 +128,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
 
   const handleAddPortion = () => {
     append({
-      size: 'half',
+      size_id: '',
       price: 0,
       sectionPrices: sections.map(s => ({
         sectionId: s.id,
@@ -233,31 +233,35 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
                 <div className="flex-1">
                   <Label className="text-xs text-muted-foreground mb-1 block">Size</Label>
                   <Select
-                    value={watch(`portions.${index}.size`)}
-                    onValueChange={(value) => setValue(`portions.${index}.size`, value)}
+                    value={watch(`portions.${index}.size_id`)}
+                    onValueChange={(value) =>
+                      setValue(`portions.${index}.size_id`, value)
+                    }
+
                   >
                     <SelectTrigger className="border-border">
                       <SelectValue placeholder="Select size" />
                     </SelectTrigger>
                     <SelectContent>
-                      {portionTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.name}>
-                          {template.name}
+                      {portionSizes.map((size) => (
+                        <SelectItem key={size.id} value={size.id}>
+                          {size.name}
                         </SelectItem>
                       ))}
                       {/* Fallback if no templates exist */}
-                      {portionTemplates.length === 0 && (
+                      {/* {portionSizes.length === 0 && (
                         <>
-                          <SelectItem value="Full">Full</SelectItem>
-                          <SelectItem value="Half">Half</SelectItem>
-                          <SelectItem value="Quarter">Quarter</SelectItem>
+                          <SelectItem value="250gm">250gm</SelectItem>
+                          <SelectItem value="300gm">300gm</SelectItem>
+                          <SelectItem value="500gm">500gm</SelectItem>
+                          <SelectItem value="1kg">1kg</SelectItem>
                         </>
-                      )}
+                      )} */}
                     </SelectContent>
                   </Select>
-                  {errors.portions?.[index]?.size && (
+                  {errors.portions?.[index]?.size_id && (
                     <p className="text-sm text-destructive mt-1">
-                      {errors.portions[index]?.size?.message}
+                      {errors.portions[index]?.size_id?.message}
                     </p>
                   )}
                 </div>
