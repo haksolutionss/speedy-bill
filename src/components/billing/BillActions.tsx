@@ -53,17 +53,17 @@ export function BillActions() {
 
   const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
   const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
-  const { 
-    printRef, 
-    print, 
-    printKOTDirect, 
-    printBillDirect, 
+  const {
+    printRef,
+    print,
+    printKOTDirect,
+    printBillDirect,
     openCashDrawer,
-    getBusinessInfo, 
-    formatCurrency, 
-    currencySymbol, 
+    getBusinessInfo,
+    formatCurrency,
+    currencySymbol,
     gstMode,
-    isElectron 
+    isElectron
   } = usePrint();
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -184,7 +184,7 @@ export function BillActions() {
       // Print silently (Electron) or via browser
       const kotData = buildKOTData();
       const result = await printKOTDirect(kotData);
-      
+
       if (result.success) {
         toast.success(isElectron ? 'KOT printed to kitchen' : 'KOT sent to kitchen');
       } else if (result.error) {
@@ -222,9 +222,9 @@ export function BillActions() {
       // Print bill silently (Electron) or via browser
       const billData = buildBillData();
       billData.paymentMethod = defaultMethod;
-      
+
       const result = await printBillDirect(billData);
-      
+
       // Open cash drawer for cash payments (Electron only)
       if (defaultMethod === 'cash' && isElectron) {
         await openCashDrawer();
@@ -232,7 +232,7 @@ export function BillActions() {
 
       // Settle with default payment method
       await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
-      
+
       if (result.success) {
         toast.success(`Bill settled with ${defaultMethod.toUpperCase()}`);
       } else {
@@ -264,12 +264,12 @@ export function BillActions() {
 
   const confirmPrintKOT = async () => {
     await printKOT();
-    
+
     // Print via browser fallback
     if (printRef.current) {
       print('kitchen');
     }
-    
+
     setShowKOTPreview(false);
     toast.success('KOT sent to kitchen');
   };
@@ -281,12 +281,7 @@ export function BillActions() {
       return;
     }
 
-    // First send any pending items to kitchen
-    if (hasPendingItems) {
-      await printKOT();
-    } else {
-      await saveOrUpdateBill();
-    }
+    await saveOrUpdateBill();
 
     setShowPaymentDialog(true);
   };
@@ -310,7 +305,7 @@ export function BillActions() {
 
       // Settlement is optimistic - runs in background
       await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
-      
+
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
       } else {
@@ -346,7 +341,7 @@ export function BillActions() {
 
       // Settlement
       await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
-      
+
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
       } else {
