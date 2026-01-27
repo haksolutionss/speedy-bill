@@ -403,4 +403,4 @@ Name, phone, email, loyalty points for testing customer association feature.
 - WhatsApp order confirmations
 - Delivery platform integration (Swiggy, Zomato)
 
----
+----
