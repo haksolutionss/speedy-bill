@@ -40,15 +40,15 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-max grid-cols-4">
           <TabsTrigger value="business"><Building2 className="h-4 w-4 mr-2" />Business</TabsTrigger>
           <TabsTrigger value="tax"><Receipt className="h-4 w-4 mr-2" />Tax</TabsTrigger>
-          <TabsTrigger value="theme"><Palette className="h-4 w-4 mr-2" />Theme</TabsTrigger>
-          <TabsTrigger value="currency"><Banknote className="h-4 w-4 mr-2" />Currency</TabsTrigger>
+          {/* <TabsTrigger value="theme"><Palette className="h-4 w-4 mr-2" />Theme</TabsTrigger> */}
+          {/* <TabsTrigger value="currency"><Banknote className="h-4 w-4 mr-2" />Currency</TabsTrigger> */}
           <TabsTrigger value="loyalty"><Gift className="h-4 w-4 mr-2" />Loyalty</TabsTrigger>
           <TabsTrigger value="billing"><CreditCard className="h-4 w-4 mr-2" />Billing</TabsTrigger>
-          <TabsTrigger value="printers"><Printer className="h-4 w-4 mr-2" />Printers</TabsTrigger>
-          <TabsTrigger value="sync"><RefreshCw className="h-4 w-4 mr-2" />Sync</TabsTrigger>
+          {/*  <TabsTrigger value="printers"><Printer className="h-4 w-4 mr-2" />Printers</TabsTrigger> */}
+          {/* <TabsTrigger value="sync"><RefreshCw className="h-4 w-4 mr-2" />Sync</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="business" className="mt-6">
@@ -174,9 +174,9 @@ export default function Settings() {
                   <Label>Enable Loyalty Program</Label>
                   <p className="text-sm text-muted-foreground">Allow customers to earn and redeem points</p>
                 </div>
-                <Switch 
-                  checked={settings.loyalty.enabled} 
-                  onCheckedChange={(c) => updateSettings('loyalty', { ...settings.loyalty, enabled: c })} 
+                <Switch
+                  checked={settings.loyalty.enabled}
+                  onCheckedChange={(c) => updateSettings('loyalty', { ...settings.loyalty, enabled: c })}
                 />
               </div>
 
@@ -185,37 +185,37 @@ export default function Settings() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Amount for Points ({settings.currency.symbol})</Label>
-                      <Input 
-                        type="number" 
-                        value={settings.loyalty.amountForPoints} 
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, amountForPoints: Number(e.target.value) })} 
+                      <Input
+                        type="number"
+                        value={settings.loyalty.amountForPoints}
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, amountForPoints: Number(e.target.value) })}
                       />
                       <p className="text-xs text-muted-foreground">Spend this amount to earn points</p>
                     </div>
                     <div className="space-y-2">
                       <Label>Points Per Amount</Label>
-                      <Input 
-                        type="number" 
-                        value={settings.loyalty.pointsPerAmount} 
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, pointsPerAmount: Number(e.target.value) })} 
+                      <Input
+                        type="number"
+                        value={settings.loyalty.pointsPerAmount}
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, pointsPerAmount: Number(e.target.value) })}
                       />
                       <p className="text-xs text-muted-foreground">Points earned per amount spent</p>
                     </div>
                     <div className="space-y-2">
                       <Label>Redemption Value ({settings.currency.symbol})</Label>
-                      <Input 
-                        type="number" 
-                        value={settings.loyalty.redemptionValue} 
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, redemptionValue: Number(e.target.value) })} 
+                      <Input
+                        type="number"
+                        value={settings.loyalty.redemptionValue}
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, redemptionValue: Number(e.target.value) })}
                       />
                       <p className="text-xs text-muted-foreground">Value of 1 point when redeemed</p>
                     </div>
                     <div className="space-y-2">
                       <Label>Minimum Points to Redeem</Label>
-                      <Input 
-                        type="number" 
-                        value={settings.loyalty.minRedemptionPoints} 
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, minRedemptionPoints: Number(e.target.value) })} 
+                      <Input
+                        type="number"
+                        value={settings.loyalty.minRedemptionPoints}
+                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, minRedemptionPoints: Number(e.target.value) })}
                       />
                       <p className="text-xs text-muted-foreground">Minimum points required for redemption</p>
                     </div>
@@ -244,8 +244,8 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label>Default Payment Method</Label>
-                <Select 
-                  value={settings.billing.defaultPaymentMethod} 
+                <Select
+                  value={settings.billing.defaultPaymentMethod}
                   onValueChange={(v) => updateSettings('billing', { ...settings.billing, defaultPaymentMethod: v as PaymentMethod })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -263,9 +263,9 @@ export default function Settings() {
                   <Label>Auto-settle on Print</Label>
                   <p className="text-sm text-muted-foreground">Automatically settle bill when printing</p>
                 </div>
-                <Switch 
-                  checked={settings.billing.autoSettleOnPrint} 
-                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, autoSettleOnPrint: c })} 
+                <Switch
+                  checked={settings.billing.autoSettleOnPrint}
+                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, autoSettleOnPrint: c })}
                 />
               </div>
 
@@ -274,9 +274,9 @@ export default function Settings() {
                   <Label>Print Customer Copy</Label>
                   <p className="text-sm text-muted-foreground">Print an extra copy for customer</p>
                 </div>
-                <Switch 
-                  checked={settings.billing.printCustomerCopy} 
-                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, printCustomerCopy: c })} 
+                <Switch
+                  checked={settings.billing.printCustomerCopy}
+                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, printCustomerCopy: c })}
                 />
               </div>
 
@@ -285,9 +285,9 @@ export default function Settings() {
                   <Label>Show Loyalty in Bill</Label>
                   <p className="text-sm text-muted-foreground">Display loyalty points info on printed bill</p>
                 </div>
-                <Switch 
-                  checked={settings.billing.showLoyaltyInBill} 
-                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, showLoyaltyInBill: c })} 
+                <Switch
+                  checked={settings.billing.showLoyaltyInBill}
+                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, showLoyaltyInBill: c })}
                 />
               </div>
             </CardContent>

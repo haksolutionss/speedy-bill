@@ -54,7 +54,7 @@ interface ProductFormProps {
   isLoading?: boolean;
 }
 
-const PORTION_SIZES = ['full', 'half', 'small', 'medium', 'large'];
+const PORTION_SIZES = ['250gm', '500gm', '1kg', '100gm'];
 
 export function ProductForm({ categories, sections = [], initialData, onSubmit, isLoading }: ProductFormProps) {
   const {
@@ -91,7 +91,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         description: '',
         gst_rate: 5,
         portions: [{
-          size: 'full',
+          size: '500gm',
           price: 0,
           sectionPrices: sections.map(s => ({
             sectionId: s.id,

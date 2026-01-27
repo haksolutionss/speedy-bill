@@ -51,7 +51,7 @@ export interface DbProduct {
 export interface DbProductPortion {
   id: string;
   product_id: string;
-  size: string;
+  size: PortionSize;
   price: number;
   section_prices: Record<string, number>;
   is_active: boolean;
@@ -59,7 +59,7 @@ export interface DbProductPortion {
   updated_at: string;
 }
 
-export type PortionSize = 'full' | 'half' | 'quarter' | 'single';
+export type PortionSize = '250gm' | '500gm' | '1kg' | '100gm';
 
 export interface DbCustomer {
   id: string;
