@@ -9,7 +9,6 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSettingsStore } from '@/store/settingsStore';
 import { PrinterDiscovery } from '@/components/settings/PrinterDiscovery';
-import { PortionTemplatesManager } from '@/components/settings/PortionTemplatesManager';
 import { toast } from 'sonner';
 import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save, Gift, CreditCard, Scale, AlertCircle } from 'lucide-react';
 import type { TaxType, GstMode, Currency, PaymentMethod } from '@/types/settings';
@@ -98,9 +97,12 @@ export default function Settings() {
             )}
           </TabsTrigger>
           <TabsTrigger value="tax"><Receipt className="h-4 w-4 mr-2" />Tax</TabsTrigger>
-          <TabsTrigger value="portions"><Scale className="h-4 w-4 mr-2" />Portions</TabsTrigger>
+          {/* <TabsTrigger value="theme"><Palette className="h-4 w-4 mr-2" />Theme</TabsTrigger> */}
+          {/* <TabsTrigger value="currency"><Banknote className="h-4 w-4 mr-2" />Currency</TabsTrigger> */}
           <TabsTrigger value="loyalty"><Gift className="h-4 w-4 mr-2" />Loyalty</TabsTrigger>
           <TabsTrigger value="billing"><CreditCard className="h-4 w-4 mr-2" />Billing</TabsTrigger>
+          {/*  <TabsTrigger value="printers"><Printer className="h-4 w-4 mr-2" />Printers</TabsTrigger> */}
+          {/* <TabsTrigger value="sync"><RefreshCw className="h-4 w-4 mr-2" />Sync</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="business" className="mt-6">
@@ -262,11 +264,6 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Portion Templates Tab */}
-        <TabsContent value="portions" className="mt-6">
-          <PortionTemplatesManager />
         </TabsContent>
 
         <TabsContent value="theme" className="mt-6">
