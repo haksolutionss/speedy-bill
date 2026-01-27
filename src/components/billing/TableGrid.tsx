@@ -245,7 +245,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
               <div className="h-[0.1px] flex-1 bg-border" />
             </div>
 
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3 m-2">
               {section.tables.map((table) => (
                 <button
                   key={table.id}
