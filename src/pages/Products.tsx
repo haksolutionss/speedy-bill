@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, Package, FolderPlus } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, FolderPlus, Ruler } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,6 +15,7 @@ import ResponsiveModal from '@/components/ui/responsive-modal';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ProductForm, ProductFormData } from '@/components/products/ProductForm';
 import { CategoryForm, CategoryFormData } from '@/components/products/CategoryForm';
+import { PortionSizesManager } from '@/components/products/PortionSizesManager';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { QueryErrorHandler } from '@/components/common/QueryErrorHandler';
 import { ProductTableSkeleton } from '@/components/common/skeletons';
@@ -41,6 +42,7 @@ export default function Products() {
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isSizesModalOpen, setIsSizesModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductWithPortions | null>(null);
   const [editingCategory, setEditingCategory] = useState<DbCategory | null>(null);
 
@@ -96,7 +98,7 @@ export default function Products() {
 
         return {
           id: p.id,
-          size: p.size,
+          size_id: p.size_id,
           price: p.price,
           section_prices: Object.keys(sectionPrices).length > 0 ? sectionPrices : undefined,
         };
@@ -211,6 +213,14 @@ export default function Products() {
             <p className="text-muted-foreground">Manage your menu items</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsSizesModalOpen(true)}
+              className="gap-2"
+            >
+              <Ruler className="h-4 w-4" />
+              <span className="hidden sm:inline">Sizes</span>
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
@@ -452,6 +462,15 @@ export default function Products() {
             onSubmit={handleCategorySubmit}
             isLoading={isCreatingCategory || isUpdatingCategory}
           />
+        </ResponsiveModal>
+
+        {/* Sizes Management Modal */}
+        <ResponsiveModal
+          isOpen={isSizesModalOpen}
+          onClose={() => setIsSizesModalOpen(false)}
+          title="Manage Portion Sizes"
+        >
+          <PortionSizesManager />
         </ResponsiveModal>
 
         {/* Delete Product Confirmation */}

@@ -262,6 +262,7 @@ export const useBillingStore = create<BillingState>()(
 
       addToCart: (product, portion, quantity) => {
         const { selectedTable, tableSections } = get();
+        // portion is the size name (string)
         const portionData = product.portions.find(p => p.size === portion);
         if (!portionData) return;
 
