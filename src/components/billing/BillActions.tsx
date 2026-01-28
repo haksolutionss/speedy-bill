@@ -146,6 +146,7 @@ export function BillActions() {
           handleDirectPrintKOT();
         } else {
           toast.info('No new items to send to kitchen');
+          console.log("No new items to send to kitchen");
         }
         return false;
       }
@@ -186,15 +187,13 @@ export function BillActions() {
       const result = await printKOTDirect(kotData);
 
       if (result.success) {
-        toast.success(isElectron ? 'KOT printed to kitchen' : 'KOT sent to kitchen');
+        console.log(isElectron ? 'KOT printed to kitchen' : 'KOT sent to kitchen');
       } else if (result.error) {
-        toast.error(`Print failed: ${result.error}`);
-        // Still show success for kitchen update
-        toast.success('Items sent to kitchen (print failed)');
+        console.warn(`Print failed: ${result.error}`);
+        console.log('Items sent to kitchen (print failed)');
       }
     } catch (error) {
       console.error('KOT print error:', error);
-      toast.error('Failed to send KOT');
     } finally {
       setIsPrinting(false);
     }
@@ -234,13 +233,13 @@ export function BillActions() {
       await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
 
       if (result.success) {
-        toast.success(`Bill settled with ${defaultMethod.toUpperCase()}`);
+        console.warn(`Bill settled with ${defaultMethod.toUpperCase()}`);
       } else {
-        toast.success(`Bill settled (print: ${result.error || 'browser dialog'})`);
+        console.warn(`Bill settled (print: ${result.error || 'browser dialog'})`);
       }
     } catch (error) {
       console.error('Bill print error:', error);
-      toast.error('Failed to settle bill');
+      console.warn('Failed to settle bill');
     } finally {
       setIsPrinting(false);
     }
@@ -309,11 +308,10 @@ export function BillActions() {
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
       } else {
-        toast.success(`Bill paid with ${method.toUpperCase()}`);
+        console.log(`Bill paid with ${method.toUpperCase()}`);
       }
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Payment failed');
     } finally {
       setIsPrinting(false);
       setSelectedCustomer(null);
@@ -345,11 +343,10 @@ export function BillActions() {
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
       } else {
-        toast.success('Split payment completed');
+        console.log('Split payment completed');
       }
     } catch (error) {
       console.error('Split payment error:', error);
-      toast.error('Split payment failed');
     } finally {
       setIsPrinting(false);
       setSelectedCustomer(null);
