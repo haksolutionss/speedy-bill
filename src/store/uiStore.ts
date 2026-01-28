@@ -109,6 +109,7 @@ export const useUIStore = create<UIState>()(
       setCart: (cart) => set({ cart }),
 
       addToCart: (product, portion, quantity) => {
+        // portion is the size name (string)
         const portionData = product.portions.find((p) => p.size === portion);
         if (!portionData) return;
 

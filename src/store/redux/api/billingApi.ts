@@ -260,7 +260,7 @@ export const billingApi = createApi({
 
           const { data: portions, error: portionsError } = await supabase
             .from('product_portions')
-            .select('*')
+            .select('*, portion_sizes(id, name)')
             .eq('is_active', true);
 
           if (portionsError) throw portionsError;
@@ -269,9 +269,16 @@ export const billingApi = createApi({
 
           if (categoriesError) throw categoriesError;
 
+          // Map portions to include size name
+          const mappedPortions = (portions || []).map((p: any) => ({
+            ...p,
+            size: p.portion_sizes?.name || 'Unknown',
+            section_prices: p.section_prices || {},
+          }));
+
           const productsWithPortions = (products || []).map((product) => ({
             ...product,
-            portions: (portions || []).filter((p) => p.product_id === product.id),
+            portions: mappedPortions.filter((p: any) => p.product_id === product.id),
             category: (categories || []).find((c) => c.id === product.category_id),
           })) as ProductWithPortions[];
 
@@ -285,7 +292,7 @@ export const billingApi = createApi({
 
     createProduct: builder.mutation<DbProduct, {
       product: { name: string; code: string; category_id: string; description?: string; gst_rate: number };
-      portions: { size: string; price: number; section_prices?: Record<string, number> }[]
+      portions: { size_id: string; price: number; section_prices?: Record<string, number> }[]
     }>({
       queryFn: async ({ product, portions }) => {
         try {
@@ -299,12 +306,12 @@ export const billingApi = createApi({
 
           if (portions.length > 0) {
             const portionsWithProductId = portions.map((p) => ({
-              size: p.size,
+              size_id: p.size_id,
               price: p.price,
               section_prices: p.section_prices || {},
               product_id: newProduct.id
             }));
-            const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId as any);
+            const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId);
             if (portionsError) throw portionsError;
           }
 
@@ -319,7 +326,7 @@ export const billingApi = createApi({
     updateProduct: builder.mutation<DbProduct, {
       id: string;
       product: Partial<DbProduct>;
-      portions?: { id?: string; size: string; price: number; section_prices?: Record<string, number> }[]
+      portions?: { id?: string; size_id: string; price: number; section_prices?: Record<string, number> }[]
     }>({
       queryFn: async ({ id, product, portions }) => {
         try {
@@ -342,13 +349,13 @@ export const billingApi = createApi({
             // Insert new portions
             if (portions.length > 0) {
               const portionsWithProductId = portions.map((p) => ({
-                size: p.size,
+                size_id: p.size_id,
                 price: p.price,
                 section_prices: p.section_prices || {},
                 product_id: id,
                 is_active: true
               }));
-              const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId as any);
+              const { error: portionsError } = await supabase.from('product_portions').insert(portionsWithProductId);
               if (portionsError) throw portionsError;
             }
           }

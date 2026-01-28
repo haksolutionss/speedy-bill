@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/accordion';
 import { Plus, Trash2, Loader2, MapPin } from 'lucide-react';
 import type { DbCategory, ProductWithPortions, DbTableSection } from '@/types/database';
+import { usePortionSizes } from '@/hooks/usePortionSizes';
 
 const sectionPriceSchema = z.object({
   sectionId: z.string(),
@@ -30,7 +31,7 @@ const sectionPriceSchema = z.object({
 
 const portionSchema = z.object({
   id: z.string().optional(),
-  size: z.string().uuid('Invalid portion size'),
+  size_id: z.string().min(1, 'Size is required'),
   price: z.number().min(0.01, 'Price must be greater than 0'),
   sectionPrices: z.array(sectionPriceSchema).optional(),
 });
@@ -54,9 +55,9 @@ interface ProductFormProps {
   isLoading?: boolean;
 }
 
-const PORTION_SIZES = ['250gm', '500gm', '1kg', '100gm'];
-
 export function ProductForm({ categories, sections = [], initialData, onSubmit, isLoading }: ProductFormProps) {
+  const { data: portionSizes = [], isLoading: loadingSizes } = usePortionSizes();
+  
   const {
     register,
     handleSubmit,
@@ -75,7 +76,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         gst_rate: Number(initialData.gst_rate),
         portions: initialData.portions.map((p) => ({
           id: p.id,
-          size: p.size,
+          size_id: p.size_id || '',
           price: Number(p.price),
           sectionPrices: sections.map(s => ({
             sectionId: s.id,
@@ -91,7 +92,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
         description: '',
         gst_rate: 5,
         portions: [{
-          size: '500gm',
+          size_id: '',
           price: 0,
           sectionPrices: sections.map(s => ({
             sectionId: s.id,
@@ -127,7 +128,7 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
 
   const handleAddPortion = () => {
     append({
-      size: '',
+      size_id: '',
       price: 0,
       sectionPrices: sections.map(s => ({
         sectionId: s.id,
@@ -232,26 +233,26 @@ export function ProductForm({ categories, sections = [], initialData, onSubmit, 
                 <div className="flex-1">
                   <Label className="text-xs text-muted-foreground mb-1 block">Size</Label>
                   <Select
-                    value={watch(`portions.${index}.size`)}
+                    value={watch(`portions.${index}.size_id`)}
                     onValueChange={(value) =>
-                      setValue(`portions.${index}.size`, value)
+                      setValue(`portions.${index}.size_id`, value)
                     }
-
+                    disabled={loadingSizes}
                   >
                     <SelectTrigger className="border-border">
-                      <SelectValue placeholder="Select size" />
+                      <SelectValue placeholder={loadingSizes ? 'Loading...' : 'Select size'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {PORTION_SIZES.map((size) => (
-                        <SelectItem key={size} value={size}>
-                          {size.charAt(0).toUpperCase() + size.slice(1)}
+                      {portionSizes.map((size) => (
+                        <SelectItem key={size.id} value={size.id}>
+                          {size.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.portions?.[index]?.size && (
+                  {errors.portions?.[index]?.size_id && (
                     <p className="text-sm text-destructive mt-1">
-                      {errors.portions[index]?.size?.message}
+                      {errors.portions[index]?.size_id?.message}
                     </p>
                   )}
                 </div>

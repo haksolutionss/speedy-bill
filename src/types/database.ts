@@ -48,18 +48,28 @@ export interface DbProduct {
   updated_at: string;
 }
 
+export interface DbPortionSize {
+  id: string;
+  name: string;
+  is_active: boolean | null;
+  created_at: string | null;
+}
+
 export interface DbProductPortion {
   id: string;
   product_id: string;
-  size: PortionSize;
+  size_id: string | null;
   price: number;
-  section_prices: Record<string, number>;
+  section_prices: Record<string, number> | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  template_id: string | null;
+  // Computed/joined property for display - the size name
+  size: string;
+  // Joined data (optional)
+  portion_size?: DbPortionSize | null;
 }
-
-export type PortionSize = '250gm' | '500gm' | '1kg' | '100gm';
 
 export interface DbCustomer {
   id: string;
