@@ -27,6 +27,7 @@ interface BillTemplateProps {
   customerName?: string;
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
+  showGST?: boolean; // Whether to show GST rows (based on tax type)
 }
 
 export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
@@ -56,30 +57,34 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     customerName,
     loyaltyPointsUsed = 0,
     loyaltyPointsEarned = 0,
+    showGST = true, // Default to showing GST
   }, ref) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    // Group items by GST rate for tax breakdown
+    // Group items by GST rate for tax breakdown (only if GST is enabled)
     const gstBreakdown: Record<number, { taxableAmount: number; cgst: number; sgst: number; igst: number }> = {};
-    items.forEach(item => {
-      const itemTotal = item.unitPrice * item.quantity;
-      const itemDiscount = discountAmount > 0 ? (itemTotal / subTotal) * discountAmount : 0;
-      const taxableAmount = itemTotal - itemDiscount;
-      const gst = taxableAmount * (item.gstRate / 100);
+    
+    if (showGST) {
+      items.forEach(item => {
+        const itemTotal = item.unitPrice * item.quantity;
+        const itemDiscount = discountAmount > 0 ? (itemTotal / subTotal) * discountAmount : 0;
+        const taxableAmount = itemTotal - itemDiscount;
+        const gst = taxableAmount * (item.gstRate / 100);
 
-      if (!gstBreakdown[item.gstRate]) {
-        gstBreakdown[item.gstRate] = { taxableAmount: 0, cgst: 0, sgst: 0, igst: 0 };
-      }
-      gstBreakdown[item.gstRate].taxableAmount += taxableAmount;
-      if (gstMode === 'igst') {
-        gstBreakdown[item.gstRate].igst += gst;
-      } else {
-        gstBreakdown[item.gstRate].cgst += gst / 2;
-        gstBreakdown[item.gstRate].sgst += gst / 2;
-      }
-    });
+        if (!gstBreakdown[item.gstRate]) {
+          gstBreakdown[item.gstRate] = { taxableAmount: 0, cgst: 0, sgst: 0, igst: 0 };
+        }
+        gstBreakdown[item.gstRate].taxableAmount += taxableAmount;
+        if (gstMode === 'igst') {
+          gstBreakdown[item.gstRate].igst += gst;
+        } else {
+          gstBreakdown[item.gstRate].cgst += gst / 2;
+          gstBreakdown[item.gstRate].sgst += gst / 2;
+        }
+      });
+    }
 
     return (
       <div ref={ref} className="bill-print-template">
@@ -321,12 +326,12 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
               <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
             </div>
           )}
-          {gstMode === 'igst' ? (
+          {showGST && gstMode === 'igst' ? (
             <div className="bill-total-row">
               <span>IGST:</span>
               <span>{currencySymbol}{(cgstAmount + sgstAmount).toFixed(2)}</span>
             </div>
-          ) : (
+          ) : showGST ? (
             <>
               <div className="bill-total-row">
                 <span>CGST:</span>
@@ -337,7 +342,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
                 <span>{currencySymbol}{sgstAmount.toFixed(2)}</span>
               </div>
             </>
-          )}
+          ) : null}
           <div className="bill-total-row final">
             <span>GRAND TOTAL:</span>
             <span>{currencySymbol}{finalAmount.toFixed(2)}</span>

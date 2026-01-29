@@ -155,12 +155,10 @@ export function useCartSync() {
         return;
       }
 
-      // Insert ALL cart items with NEW UUIDs for database
+      // Insert ALL cart items - use upsert with conflict handling
       if (cartItems.length > 0) {
         const itemsToInsert = cartItems.map(item => ({
-          // Generate a NEW UUID for the database record
-          // Don't reuse item.id as it might conflict with existing records
-          id: crypto.randomUUID(),
+          id: item.id, // Keep the original ID for consistency
           table_id: tableId,
           product_id: item.productId,
           product_name: item.productName,
@@ -176,7 +174,7 @@ export function useCartSync() {
 
         const { error: insertError } = await supabase
           .from('cart_items')
-          .insert(itemsToInsert);
+          .upsert(itemsToInsert, { onConflict: 'id' });
 
         if (insertError) {
           console.error('[CartSync] Error inserting cart items:', insertError);

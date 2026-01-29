@@ -117,8 +117,9 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     }
 
     const qty = parseInt(quantity) || 1;
+    const sectionPrice = getSectionPrice(selectedPortion);
 
-    addToCart(selectedProduct, selectedPortion.size, qty);
+    addToCart(selectedProduct, selectedPortion.size, qty, sectionPrice);
 
     // Reset state
     setQuery('');
