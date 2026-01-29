@@ -11,6 +11,7 @@ export interface KOTData {
   items: CartItem[];
   billNumber?: string;
   kotNumber?: number;
+  kotNumberFormatted?: string; // Formatted KOT number like "01", "02"
   isParcel?: boolean;
 }
 
@@ -40,6 +41,7 @@ export interface BillData {
   customerName?: string;
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
+  showGST?: boolean; // Whether to show GST in print
 }
 
 // Format currency for printing
@@ -65,7 +67,8 @@ const formatTime = (): string => {
  */
 export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
-  const { tableNumber, tokenNumber, items, billNumber, kotNumber = 1, isParcel } = data;
+  const { tableNumber, tokenNumber, items, billNumber, kotNumber = 1, kotNumberFormatted, isParcel } = data;
+  const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
 
   const printTotalLine = (label: string, amount: number, symbol: string) => {
     const left = label.padEnd(16);   // label width
@@ -108,9 +111,9 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     .align(Alignment.LEFT)
     .dashedLine();
 
-  // KOT info
+  // KOT info - use formatted number
   builder
-    .twoColumns(`KOT #: ${kotNumber}`, billNumber ? `Bill: ${billNumber}` : '')
+    .twoColumns(`KOT #: ${displayKotNumber}`, billNumber ? `Bill: ${billNumber}` : '')
     .twoColumns(`Date: ${formatDate()}`, `Time: ${formatTime()}`)
     .dashedLine();
 
@@ -246,12 +249,14 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line(`${discountLabel} -${formatAmount(data.discountAmount, symbol)}`);
   }
 
-  // Tax
-  if (data.gstMode === 'igst') {
-    builder.line(`IGST: ${formatAmount(data.cgstAmount + data.sgstAmount, symbol)}`);
-  } else {
-    builder.line(`CGST: ${formatAmount(data.cgstAmount, symbol)}`);
-    builder.line(`SGST: ${formatAmount(data.sgstAmount, symbol)}`);
+  // Tax (only show if showGST is true or undefined for backward compatibility)
+  if (data.showGST !== false) {
+    if (data.gstMode === 'igst') {
+      builder.line(`IGST: ${formatAmount(data.cgstAmount + data.sgstAmount, symbol)}`);
+    } else {
+      builder.line(`CGST: ${formatAmount(data.cgstAmount, symbol)}`);
+      builder.line(`SGST: ${formatAmount(data.sgstAmount, symbol)}`);
+    }
   }
 
   // Round off calculation

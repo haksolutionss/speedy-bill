@@ -10,7 +10,8 @@ import {
   Percent,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useUIStore, calculateBillTotals } from '@/store/uiStore';
+import { useUIStore } from '@/store/uiStore';
+import { calculateBillTotals } from '@/lib/billCalculations';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
 import { usePrint } from '@/hooks/usePrint';
@@ -28,7 +29,7 @@ import { DiscountModal } from './DiscountModal';
 import { CustomerModal } from './CustomerModal';
 import { SplitPaymentModal } from './SplitPaymentModal';
 import type { KOTData, BillData } from '@/lib/escpos/templates';
-
+import { getNextKOTNumber } from '@/lib/kotNumberManager';
 interface Customer {
   id: string;
   name: string;
@@ -85,9 +86,10 @@ export function BillActions() {
   const hasPendingItems = kotItems.length > 0;
   const hasItems = cart.length > 0;
 
-  // Calculate totals with discount and loyalty
+  // Calculate totals with discount, loyalty, and tax type
+  const taxType = settings.tax.type;
   const loyaltyDiscount = calculateRedemptionValue(loyaltyPointsToUse);
-  const totals = calculateBillTotals(cart, discountType, discountValue);
+  const totals = calculateBillTotals(cart, discountType, discountValue, taxType);
   const { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount } = totals;
   const finalAmount = Math.max(0, totals.finalAmount - loyaltyDiscount);
 
@@ -97,15 +99,19 @@ export function BillActions() {
   // Calculate points customer will earn from this bill
   const pointsToEarn = calculateLoyaltyPoints(finalAmount);
 
-  // Build KOT data for printing
-  const buildKOTData = (): KOTData => ({
-    tableNumber: selectedTable?.number,
-    tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
-    items: kotItems,
-    billNumber: currentBillId?.slice(0, 8),
-    kotNumber: 1,
-    isParcel: isParcelMode,
-  });
+  // Build KOT data for printing - generates new KOT number each time
+  const buildKOTData = (): KOTData => {
+    const kotNumber = getNextKOTNumber();
+    return {
+      tableNumber: selectedTable?.number,
+      tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+      items: kotItems,
+      billNumber: currentBillId?.slice(0, 8),
+      kotNumber: parseInt(kotNumber, 10),
+      kotNumberFormatted: kotNumber,
+      isParcel: isParcelMode,
+    };
+  };
 
   // Build Bill data for printing
   const buildBillData = (): BillData => ({
@@ -118,20 +124,21 @@ export function BillActions() {
     discountType: discountType || undefined,
     discountValue: discountValue || undefined,
     discountReason: discountReason || undefined,
-    cgstAmount,
-    sgstAmount,
+    cgstAmount: taxType === 'gst' ? cgstAmount : 0,
+    sgstAmount: taxType === 'gst' ? sgstAmount : 0,
     totalAmount,
     finalAmount,
     isParcel: isParcelMode,
     restaurantName: businessInfo.name,
     address: businessInfo.address,
     phone: businessInfo.phone,
-    gstin: businessInfo.gstNumber,
+    gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,
     currencySymbol,
     gstMode,
     customerName: selectedCustomer?.name,
     loyaltyPointsUsed: loyaltyPointsToUse,
     loyaltyPointsEarned: pointsToEarn,
+    showGST: taxType === 'gst',
   });
 
   // Keyboard shortcuts - F1 for direct KOT, F2 for direct Bill (no preview)
@@ -490,20 +497,21 @@ export function BillActions() {
               items={cart}
               subTotal={subTotal}
               discountAmount={discountAmount + loyaltyDiscount}
-              cgstAmount={cgstAmount}
-              sgstAmount={sgstAmount}
+              cgstAmount={taxType === 'gst' ? cgstAmount : 0}
+              sgstAmount={taxType === 'gst' ? sgstAmount : 0}
               totalAmount={totalAmount}
               finalAmount={finalAmount}
               isParcel={isParcelMode}
               restaurantName={businessInfo.name}
               address={businessInfo.address}
               phone={businessInfo.phone}
-              gstin={businessInfo.gstNumber}
+              gstin={taxType === 'gst' ? businessInfo.gstNumber : undefined}
               currencySymbol={currencySymbol}
               gstMode={gstMode}
               customerName={selectedCustomer?.name}
               loyaltyPointsUsed={loyaltyPointsToUse}
               loyaltyPointsEarned={pointsToEarn}
+              showGST={taxType === 'gst'}
             />
           </div>
           <div className="flex justify-end gap-2 mt-4">

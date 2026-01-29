@@ -7,11 +7,13 @@ interface KOTTemplateProps {
   items: CartItem[];
   billNumber?: string;
   kotNumber?: number;
+  kotNumberFormatted?: string; // Formatted like "01", "02"
   isParcel?: boolean;
 }
 
 export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
-  ({ tableNumber, tokenNumber, items, billNumber, kotNumber = 1, isParcel }, ref) => {
+  ({ tableNumber, tokenNumber, items, billNumber, kotNumber = 1, kotNumberFormatted, isParcel }, ref) => {
+    const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -142,7 +144,7 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
         <div className="kot-info">
           {isParcel ? `TOKEN #${tokenNumber}` : `TABLE: ${tableNumber}`}
           <div className="kot-info">
-            <span>KOT #: {kotNumber}</span>
+            <span>KOT #: {displayKotNumber}</span>
             {billNumber && <span>Bill: {billNumber}</span>}
           </div>
         </div>

@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { useUIStore, calculateBillTotals, type CartItem } from '@/store/uiStore';
+import { useUIStore, type CartItem } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { supabase } from '@/integrations/supabase/client';
+import { calculateBillTotals } from '@/lib/billCalculations';
 import {
   useCreateBillMutation,
   useUpdateBillMutation,
@@ -50,7 +51,8 @@ export function useBillingOperations() {
     setCurrentBillId,
   } = useUIStore();
 
-  const { calculateLoyaltyPoints } = useSettingsStore();
+  const { settings, calculateLoyaltyPoints } = useSettingsStore();
+  const taxType = settings.tax.type;
 
   const [createBill] = useCreateBillMutation();
   const [updateBill] = useUpdateBillMutation();
@@ -64,7 +66,7 @@ export function useBillingOperations() {
       return null;
     }
 
-    const totals = calculateBillTotals(cart, discountType, discountValue);
+    const totals = calculateBillTotals(cart, discountType, discountValue, taxType);
 
     try {
       if (currentBillId) {
@@ -247,7 +249,7 @@ export function useBillingOperations() {
             if (customerData) {
               // Calculate points to deduct (used) and add (earned)
               const usedPoints = loyaltyPointsUsed || 0;
-              const billAmount = finalAmount ?? calculateBillTotals(cart, discountType, discountValue).finalAmount;
+              const billAmount = finalAmount ?? calculateBillTotals(cart, discountType, discountValue, taxType).finalAmount;
               const earnedPoints = calculateLoyaltyPoints(billAmount);
 
               const newPoints = Math.max(0, customerData.loyalty_points - usedPoints + earnedPoints);

@@ -17,6 +17,9 @@ export interface CartItem {
   printedQuantity: number;
 }
 
+// Re-export calculateBillTotals from centralized location for backward compatibility
+export { calculateBillTotals } from '@/lib/billCalculations';
+
 interface UIState {
   // Current selection state
   selectedTable: DbTable | null;
@@ -42,7 +45,7 @@ interface UIState {
   setCart: (cart: CartItem[]) => void;
 
   // Cart actions
-  addToCart: (product: ProductWithPortions, portion: string, quantity: number) => void;
+  addToCart: (product: ProductWithPortions, portion: string, quantity: number, overridePrice?: number) => void;
   updateCartItem: (itemId: string, updates: Partial<CartItem>) => void;
   removeFromCart: (itemId: string) => void;
   clearCart: () => void;
@@ -108,10 +111,13 @@ export const useUIStore = create<UIState>()(
 
       setCart: (cart) => set({ cart }),
 
-      addToCart: (product, portion, quantity) => {
+      addToCart: (product, portion, quantity, overridePrice) => {
         // portion is the size name (string)
         const portionData = product.portions.find((p) => p.size === portion);
         if (!portionData) return;
+
+        // Use override price if provided (for section-based pricing), otherwise use base price
+        const unitPrice = overridePrice ?? portionData.price;
 
         // Find existing item that hasn't been sent to kitchen yet
         const existingPendingItem = get().cart.find(
@@ -143,7 +149,7 @@ export const useUIStore = create<UIState>()(
               ),
             });
           } else {
-            // Create new item
+            // Create new item with section-based price if available
             const newItem: CartItem = {
               id: generateId(),
               productId: product.id,
@@ -151,7 +157,7 @@ export const useUIStore = create<UIState>()(
               productCode: product.code,
               portion,
               quantity,
-              unitPrice: portionData.price,
+              unitPrice, // Uses overridePrice if provided
               gstRate: product.gst_rate,
               sentToKitchen: false,
               printedQuantity: 0,
@@ -294,39 +300,5 @@ export const useUIStore = create<UIState>()(
   )
 );
 
-// Utility functions for bill calculations
-export const calculateBillTotals = (
-  items: CartItem[],
-  discountType?: 'percentage' | 'fixed' | null,
-  discountValue?: number | null
-) => {
-  const subTotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-
-  let discountAmount = 0;
-  if (discountType && discountValue) {
-    discountAmount = discountType === 'percentage'
-      ? (subTotal * discountValue) / 100
-      : discountValue;
-  }
-
-  const afterDiscount = subTotal - discountAmount;
-
-  // Calculate GST by rate
-  const gstByRate: Record<number, number> = {};
-  items.forEach((item) => {
-    const itemTotal = item.unitPrice * item.quantity;
-    const itemDiscount = discountAmount > 0 ? (itemTotal / subTotal) * discountAmount : 0;
-    const taxableAmount = itemTotal - itemDiscount;
-    const gst = taxableAmount * (item.gstRate / 100);
-    gstByRate[item.gstRate] = (gstByRate[item.gstRate] || 0) + gst;
-  });
-
-  const totalGst = Object.values(gstByRate).reduce((sum, gst) => sum + gst, 0);
-  const cgstAmount = totalGst / 2;
-  const sgstAmount = totalGst / 2;
-
-  const totalAmount = afterDiscount + totalGst;
-  const finalAmount = Math.round(totalAmount);
-
-  return { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount, finalAmount };
-};
+// Note: calculateBillTotals is now exported from @/lib/billCalculations
+// and re-exported at the top of this file for backward compatibility
