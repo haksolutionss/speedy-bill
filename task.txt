@@ -5,8 +5,6 @@ Here are the 4 issues that need to be fixed:
 - Both KOT and Bill numbers show random IDs like "ebb9737f" or "b2c85889"
 - Fix: Use auto-incrementing format like "01" (this KOT will be reset each day so can u store the data in localStorage of previous printed KOT) and "BILL-0001" (and this need to understand correclyy)
 
-(Check the attach image) and aslo the if gst calculation is their we neeed a round off too value to be shown aslo all that thing must show on the right side curretly how we have is 2column sturtucre for csgt sgct and grand total now i wnat that thing to be one column and move completly righ side Both label and value
-
 2. Cart Item Missing After Table Switch:
 - Added 2 products to cart and printed KOT
 - After switching tables, the last added item disappears from cart (but KOT was printed)
@@ -21,3 +19,8 @@ Here are the 4 issues that need to be fixed:
 4. GST & Currency Display:
 - When GST is set to "none" in tax settings, still showing GST calculations
 - Fix: Hide all GST calculations when tax is "none" and aslo don't calculate gst anywhere, 
+
+for everything and correct indian valdaiton
+
+no comments on any where no documents, no summary nothings just give update code thats it 
+```

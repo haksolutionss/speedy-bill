@@ -13,11 +13,11 @@ export default function Auth() {
   const navigate = useNavigate();
   const { login, signup } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Login form
   const [loginMobile, setLoginMobile] = useState('');
   const [loginPin, setLoginPin] = useState('');
-  
+
   // Signup form
   const [signupMobile, setSignupMobile] = useState('');
   const [signupPin, setSignupPin] = useState('');
@@ -34,12 +34,12 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateMobile(loginMobile)) {
       toast.error('Please enter a valid 10-digit mobile number');
       return;
     }
-    
+
     if (!validatePin(loginPin)) {
       toast.error('Please enter a 4-digit PIN');
       return;
@@ -50,7 +50,6 @@ export default function Auth() {
     setIsLoading(false);
 
     if (result.success) {
-      toast.success('Welcome back!');
       navigate('/');
     } else {
       toast.error(result.error || 'Login failed');
@@ -59,12 +58,12 @@ export default function Auth() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateMobile(signupMobile)) {
       toast.error('Please enter a valid 10-digit mobile number');
       return;
     }
-    
+
     if (!validatePin(signupPin)) {
       toast.error('Please enter a 4-digit PIN');
       return;
@@ -80,7 +79,6 @@ export default function Auth() {
     setIsLoading(false);
 
     if (result.success) {
-      toast.success('Account created! Complete your setup.');
       navigate('/onboarding');
     } else {
       toast.error(result.error || 'Signup failed');
@@ -100,7 +98,7 @@ export default function Auth() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4 mt-4">
                 <div className="space-y-2">
@@ -118,7 +116,7 @@ export default function Auth() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="login-pin">4-Digit PIN</Label>
                   <div className="relative">
@@ -141,7 +139,7 @@ export default function Auth() {
                 </Button>
               </form>
             </TabsContent>
-            
+
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4 mt-4">
                 <div className="space-y-2">
@@ -174,7 +172,7 @@ export default function Auth() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="signup-pin">Create 4-Digit PIN</Label>
                   <div className="relative">

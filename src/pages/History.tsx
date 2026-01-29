@@ -104,7 +104,6 @@ export default function History() {
         }).unwrap();
       }
 
-      toast.success('Bill reverted to unsettled');
     } catch (error) {
       console.error('Error reverting bill:', error);
       toast.error('Failed to revert bill');
@@ -122,7 +121,6 @@ export default function History() {
         },
       }).unwrap();
 
-      toast.success('Bill deleted');
     } catch (error) {
       console.error('Error deleting bill:', error);
       toast.error('Failed to delete bill');

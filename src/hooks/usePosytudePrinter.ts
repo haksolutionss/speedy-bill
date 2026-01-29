@@ -51,7 +51,6 @@ export function usePosytudePrinter() {
           };
           setPrinter(p);
           setStatus({ status: 'connected', message: 'Printer ready' });
-          toast.success('Printer Connected', { description: p.name });
         } else {
           setPrinter(null);
           setStatus({

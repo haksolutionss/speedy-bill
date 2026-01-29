@@ -1,20 +1,11 @@
-import { useState, useEffect } from 'react';
+import { BillingTab, BusinessTab, CurrencyTab, LoyaltyTab, PrintersTab, SyncTab, TaxTab, ThemeTab } from '@/components/settings/tabs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSettingsStore } from '@/store/settingsStore';
-import { PrinterDiscovery } from '@/components/settings/PrinterDiscovery';
+import { validateBusinessField, type ValidationError } from '@/utils/validation';
+import { AlertCircle, Building2, CreditCard, Gift, Receipt, Save } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Building2, Receipt, Palette, Banknote, Printer, RefreshCw, Save, Gift, CreditCard, Scale, AlertCircle } from 'lucide-react';
-import type { TaxType, GstMode, Currency, PaymentMethod } from '@/types/settings';
-import { CURRENCY_OPTIONS, FONT_OPTIONS } from '@/types/settings';
-import { validateBusinessSettings, getFieldError, type ValidationError } from '@/utils/validation';
-import { cn } from '@/lib/utils';
 
 export default function Settings() {
   const { settings, updateSettings, loadPrinters } = useSettingsStore();
@@ -26,36 +17,33 @@ export default function Settings() {
     loadPrinters();
   }, [loadPrinters]);
 
-  // Validate on blur or change
-  const validateBusinessForm = () => {
-    const result = validateBusinessSettings(settings.business);
-    setValidationErrors(result.errors);
-    return result.isValid;
-  };
+  const validateField = useCallback((field: string, value: string) => {
+    const error = validateBusinessField(field, value);
+    setValidationErrors(prev => {
+      const filtered = prev.filter(e => e.field !== field);
+      return error ? [...filtered, { field, message: error }] : filtered;
+    });
+  }, []);
 
-  const handleBusinessFieldChange = (field: keyof typeof settings.business, value: string) => {
-    updateSettings('business', { ...settings.business, [field]: value });
+  const validateAllBusinessFields = useCallback(() => {
+    const fields = ['name', 'phone', 'email', 'gstNumber', 'address'];
+    const errors: ValidationError[] = [];
 
-    // Mark field as touched
-    setTouchedFields(prev => new Set(prev).add(field));
+    fields.forEach(field => {
+      const value = settings.business[field as keyof typeof settings.business];
+      const error = validateBusinessField(field, value);
+      if (error) {
+        errors.push({ field, message: error });
+      }
+    });
 
-    // Validate after a short delay (debounce)
-    setTimeout(() => {
-      validateBusinessForm();
-    }, 300);
-  };
+    setValidationErrors(errors);
+    return errors.length === 0;
+  }, [settings.business]);
 
-  const handleBusinessFieldBlur = (field: string) => {
-    setTouchedFields(prev => new Set(prev).add(field));
-    validateBusinessForm();
-  };
-
-  const handleSave = async () => {
-    // Mark all fields as touched
+  const handleSave = useCallback(async () => {
     setTouchedFields(new Set(['name', 'phone', 'email', 'gstNumber', 'address']));
-
-    // Validate business settings
-    const isValid = validateBusinessForm();
+    const isValid = validateAllBusinessFields();
 
     if (!isValid) {
       toast.error('Please fix validation errors before saving');
@@ -63,16 +51,9 @@ export default function Settings() {
     }
 
     toast.success('Settings saved successfully');
-  };
+  }, [validateAllBusinessFields]);
 
-  const getError = (field: string) => {
-    if (!touchedFields.has(field)) return undefined;
-    return getFieldError(validationErrors, field);
-  };
-
-  const hasError = (field: string) => {
-    return touchedFields.has(field) && !!getError(field);
-  };
+  const hasValidationErrors = validationErrors.length > 0 && touchedFields.size > 0;
 
   return (
     <div className="space-y-6">
@@ -88,383 +69,82 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-max grid-cols-5">
+        <TabsList className="grid w-max grid-cols-4">
           <TabsTrigger value="business">
             <Building2 className="h-4 w-4 mr-2" />
             Business
-            {validationErrors.length > 0 && touchedFields.size > 0 && (
+            {hasValidationErrors && (
               <AlertCircle className="h-3 w-3 ml-2 text-destructive" />
             )}
           </TabsTrigger>
-          <TabsTrigger value="tax"><Receipt className="h-4 w-4 mr-2" />Tax</TabsTrigger>
-          {/* <TabsTrigger value="theme"><Palette className="h-4 w-4 mr-2" />Theme</TabsTrigger> */}
-          {/* <TabsTrigger value="currency"><Banknote className="h-4 w-4 mr-2" />Currency</TabsTrigger> */}
-          <TabsTrigger value="loyalty"><Gift className="h-4 w-4 mr-2" />Loyalty</TabsTrigger>
-          <TabsTrigger value="billing"><CreditCard className="h-4 w-4 mr-2" />Billing</TabsTrigger>
-          {/*  <TabsTrigger value="printers"><Printer className="h-4 w-4 mr-2" />Printers</TabsTrigger> */}
-          {/* <TabsTrigger value="sync"><RefreshCw className="h-4 w-4 mr-2" />Sync</TabsTrigger> */}
+          <TabsTrigger value="tax">
+            <Receipt className="h-4 w-4 mr-2" />
+            Tax
+          </TabsTrigger>
+          {/* <TabsTrigger value="theme">
+            <Palette className="h-4 w-4 mr-2" />
+            Theme
+          </TabsTrigger> */}
+          {/* <TabsTrigger value="currency">
+            <Banknote className="h-4 w-4 mr-2" />
+            Currency
+          </TabsTrigger> */}
+          <TabsTrigger value="loyalty">
+            <Gift className="h-4 w-4 mr-2" />
+            Loyalty
+          </TabsTrigger>
+          <TabsTrigger value="billing">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Billing
+          </TabsTrigger>
+          {/* <TabsTrigger value="printers">
+            <Printer className="h-4 w-4 mr-2" />
+            Printers
+          </TabsTrigger>
+          <TabsTrigger value="sync">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sync
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="business" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Business Information</CardTitle>
-              <CardDescription>Your restaurant details for bills and receipts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Restaurant Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="name" className={cn(hasError('name') && "text-destructive")}>
-                    Restaurant Name *
-                  </Label>
-                  <Input
-                    id="name"
-                    value={settings.business.name}
-                    onChange={(e) => handleBusinessFieldChange('name', e.target.value)}
-                    onBlur={() => handleBusinessFieldBlur('name')}
-                    className={cn(hasError('name') && "border-destructive focus-visible:ring-destructive")}
-                    placeholder="Enter restaurant name"
-                  />
-                  {hasError('name') && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {getError('name')}
-                    </p>
-                  )}
-                </div>
-
-                {/* Phone */}
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className={cn(hasError('phone') && "text-destructive")}>
-                    Phone *
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={settings.business.phone}
-                    onChange={(e) => {
-                      // Only allow numbers, +, -, spaces, and parentheses
-                      const value = e.target.value.replace(/[^\d\s\-+()]/g, '');
-                      handleBusinessFieldChange('phone', value);
-                    }}
-                    onBlur={() => handleBusinessFieldBlur('phone')}
-                    className={cn(hasError('phone') && "border-destructive focus-visible:ring-destructive")}
-                    placeholder="+91 98765 43210"
-                    maxLength={20}
-                  />
-                  {hasError('phone') && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {getError('phone')}
-                    </p>
-                  )}
-                  {!hasError('phone') && settings.business.phone && (
-                    <p className="text-xs text-muted-foreground">
-                      {settings.business.phone.replace(/\D/g, '').length} digits entered
-                    </p>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="email" className={cn(hasError('email') && "text-destructive")}>
-                    Email *
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={settings.business.email}
-                    onChange={(e) => handleBusinessFieldChange('email', e.target.value)}
-                    onBlur={() => handleBusinessFieldBlur('email')}
-                    className={cn(hasError('email') && "border-destructive focus-visible:ring-destructive")}
-                    placeholder="restaurant@example.com"
-                  />
-                  {hasError('email') && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {getError('email')}
-                    </p>
-                  )}
-                </div>
-
-                {/* GST Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="gstNumber" className={cn(hasError('gstNumber') && "text-destructive")}>
-                    GST Number
-                  </Label>
-                  <Input
-                    id="gstNumber"
-                    value={settings.business.gstNumber}
-                    onChange={(e) => handleBusinessFieldChange('gstNumber', e.target.value.toUpperCase())}
-                    onBlur={() => handleBusinessFieldBlur('gstNumber')}
-                    className={cn(hasError('gstNumber') && "border-destructive focus-visible:ring-destructive")}
-                    placeholder="22AAAAA0000A1Z5"
-                    maxLength={15}
-                  />
-                  {hasError('gstNumber') && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {getError('gstNumber')}
-                    </p>
-                  )}
-                  {!hasError('gstNumber') && settings.business.gstNumber && (
-                    <p className="text-xs text-muted-foreground">15 characters required</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="space-y-2">
-                <Label htmlFor="address" className={cn(hasError('address') && "text-destructive")}>
-                  Address *
-                </Label>
-                <Input
-                  id="address"
-                  value={settings.business.address}
-                  onChange={(e) => handleBusinessFieldChange('address', e.target.value)}
-                  onBlur={() => handleBusinessFieldBlur('address')}
-                  className={cn(hasError('address') && "border-destructive focus-visible:ring-destructive")}
-                  placeholder="Enter complete business address"
-                />
-                {hasError('address') && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {getError('address')}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <BusinessTab
+            settings={settings}
+            updateSettings={updateSettings}
+            validationErrors={validationErrors}
+            touchedFields={touchedFields}
+            setTouchedFields={setTouchedFields}
+            validateField={validateField}
+          />
         </TabsContent>
 
         <TabsContent value="tax" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tax Setup</CardTitle>
-              <CardDescription>Configure tax rates and modes</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <Label>Tax Type</Label>
-                <RadioGroup value={settings.tax.type} onValueChange={(v) => updateSettings('tax', { ...settings.tax, type: v as TaxType })}>
-                  <div className="flex items-center space-x-2"><RadioGroupItem value="gst" id="gst" /><Label htmlFor="gst">GST</Label></div>
-                  <div className="flex items-center space-x-2"><RadioGroupItem value="other" id="other" /><Label htmlFor="other">Other</Label></div>
-                  <div className="flex items-center space-x-2"><RadioGroupItem value="none" id="none" /><Label htmlFor="none">None</Label></div>
-                </RadioGroup>
-              </div>
-              {settings.tax.type === 'gst' && (
-                <div className="space-y-3">
-                  <Label>GST Mode</Label>
-                  <RadioGroup value={settings.tax.gstMode} onValueChange={(v) => updateSettings('tax', { ...settings.tax, gstMode: v as GstMode })}>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="cgst_sgst" id="cgst" /><Label htmlFor="cgst">CGST + SGST</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="igst" id="igst" /><Label htmlFor="igst">IGST</Label></div>
-                  </RadioGroup>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TaxTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        <TabsContent value="theme" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme Customization</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Dark Mode</Label>
-                <Switch checked={settings.theme.mode === 'dark'} onCheckedChange={(c) => updateSettings('theme', { ...settings.theme, mode: c ? 'dark' : 'light' })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Font Family</Label>
-                <Select value={settings.theme.fontFamily} onValueChange={(v) => updateSettings('theme', { ...settings.theme, fontFamily: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {FONT_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* <TabsContent value="theme" className="mt-6">
+          <ThemeTab settings={settings} updateSettings={updateSettings} />
+        </TabsContent> */}
 
-        <TabsContent value="currency" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Currency Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Currency</Label>
-                <Select value={settings.currency.currency} onValueChange={(v) => {
-                  const opt = CURRENCY_OPTIONS.find(c => c.value === v);
-                  updateSettings('currency', { ...settings.currency, currency: v as Currency, symbol: opt?.symbol || '₹' });
-                }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CURRENCY_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.symbol} - {c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>Use Commas</Label>
-                <Switch checked={settings.currency.useCommas} onCheckedChange={(c) => updateSettings('currency', { ...settings.currency, useCommas: c })} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* <TabsContent value="currency" className="mt-6">
+          <CurrencyTab settings={settings} updateSettings={updateSettings} />
+        </TabsContent> */}
 
-        {/* Loyalty Settings Tab */}
         <TabsContent value="loyalty" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Loyalty Points Configuration</CardTitle>
-              <CardDescription>Configure how customers earn and redeem loyalty points</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Enable Loyalty Program</Label>
-                  <p className="text-sm text-muted-foreground">Allow customers to earn and redeem points</p>
-                </div>
-                <Switch
-                  checked={settings.loyalty.enabled}
-                  onCheckedChange={(c) => updateSettings('loyalty', { ...settings.loyalty, enabled: c })}
-                />
-              </div>
-
-              {settings.loyalty.enabled && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Amount for Points ({settings.currency.symbol})</Label>
-                      <Input
-                        type="number"
-                        value={settings.loyalty.amountForPoints}
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, amountForPoints: Number(e.target.value) })}
-                      />
-                      <p className="text-xs text-muted-foreground">Spend this amount to earn points</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Points Per Amount</Label>
-                      <Input
-                        type="number"
-                        value={settings.loyalty.pointsPerAmount}
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, pointsPerAmount: Number(e.target.value) })}
-                      />
-                      <p className="text-xs text-muted-foreground">Points earned per amount spent</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Redemption Value ({settings.currency.symbol})</Label>
-                      <Input
-                        type="number"
-                        value={settings.loyalty.redemptionValue}
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, redemptionValue: Number(e.target.value) })}
-                      />
-                      <p className="text-xs text-muted-foreground">Value of 1 point when redeemed</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Minimum Points to Redeem</Label>
-                      <Input
-                        type="number"
-                        value={settings.loyalty.minRedemptionPoints}
-                        onChange={(e) => updateSettings('loyalty', { ...settings.loyalty, minRedemptionPoints: Number(e.target.value) })}
-                      />
-                      <p className="text-xs text-muted-foreground">Minimum points required for redemption</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm font-medium">Example:</p>
-                    <p className="text-sm text-muted-foreground">
-                      Customer spends {settings.currency.symbol}{settings.loyalty.amountForPoints} → Earns {settings.loyalty.pointsPerAmount} point(s)<br />
-                      {settings.loyalty.minRedemptionPoints} points can be redeemed for {settings.currency.symbol}{settings.loyalty.minRedemptionPoints * settings.loyalty.redemptionValue}
-                    </p>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <LoyaltyTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        {/* Billing Defaults Tab */}
         <TabsContent value="billing" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing Defaults</CardTitle>
-              <CardDescription>Configure default billing behavior</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label>Default Payment Method</Label>
-                <Select
-                  value={settings.billing.defaultPaymentMethod}
-                  onValueChange={(v) => updateSettings('billing', { ...settings.billing, defaultPaymentMethod: v as PaymentMethod })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Used when pressing F2 for quick billing</p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Auto-settle on Print</Label>
-                  <p className="text-sm text-muted-foreground">Automatically settle bill when printing</p>
-                </div>
-                <Switch
-                  checked={settings.billing.autoSettleOnPrint}
-                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, autoSettleOnPrint: c })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Print Customer Copy</Label>
-                  <p className="text-sm text-muted-foreground">Print an extra copy for customer</p>
-                </div>
-                <Switch
-                  checked={settings.billing.printCustomerCopy}
-                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, printCustomerCopy: c })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Show Loyalty in Bill</Label>
-                  <p className="text-sm text-muted-foreground">Display loyalty points info on printed bill</p>
-                </div>
-                <Switch
-                  checked={settings.billing.showLoyaltyInBill}
-                  onCheckedChange={(c) => updateSettings('billing', { ...settings.billing, showLoyaltyInBill: c })}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <BillingTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        <TabsContent value="printers" className="mt-6">
-          <PrinterDiscovery />
-        </TabsContent>
+        {/* <TabsContent value="printers" className="mt-6">
+          <PrintersTab />
+        </TabsContent> */}
 
-        <TabsContent value="sync" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sync Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <RadioGroup value={settings.sync.mode} onValueChange={(v) => updateSettings('sync', { ...settings.sync, mode: v as 'realtime' | 'polling' })}>
-                <div className="flex items-center space-x-2"><RadioGroupItem value="polling" id="polling" /><Label htmlFor="polling">Polling (every 20s)</Label></div>
-                <div className="flex items-center space-x-2"><RadioGroupItem value="realtime" id="realtime" /><Label htmlFor="realtime">Real-time (Premium)</Label></div>
-              </RadioGroup>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* <TabsContent value="sync" className="mt-6">
+          <SyncTab settings={settings} updateSettings={updateSettings} />
+        </TabsContent> */}
       </Tabs>
     </div>
   );

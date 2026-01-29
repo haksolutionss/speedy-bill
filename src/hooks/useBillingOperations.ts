@@ -49,6 +49,7 @@ export function useBillingOperations() {
     markItemsSentToKitchen,
     getNextToken,
     setCurrentBillId,
+    incrementBillNumber
   } = useUIStore();
 
   const { settings, calculateLoyaltyPoints } = useSettingsStore();
@@ -59,6 +60,8 @@ export function useBillingOperations() {
   const [updateTable] = useUpdateTableMutation();
   const [markItemsAsKOT] = useMarkItemsAsKOTMutation();
   const [addPaymentDetails] = useAddPaymentDetailsMutation();
+
+  // const billNumber = incrementBillNumber();
 
   const saveOrUpdateBill = useCallback(async () => {
     if (cart.length === 0) {
@@ -90,7 +93,10 @@ export function useBillingOperations() {
         return currentBillId;
       } else {
         // Create new bill
+        const billNumber = incrementBillNumber();
+
         const billData = {
+          bill_number: billNumber,
           type: isParcelMode ? 'parcel' : 'table',
           table_id: selectedTable?.id || null,
           table_number: selectedTable?.number || null,
@@ -162,6 +168,7 @@ export function useBillingOperations() {
     updateTable,
     getNextToken,
     setCurrentBillId,
+    incrementBillNumber,  // Add to dependencies
   ]);
 
   const printKOT = useCallback(async () => {
@@ -183,7 +190,6 @@ export function useBillingOperations() {
       // Update local state
       markItemsSentToKitchen();
 
-      toast.success(`KOT sent: ${pendingItems.length} item(s)`);
       return true;
     } catch (error) {
       console.error('Error printing KOT:', error);
@@ -207,7 +213,6 @@ export function useBillingOperations() {
 
       // Optimistically reset state for instant UI feedback
       const tableToUpdate = selectedTable;
-      resetBillingState();
 
       // Do all DB operations in background
       (async () => {
@@ -277,13 +282,13 @@ export function useBillingOperations() {
             await clearCartFromSupabase(tableToUpdate.id);
           }
 
+          resetBillingState();
         } catch (error) {
           console.error('[BillingOps] Error settling bill in background:', error);
           // Error is logged but UI has already responded
         }
       })();
 
-      toast.success('Bill settled successfully');
       return true;
     },
     [cart, currentBillId, selectedTable, discountType, discountValue, saveOrUpdateBill, updateBill, updateTable, addPaymentDetails, resetBillingState, calculateLoyaltyPoints]
@@ -310,7 +315,6 @@ export function useBillingOperations() {
       }
 
       resetBillingState();
-      toast.success('Bill saved as unsettled');
       return true;
     } catch (error) {
       console.error('Error saving unsettled bill:', error);

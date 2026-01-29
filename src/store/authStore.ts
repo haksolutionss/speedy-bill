@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, StaffPermissions, ADMIN_PERMISSIONS, DEFAULT_STAFF_PERMISSIONS } from '@/types/settings';
+import { useUIStore } from './uiStore';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   sessionExpiresAt: string | null;
-  
+
   // Actions
   login: (mobile: string, pin: string) => Promise<{ success: boolean; error?: string }>;
   signup: (mobile: string, pin: string, name?: string) => Promise<{ success: boolean; error?: string }>;
@@ -174,6 +175,17 @@ export const useAuthStore = create<AuthState>()(
             .eq('id', users.id);
 
           set({ user, isAuthenticated: true, isLoading: false, sessionExpiresAt });
+          const { data: lastBill } = await supabase
+            .from('bills')
+            .select('bill_number')
+            .order('bill_number', { ascending: false })
+            .limit(1)
+            .single();
+
+          useUIStore.setState({
+            currentBillNumber: lastBill?.bill_number || 'BILL-0000'
+          });
+
           return { success: true };
         } catch (err) {
           console.error('Login error:', err);
@@ -202,7 +214,7 @@ export const useAuthStore = create<AuthState>()(
           const isFirstUser = count === 0;
           const pinHash = hashPin(pin);
           const sessionExpiresAt = getSessionExpiry();
-          
+
           const { data: newUser, error } = await supabase
             .from('users')
             .insert({
@@ -269,13 +281,13 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         const { user: currentUser, sessionExpiresAt } = get();
-        
+
         // Check if session is expired
         if (isSessionExpired(sessionExpiresAt)) {
           set({ user: null, isAuthenticated: false, isLoading: false, sessionExpiresAt: null });
           return;
         }
-        
+
         if (currentUser) {
           // Verify user still exists and is active
           const { data } = await supabase
@@ -290,9 +302,9 @@ export const useAuthStore = create<AuthState>()(
           } else {
             // Reload permissions in case they changed
             const permissions = await get().loadUserPermissions(currentUser.id);
-            set({ 
+            set({
               user: { ...currentUser, permissions },
-              isLoading: false 
+              isLoading: false
             });
           }
         } else {
@@ -302,8 +314,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ 
-        user: state.user, 
+      partialize: (state) => ({
+        user: state.user,
         isAuthenticated: state.isAuthenticated,
         sessionExpiresAt: state.sessionExpiresAt,
       }),

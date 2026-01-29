@@ -1,89 +1,49 @@
-// Validation utilities for business settings
-
 export interface ValidationError {
     field: string;
     message: string;
 }
 
-export interface BusinessValidationResult {
-    isValid: boolean;
-    errors: ValidationError[];
-}
+export const validateBusinessField = (field: string, value: string): string | undefined => {
+    switch (field) {
+        case 'name':
+            if (!value.trim()) return 'Restaurant name is required';
+            if (value.trim().length < 2) return 'Name must be at least 2 characters';
+            if (value.trim().length > 100) return 'Name must not exceed 100 characters';
+            return undefined;
 
-export const validateBusinessSettings = (business: {
-    name: string;
-    phone: string;
-    email: string;
-    gstNumber: string;
-    address: string;
-}): BusinessValidationResult => {
-    const errors: ValidationError[] = [];
-
-    // Restaurant Name validation
-    if (!business.name.trim()) {
-        errors.push({ field: 'name', message: 'Restaurant name is required' });
-    } else if (business.name.trim().length < 2) {
-        errors.push({ field: 'name', message: 'Restaurant name must be at least 2 characters' });
-    } else if (business.name.length > 100) {
-        errors.push({ field: 'name', message: 'Restaurant name must not exceed 100 characters' });
-    }
-
-    // Phone validation
-    if (!business.phone.trim()) {
-        errors.push({ field: 'phone', message: 'Phone number is required' });
-    } else {
-        // Check if it contains any non-numeric characters (except +, -, spaces, and parentheses)
-        const phoneRegex = /^[\d\s\-+()]+$/;
-        if (!phoneRegex.test(business.phone)) {
-            errors.push({ field: 'phone', message: 'Phone number can only contain digits and +, -, (), spaces' });
-        } else {
-            // Remove all non-numeric characters for length validation
-            const phoneDigits = business.phone.replace(/\D/g, '');
-            if (phoneDigits.length < 10) {
-                errors.push({ field: 'phone', message: 'Phone number must be at least 10 digits' });
-            } else if (phoneDigits.length > 10) {
-                errors.push({ field: 'phone', message: 'Phone number must not exceed 10 digits' });
+        case 'phone':
+            if (!value.trim()) return 'Phone number is required';
+            const digits = value.replace(/\D/g, '');
+            if (digits.length !== 10) return 'Phone number must be exactly 10 digits';
+            if (!['6', '7', '8', '9'].includes(digits[0])) {
+                return 'Invalid Indian mobile number';
             }
-        }
-    }
+            return undefined;
 
-    // Email validation
-    if (!business.email.trim()) {
-        errors.push({ field: 'email', message: 'Email is required' });
-    } else {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(business.email)) {
-            errors.push({ field: 'email', message: 'Please enter a valid email address' });
-        }
-    }
+        case 'email':
+            if (!value.trim()) return 'Email is required';
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) return 'Invalid email format';
+            return undefined;
 
-    // GST Number validation (Indian GST format: 15 characters)
-    if (business.gstNumber.trim()) {
-        const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-        if (!gstRegex.test(business.gstNumber.toUpperCase())) {
-            errors.push({
-                field: 'gstNumber',
-                message: 'Invalid GST format. Should be 15 characters (e.g., 22AAAAA0000A1Z5)'
-            });
-        }
-    }
+        case 'gstNumber':
+            if (!value) return undefined;
+            if (value.length !== 15) return 'GST number must be exactly 15 characters';
+            const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+            if (!gstRegex.test(value)) return 'Invalid GST number format';
+            return undefined;
 
-    // Address validation
-    if (!business.address.trim()) {
-        errors.push({ field: 'address', message: 'Address is required' });
-    } else if (business.address.trim().length < 10) {
-        errors.push({ field: 'address', message: 'Address must be at least 10 characters' });
-    } else if (business.address.length > 500) {
-        errors.push({ field: 'address', message: 'Address must not exceed 500 characters' });
-    }
+        case 'address':
+            if (!value.trim()) return 'Address is required';
+            if (value.trim().length < 10) return 'Address must be at least 10 characters';
+            if (value.trim().length > 500) return 'Address must not exceed 500 characters';
+            return undefined;
 
-    return {
-        isValid: errors.length === 0,
-        errors,
-    };
+        default:
+            return undefined;
+    }
 };
 
-// Helper to get error message for a specific field
 export const getFieldError = (errors: ValidationError[], field: string): string | undefined => {
     return errors.find(e => e.field === field)?.message;
 };

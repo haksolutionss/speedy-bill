@@ -23,6 +23,7 @@ import {
   useUpdateTableMutation,
   useDeleteTableMutation,
 } from '@/store/redux/api/billingApi';
+import { sortTablesByNumber } from '@/utils/tableSorter';
 
 export default function Tables() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,16 +61,28 @@ export default function Tables() {
     }));
   }, [tableSections]);
 
-  // Filter tables based on search
   const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return tableSections;
-    const query = searchQuery.toLowerCase();
-    return tableSections
-      .map((section) => ({
+    if (!searchQuery.trim()) {
+      return tableSections.map(section => ({
         ...section,
-        tables: section.tables.filter((table) => table.number.toLowerCase().includes(query)),
+        tables: [...section.tables].sort(sortTablesByNumber),
+      }));
+    }
+
+    const query = searchQuery.toLowerCase();
+
+    return tableSections
+      .map(section => ({
+        ...section,
+        tables: section.tables
+          .filter(table => table.number.toLowerCase().includes(query))
+          .sort(sortTablesByNumber),
       }))
-      .filter((section) => section.tables.length > 0 || section.name.toLowerCase().includes(query));
+      .filter(
+        section =>
+          section.tables.length > 0 ||
+          section.name.toLowerCase().includes(query)
+      );
   }, [tableSections, searchQuery]);
 
   // Handlers
@@ -80,10 +93,8 @@ export default function Tables() {
           id: editingSection.id,
           updates: data,
         }).unwrap();
-        toast.success('Section updated successfully');
       } else {
         await createSection({ name: data.name, display_order: data.display_order }).unwrap();
-        toast.success('Section created successfully');
       }
       setIsSectionModalOpen(false);
       setEditingSection(null);
@@ -104,7 +115,6 @@ export default function Tables() {
             status: data.status,
           },
         }).unwrap();
-        toast.success('Table updated successfully');
       } else {
         await createTable({
           number: data.number,
@@ -112,7 +122,6 @@ export default function Tables() {
           capacity: data.capacity,
           status: data.status,
         }).unwrap();
-        toast.success('Table created successfully');
       }
       setIsTableModalOpen(false);
       setEditingTable(null);
@@ -126,7 +135,6 @@ export default function Tables() {
     if (!deleteSectionId) return;
     try {
       await deleteSection(deleteSectionId).unwrap();
-      toast.success('Section deleted successfully');
       setDeleteSectionId(null);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete section');
@@ -137,7 +145,6 @@ export default function Tables() {
     if (!deleteTableId) return;
     try {
       await deleteTable(deleteTableId).unwrap();
-      toast.success('Table deleted successfully');
       setDeleteTableId(null);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete table');

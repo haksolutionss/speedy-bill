@@ -128,7 +128,6 @@ export function CustomerModal({
         return;
       }
 
-      toast.success('Customer created successfully');
       onSelect(data);
       onClose();
     } catch (error) {

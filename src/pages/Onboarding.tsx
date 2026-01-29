@@ -71,7 +71,6 @@ export default function Onboarding() {
         // Mark onboarding complete
         await updateSettings('onboardingComplete', true);
 
-        toast.success('Setup complete! Welcome to HotelAqsa POS');
         navigate('/');
       } catch (err) {
         console.error('Onboarding error:', err);
@@ -105,9 +104,8 @@ export default function Onboarding() {
               {STEPS.map((step, idx) => (
                 <div
                   key={step.id}
-                  className={`h-2 w-12 rounded-full transition-colors ${
-                    idx <= currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
+                  className={`h-2 w-12 rounded-full transition-colors ${idx <= currentStep ? 'bg-primary' : 'bg-muted'
+                    }`}
                 />
               ))}
             </div>

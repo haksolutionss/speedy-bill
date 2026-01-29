@@ -604,7 +604,6 @@ export function EditViewBillingModule({
   const handleSave = async () => {
     const saved = await saveChanges();
     if (saved) {
-      toast.success('Bill updated successfully');
       onBillUpdated();
       onModeChange(false);
     }
@@ -682,7 +681,6 @@ export function EditViewBillingModule({
       print('counter');
 
       setShowBillPreview(true);
-      toast.success('Bill settled successfully');
 
       setTimeout(() => {
         setShowBillPreview(false);
@@ -743,7 +741,6 @@ export function EditViewBillingModule({
       print('counter');
 
       setShowBillPreview(true);
-      toast.success('Bill settled successfully');
 
       setTimeout(() => {
         setShowBillPreview(false);
@@ -776,7 +773,6 @@ export function EditViewBillingModule({
         },
       }).unwrap();
 
-      toast.success('Bill saved as unsettled');
       onBillUpdated();
       onModeChange(false);
     }

@@ -271,13 +271,11 @@ export function BillActions() {
   const confirmPrintKOT = async () => {
     await printKOT();
 
-    // Print via browser fallback
     if (printRef.current) {
       print('kitchen');
     }
 
     setShowKOTPreview(false);
-    toast.success('KOT sent to kitchen');
   };
 
   // Button click - show preview with customer/loyalty options

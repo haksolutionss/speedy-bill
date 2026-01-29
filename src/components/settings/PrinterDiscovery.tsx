@@ -9,9 +9,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSettingsStore } from '@/store/settingsStore';
 import { usePrintQueue } from '@/hooks/usePrintQueue';
 import { toast } from 'sonner';
-import { 
-  Printer, Plus, Wifi, Loader2, Trash2, Star, 
-  CircleDot, TestTube, Download, RefreshCw, CheckCircle2, XCircle 
+import {
+  Printer, Plus, Wifi, Loader2, Trash2, Star,
+  CircleDot, TestTube, Download, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import type { PrinterRole, PrintFormat, Printer as PrinterConfig } from '@/types/settings';
 
@@ -52,7 +52,6 @@ export function PrinterDiscovery() {
         isActive: true,
         isDefault: false,
       });
-      toast.success('Printer added');
       setShowAddModal(false);
       setNewPrinter({
         name: '',
@@ -87,7 +86,7 @@ export function PrinterDiscovery() {
   const handleDownloadAgent = () => {
     // Download the print agent as a zip file
     const agentUrl = `${window.location.origin}/pos-print-agent/`;
-    
+
     // Create instructions dialog content
     const instructions = `
 SpeedyBill POS Print Agent Setup
@@ -112,7 +111,7 @@ SpeedyBill POS Print Agent Setup
 
 Note: The agent must be running on the same machine as your printers.
     `.trim();
-    
+
     // Copy instructions to clipboard
     navigator.clipboard.writeText(instructions).then(() => {
       toast.success('Setup instructions copied to clipboard!', {

@@ -11,10 +11,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useBillingStore } from '@/store/billingStore';
-import { 
-  useUpdateTableMutation, 
+import {
+  useUpdateTableMutation,
   useUpdateBillMutation,
-  useGetTableSectionsQuery 
+  useGetTableSectionsQuery
 } from '@/store/redux/api/billingApi';
 import { toast } from 'sonner';
 
@@ -28,10 +28,10 @@ export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps)
   const [fromTableId, setFromTableId] = useState<string>('');
   const [toTableId, setToTableId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Use RTK Query directly to get fresh table data
   const { data: tableSections = [] } = useGetTableSectionsQuery();
-  
+
   const [updateTable] = useUpdateTableMutation();
   const [updateBill] = useUpdateBillMutation();
 
@@ -124,8 +124,7 @@ export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps)
         },
       }).unwrap();
 
-      toast.success(`Transferred from ${fromTable.number} to ${toTable.number}`);
-      
+
       // If the transferred table was currently selected, clear selection
       if (selectedTable?.id === fromTableId) {
         clearCart();
@@ -148,7 +147,7 @@ export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps)
     >
       <div className="space-y-6">
         <p className="text-sm text-muted-foreground">Move an order from one table to another</p>
-        
+
         {/* From Table */}
         <div className="space-y-2">
           <Label htmlFor="from-table">From Table (Occupied)</Label>

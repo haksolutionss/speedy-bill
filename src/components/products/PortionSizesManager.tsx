@@ -36,7 +36,7 @@ export function PortionSizesManager() {
   const [editingSize, setEditingSize] = useState<DbPortionSize | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState<PortionSizeFormData>({ name: '', is_active: true });
-  
+
   const queryClient = useQueryClient();
 
   // Fetch portion sizes
@@ -62,7 +62,6 @@ export function PortionSizesManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portion-sizes'] });
-      toast.success('Size created successfully');
       closeModal();
     },
     onError: (error: Error) => {
@@ -81,7 +80,6 @@ export function PortionSizesManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portion-sizes'] });
-      toast.success('Size updated successfully');
       closeModal();
     },
     onError: (error: Error) => {
@@ -100,7 +98,6 @@ export function PortionSizesManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portion-sizes'] });
-      toast.success('Size deleted successfully');
       setDeleteId(null);
     },
     onError: (error: Error) => {
@@ -190,8 +187,8 @@ export function PortionSizesManager() {
                   <TableCell className="text-center">
                     <Badge
                       variant="outline"
-                      className={size.is_active 
-                        ? 'border-success/50 text-success' 
+                      className={size.is_active
+                        ? 'border-success/50 text-success'
                         : 'border-destructive/50 text-destructive'
                       }
                     >

@@ -191,19 +191,13 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   builder
     .align(Alignment.LEFT)
     .twoColumns(`Bill No: ${data.billNumber}`, `Date: ${formatDate()}`)
-    .twoColumns(`Time: ${formatTime()}`, data.coverCount ? `Covers: ${data.coverCount}` : '');
+    .twoColumns(
+      data.isParcel
+        ? `Parcel: ${data.tokenNumber || 0}`
+        : `Table: ${data.tableNumber || '-'}`,
+      `Time: ${formatTime()}`
+    );
 
-  // Table/Token
-  builder
-    .dashedLine()
-    .align(Alignment.CENTER)
-    .bold(true);
-
-  if (data.isParcel) {
-    builder.line(`PARCEL - Token #${data.tokenNumber || 0}`);
-  } else {
-    builder.line(`TABLE: ${data.tableNumber || '-'}`);
-  }
 
   builder
     .bold(false)

@@ -62,7 +62,7 @@ export default function Customers() {
     }
   };
 
-  const filteredCustomers = customers.filter(c => 
+  const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.phone.includes(searchQuery)
   );
@@ -98,7 +98,6 @@ export default function Customers() {
         return;
       }
 
-      toast.success('Customer added');
       setShowAddModal(false);
       resetForm();
       loadCustomers();
@@ -129,7 +128,6 @@ export default function Customers() {
 
       if (error) throw error;
 
-      toast.success('Customer updated');
       setShowEditModal(false);
       resetForm();
       loadCustomers();
@@ -152,7 +150,6 @@ export default function Customers() {
 
       if (error) throw error;
 
-      toast.success('Customer deactivated');
       setShowDeleteConfirm(false);
       setSelectedCustomer(null);
       loadCustomers();
@@ -244,8 +241,8 @@ export default function Customers() {
                   <Button variant="ghost" size="icon" onClick={() => openEditModal(customer)}>
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => { setSelectedCustomer(customer); setShowDeleteConfirm(true); }}
                   >

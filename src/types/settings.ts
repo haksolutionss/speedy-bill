@@ -1,5 +1,3 @@
-// Settings & Configuration Types
-
 export interface BusinessInfo {
   name: string;
   address: string;

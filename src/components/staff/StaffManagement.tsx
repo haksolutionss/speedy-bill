@@ -73,28 +73,28 @@ export function StaffManagement() {
 
           const role = (roleData?.role || user.role) as 'admin' | 'manager' | 'staff';
 
-          const permissions: StaffPermissions = role === 'admin' 
+          const permissions: StaffPermissions = role === 'admin'
             ? {
-                canAccessBilling: true,
-                canAccessProducts: true,
-                canAccessTables: true,
-                canAccessReports: true,
-                canAccessHistory: true,
-                canAccessSettings: true,
-                canAccessCustomers: true,
-                canAccessStaff: true,
-              }
-            : permData 
+              canAccessBilling: true,
+              canAccessProducts: true,
+              canAccessTables: true,
+              canAccessReports: true,
+              canAccessHistory: true,
+              canAccessSettings: true,
+              canAccessCustomers: true,
+              canAccessStaff: true,
+            }
+            : permData
               ? {
-                  canAccessBilling: permData.can_access_billing,
-                  canAccessProducts: permData.can_access_products,
-                  canAccessTables: permData.can_access_tables,
-                  canAccessReports: permData.can_access_reports,
-                  canAccessHistory: permData.can_access_history,
-                  canAccessSettings: permData.can_access_settings,
-                  canAccessCustomers: permData.can_access_customers,
-                  canAccessStaff: permData.can_access_staff,
-                }
+                canAccessBilling: permData.can_access_billing,
+                canAccessProducts: permData.can_access_products,
+                canAccessTables: permData.can_access_tables,
+                canAccessReports: permData.can_access_reports,
+                canAccessHistory: permData.can_access_history,
+                canAccessSettings: permData.can_access_settings,
+                canAccessCustomers: permData.can_access_customers,
+                canAccessStaff: permData.can_access_staff,
+              }
               : DEFAULT_STAFF_PERMISSIONS;
 
           return {
@@ -181,7 +181,6 @@ export function StaffManagement() {
           can_access_staff: formPermissions.canAccessStaff,
         });
 
-      toast.success('Staff member added');
       setShowAddModal(false);
       resetForm();
       loadStaff();
@@ -230,7 +229,6 @@ export function StaffManagement() {
           can_access_staff: formPermissions.canAccessStaff,
         });
 
-      toast.success('Staff member updated');
       setShowEditModal(false);
       resetForm();
       loadStaff();
@@ -249,7 +247,6 @@ export function StaffManagement() {
         .update({ is_active: !member.isActive })
         .eq('id', member.id);
 
-      toast.success(member.isActive ? 'Staff deactivated' : 'Staff activated');
       loadStaff();
     } catch (err) {
       console.error('Failed to toggle staff status:', err);
@@ -431,7 +428,7 @@ export function StaffManagement() {
                     </div>
                     <Switch
                       checked={formPermissions[module.key as keyof StaffPermissions]}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         setFormPermissions({ ...formPermissions, [module.key]: checked })
                       }
                     />
@@ -502,7 +499,7 @@ export function StaffManagement() {
                     </div>
                     <Switch
                       checked={formPermissions[module.key as keyof StaffPermissions]}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         setFormPermissions({ ...formPermissions, [module.key]: checked })
                       }
                     />

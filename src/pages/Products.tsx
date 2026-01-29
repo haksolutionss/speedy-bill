@@ -116,7 +116,6 @@ export default function Products() {
           },
           portions: portionsData,
         }).unwrap();
-        toast.success('Product updated successfully');
       } else {
         await createProduct({
           product: {
@@ -128,7 +127,6 @@ export default function Products() {
           },
           portions: portionsData,
         }).unwrap();
-        toast.success('Product created successfully');
       }
       setIsProductModalOpen(false);
       setEditingProduct(null);
@@ -144,10 +142,8 @@ export default function Products() {
           id: editingCategory.id,
           updates: data,
         }).unwrap();
-        toast.success('Category updated successfully');
       } else {
         await createCategory({ name: data.name, display_order: data.display_order }).unwrap();
-        toast.success('Category created successfully');
       }
       setIsCategoryModalOpen(false);
       setEditingCategory(null);
@@ -160,7 +156,6 @@ export default function Products() {
     if (!deleteProductId) return;
     try {
       await deleteProduct(deleteProductId).unwrap();
-      toast.success('Product deleted successfully');
       setDeleteProductId(null);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete product');
@@ -171,7 +166,6 @@ export default function Products() {
     if (!deleteCategoryId) return;
     try {
       await deleteCategory(deleteCategoryId).unwrap();
-      toast.success('Category deleted successfully');
       setDeleteCategoryId(null);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete category');

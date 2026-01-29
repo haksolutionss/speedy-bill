@@ -11,6 +11,7 @@ import { TransferTableModal } from './TransferTableModal';
 import { MergeTableModal } from './MergeTableModal';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
 import { useCartSync } from '@/hooks/useCartSync';
+import { sortTablesByNumber } from '@/utils/tableSorter';
 
 interface TableGridProps {
   onTableSelect?: () => void;
@@ -43,22 +44,27 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const hasItems = cart.length > 0;
   const hasOccupiedTables = tableSections.some(s => s.tables.some(t => t.status === 'occupied'));
 
-  // Filter tables based on search
   const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return tableSections;
+    if (!searchQuery.trim()) {
+      return tableSections.map(section => ({
+        ...section,
+        tables: [...section.tables].sort(sortTablesByNumber),
+      }));
+    }
 
     const query = searchQuery.toLowerCase();
+
     return tableSections
       .map(section => ({
         ...section,
-        tables: section.tables.filter(table =>
-          table.number.toLowerCase().includes(query)
-        ),
+        tables: section.tables
+          .filter(table => table.number.toLowerCase().includes(query))
+          .sort(sortTablesByNumber),
       }))
       .filter(section => section.tables.length > 0);
   }, [tableSections, searchQuery]);
 
-  // Flatten all tables for keyboard navigation
+
   const allTables = useMemo(() => {
     return filteredSections.flatMap(section => section.tables);
   }, [filteredSections]);
@@ -76,7 +82,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const handleTableClick = async (table: DbTable) => {
     // Sync current cart before switching tables
     await syncBeforeTableChange();
-    
+
     setSelectedTable(table);
     setFocusedTableId(table.id);
     onTableSelect?.();
@@ -207,7 +213,6 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
     <div className="flex flex-col h-full">
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin space-y-4 pb-4" ref={gridContainerRef}>
-        {/* Parcel Mode Toggle */}
         <div className="flex items-center gap-4 sticky top-0 bg-background z-10 pb-2">
           <Input
             ref={inputRef}
@@ -217,27 +222,6 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleInputKeyDown}
           />
-          <Button
-            variant='outline'
-            onClick={() => setParcelMode(true)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg border-border transition-all font-medium",
-              isParcelMode
-                ? "border-accent bg-accent/20 text-accent"
-                : "border-border bg-secondary hover:border-muted-foreground text-muted-foreground"
-            )}
-          >
-            <Package className="h-4 w-4" />
-            Parcel Order
-          </Button>
-          {isParcelMode && (
-            <button
-              onClick={() => setParcelMode(false)}
-              className="text-sm text-muted-foreground hover:text-foreground underline"
-            >
-              Switch to Table
-            </button>
-          )}
         </div>
 
         {/* Table Sections */}

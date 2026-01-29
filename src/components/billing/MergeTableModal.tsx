@@ -12,8 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useBillingStore } from '@/store/billingStore';
-import { 
-  useUpdateTableMutation, 
+import {
+  useUpdateTableMutation,
   useUpdateBillMutation,
   useGetTableSectionsQuery,
 } from '@/store/redux/api/billingApi';
@@ -30,10 +30,10 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
   const [primaryTableId, setPrimaryTableId] = useState<string>('');
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Use RTK Query directly to get fresh table data
   const { data: tableSections = [] } = useGetTableSectionsQuery();
-  
+
   const [updateTable] = useUpdateTableMutation();
   const [updateBill] = useUpdateBillMutation();
 
@@ -50,7 +50,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
   // Get occupied tables in the same section - use RTK Query data directly
   const occupiedTablesInSection = useMemo(() => {
     if (!selectedSectionId) return [];
-    
+
     const section = tableSections.find((s) => s.id === selectedSectionId);
     if (!section) return [];
 
@@ -127,7 +127,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
 
       // Fetch items from all bills
       const allBillIds = [primaryTable.billId, ...billsToMerge.map((t) => t!.billId!)];
-      
+
       const { data: allItems, error: itemsError } = await supabase
         .from('bill_items')
         .select('*')
@@ -141,18 +141,18 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
       // If one or none has KOT, merge them
       const mergedItems: typeof allItems = [];
       const processedKeys = new Set<string>();
-      
+
       allItems?.forEach((item) => {
         const key = `${item.product_id}_${item.portion}`;
-        
+
         // Find other items with same key
         const sameKeyItems = allItems.filter(
           (i) => `${i.product_id}_${i.portion}` === key
         );
-        
+
         if (processedKeys.has(key)) return;
         processedKeys.add(key);
-        
+
         if (sameKeyItems.length === 1) {
           // Only one item, just add it
           mergedItems.push(item);
@@ -160,7 +160,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
           // Multiple items with same product/portion
           const kotPrintedItems = sameKeyItems.filter((i) => i.sent_to_kitchen);
           const pendingItems = sameKeyItems.filter((i) => !i.sent_to_kitchen);
-          
+
           if (kotPrintedItems.length > 1) {
             // Multiple KOT-printed items - keep them separate
             kotPrintedItems.forEach((i) => mergedItems.push({ ...i }));
@@ -228,7 +228,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
         if (table?.billId) {
           await supabase.from('bills').delete().eq('id', table.billId);
         }
-        
+
         await updateTable({
           id: table!.id,
           updates: {
@@ -247,8 +247,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
         },
       }).unwrap();
 
-      toast.success(`Merged ${selectedTableIds.length + 1} tables successfully`);
-      
+
       // If the selected table was merged, reload its data
       if (selectedTable?.id === primaryTableId) {
         const { data: updatedBill } = await supabase
@@ -256,7 +255,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
           .select('*, items:bill_items(*)')
           .eq('id', primaryTable.billId)
           .single();
-          
+
         if (updatedBill) {
           loadCartFromBill(updatedBill as any);
         }
@@ -282,7 +281,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
     >
       <div className="space-y-6">
         <p className="text-sm text-muted-foreground">Combine orders from multiple tables into one</p>
-        
+
         {/* Primary Table */}
         <div className="space-y-2">
           <Label htmlFor="primary-table">Primary Table (Keep this bill)</Label>
@@ -357,7 +356,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
               <span className="font-medium">Merging:</span>{' '}
               {[
                 occupiedTablesInSection.find((t) => t.id === primaryTableId)?.number,
-                ...selectedTableIds.map((id) => 
+                ...selectedTableIds.map((id) =>
                   occupiedTablesInSection.find((t) => t.id === id)?.number
                 ),
               ].join(' + ')}

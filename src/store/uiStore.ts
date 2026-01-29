@@ -25,7 +25,8 @@ interface UIState {
   selectedTable: DbTable | null;
   isParcelMode: boolean;
   currentBillId: string | null;
-
+  currentBillNumber: string;
+  incrementBillNumber: () => string;
   // Local cart state (for optimistic updates)
   cart: CartItem[];
 
@@ -61,7 +62,7 @@ interface UIState {
 
   // Reset
   resetBillingState: () => void;
-  
+
   // Get items that need to be printed on KOT (only new/added quantities)
   getKOTItems: () => CartItem[];
 }
@@ -80,6 +81,16 @@ export const useUIStore = create<UIState>()(
       discountValue: null,
       discountReason: null,
       tokenCounter: 1,
+
+      currentBillNumber: 'BILL-0000',
+
+      incrementBillNumber: () => {
+        const current = get().currentBillNumber;
+        const num = parseInt(current.split('-')[1]) + 1;
+        const next = `BILL-${num.toString().padStart(4, '0')}`;
+        set({ currentBillNumber: next });
+        return next;
+      },
 
       setSelectedTable: (table) => {
         set({
@@ -169,7 +180,7 @@ export const useUIStore = create<UIState>()(
 
       updateCartItem: (itemId, updates) => {
         const item = get().cart.find((i) => i.id === itemId);
-        
+
         // Prevent updates to printed items (except quantity increase)
         if (item?.sentToKitchen) {
           // Only allow quantity increase for printed items
@@ -193,7 +204,7 @@ export const useUIStore = create<UIState>()(
 
       removeFromCart: (itemId) => {
         const item = get().cart.find((i) => i.id === itemId);
-        
+
         // Prevent removal of printed items
         if (item?.sentToKitchen) {
           return;
@@ -232,8 +243,8 @@ export const useUIStore = create<UIState>()(
 
       markItemsSentToKitchen: () => {
         set({
-          cart: get().cart.map((item) => ({ 
-            ...item, 
+          cart: get().cart.map((item) => ({
+            ...item,
             sentToKitchen: true,
             // Update printed quantity to current quantity
             printedQuantity: item.quantity,
@@ -295,10 +306,9 @@ export const useUIStore = create<UIState>()(
       name: 'billing-ui-storage',
       partialize: (state) => ({
         tokenCounter: state.tokenCounter,
+        currentBillNumber: state.currentBillNumber,
       }),
     }
   )
 );
 
-// Note: calculateBillTotals is now exported from @/lib/billCalculations
-// and re-exported at the top of this file for backward compatibility
