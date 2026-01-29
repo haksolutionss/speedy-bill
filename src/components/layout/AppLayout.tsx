@@ -15,6 +15,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { PrinterStatusIndicator } from '@/components/billing/PrinterStatusIndicator';
@@ -45,6 +51,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const location = useLocation();
   const { user, logout, hasPermission } = useAuthStore();
   const { settings } = useSettingsStore();
@@ -74,6 +81,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </div>
     )
   }
+
   // Check if we're on billing page (full screen mode)
   const isBillingPage = location.pathname === '/';
 
@@ -82,42 +90,74 @@ export function AppLayout({ children }: AppLayoutProps) {
   if (isBillingPage) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Minimal header for billing */}
+        {/* Minimal header for billing with menu button */}
         <div className="fixed top-0 left-0 right-0 h-12 bg-sidebar border-b border-sidebar-border z-50 flex items-center px-4">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-sidebar-foreground"
+              onClick={() => setSheetOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
             <span className="font-semibold text-sidebar-foreground">{businessName}</span>
           </div>
-
-          <nav className="ml-8 flex items-center gap-1">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
 
           <div className="ml-auto flex items-center gap-3">
             <PrinterStatusIndicator />
             {user && (
               <>
-                <span className="text-sm text-sidebar-foreground/70">{user.name || user.mobile}</span>
-                <Button variant="ghost" size="sm" onClick={logout}>
+                <span className="text-sm text-sidebar-foreground/70 hidden sm:inline">{user.name || user.mobile}</span>
+                <Button variant="ghost" size="sm" onClick={logout} className="h-8">
                   <LogOut className="h-4 w-4" />
                 </Button>
               </>
             )}
           </div>
         </div>
+
+        {/* Navigation Sheet */}
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <SheetHeader className="px-6 py-4 border-b border-sidebar-border">
+              <SheetTitle className="text-left font-semibold">{businessName}</SheetTitle>
+            </SheetHeader>
+
+            <nav className="p-4 space-y-1">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setSheetOpen(false)}
+                  className={({ isActive }) => cn(
+                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+
+            {user && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-sidebar-foreground/70 truncate">{user.name || user.mobile}</span>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    logout();
+                    setSheetOpen(false);
+                  }}>
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
 
         <main className="pt-12">
           {children}
