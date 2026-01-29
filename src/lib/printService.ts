@@ -73,7 +73,7 @@ export const printWithBrowser = (content: HTMLElement, format: PrintFormat = '76
 
   printWindow.document.close();
   printWindow.focus();
-  
+
   setTimeout(() => {
     printWindow.print();
     printWindow.close();
@@ -91,7 +91,7 @@ export const printWithBrowser = (content: HTMLElement, format: PrintFormat = '76
  * 3. Network Printers - Use browser print dialog with paper size presets
  * 
  * For direct network printing, users need a Local Print Agent:
- * - A small desktop app running on localhost:8080 (or similar)
+ * - A small desktop app running on localhost:5172 (or similar)
  * - Handles the raw TCP communication to printers
  * - Web app communicates with agent via secure WebSocket
  */
@@ -155,7 +155,7 @@ export const printToNetworkPrinter = async (
 ): Promise<boolean> => {
   // Check for local print agent (runs on localhost which is allowed)
   const agentAvailable = await checkLocalPrintAgent();
-  
+
   if (agentAvailable && printer.ipAddress && printer.port) {
     try {
       const response = await fetch('http://localhost:8765/print', {
@@ -168,7 +168,7 @@ export const printToNetworkPrinter = async (
           format: printer.format,
         }),
       });
-      
+
       if (response.ok) {
         console.log('Printed via Local Print Agent');
         return true;
@@ -177,7 +177,7 @@ export const printToNetworkPrinter = async (
       console.warn('Local Print Agent error, falling back to browser print:', error);
     }
   }
-  
+
   // Browser fallback - Mixed Content prevents direct network printing
   console.info(
     'Network printing requires Local Print Agent. ' +
@@ -194,13 +194,13 @@ export const checkLocalPrintAgent = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 1000);
-    
+
     // localhost is allowed from HTTPS (same-origin policy exception)
     const response = await fetch('http://localhost:8765/health', {
       method: 'GET',
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeout);
     return response.ok;
   } catch {
@@ -249,11 +249,11 @@ export const print = async (
   printerRole?: 'kitchen' | 'counter' | 'bar'
 ): Promise<void> => {
   const { printers, getPrinterByRole, settings } = useSettingsStore.getState();
-  
+
   // Determine which printer to use
   const role = printerRole || (job.type === 'kot' ? 'kitchen' : 'counter');
   const printer = getPrinterByRole(role);
-  
+
   if (!printer) {
     // Fallback to browser print with default format
     printWithBrowser(job.content, '76mm');
@@ -261,7 +261,7 @@ export const print = async (
   }
 
   const format = printer.format;
-  
+
   if (printer.type === 'bluetooth' && printer.ipAddress) {
     // Try Bluetooth printing
     const success = await printToBluetoothPrinter(printer.ipAddress, job.content.innerHTML);
@@ -284,14 +284,14 @@ export const print = async (
 export const formatCurrency = (amount: number): string => {
   const { settings } = useSettingsStore.getState();
   const { symbol, useCommas, decimalPlaces } = settings.currency;
-  
+
   let formatted = amount.toFixed(decimalPlaces);
-  
+
   if (useCommas) {
     const parts = formatted.split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     formatted = parts.join('.');
   }
-  
+
   return `${symbol}${formatted}`;
 };

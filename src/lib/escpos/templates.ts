@@ -3,7 +3,7 @@
  */
 
 import { ESCPOSBuilder, Alignment, FontSize, PaperWidth } from './commands';
-import type { CartItem } from '@/store/uiStore';
+import { useUIStore, type CartItem } from '@/store/uiStore';
 
 export interface KOTData {
   tableNumber?: string;
@@ -16,6 +16,7 @@ export interface KOTData {
 }
 
 export interface BillData {
+  billId: string;
   billNumber: string;
   tableNumber?: string;
   tokenNumber?: number;
@@ -42,6 +43,7 @@ export interface BillData {
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
   showGST?: boolean; // Whether to show GST in print
+  isReprint?: boolean; // Whether this is a reprint
 }
 
 // Format currency for printing
@@ -165,8 +167,16 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   console.log("Generating bill commands", data);
   const builder = new ESCPOSBuilder(paperWidth);
   const symbol = 'Rs.'; // Changed from ₹ to Rs. for better printer compatibility
+  const store = useUIStore.getState();
 
-  // Header
+  // Get current + increment for next time
+  const currentBillNumber = store.currentBillNumber;
+
+  // Increase for next bill
+  if (!data.isReprint) {
+    store.incrementBillNumber();
+  }
+
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_WIDTH)
@@ -190,7 +200,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   // Bill info
   builder
     .align(Alignment.LEFT)
-    .twoColumns(`Bill No: ${data.billNumber}`, `Date: ${formatDate()}`)
+    .twoColumns(`Bill No: ${currentBillNumber}`, `Date: ${formatDate()}`)
     .twoColumns(
       data.isParcel
         ? `Parcel: ${data.tokenNumber || 0}`

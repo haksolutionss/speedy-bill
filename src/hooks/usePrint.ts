@@ -3,6 +3,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { usePosytudePrinter } from '@/hooks/usePosytudePrinter';
 import { printWithBrowser } from '@/lib/printService';
 import type { KOTData, BillData } from '@/lib/escpos/templates';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 /**
  * Unified Print Hook
@@ -39,28 +41,43 @@ export function usePrint() {
   }, [posytude]);
 
   // Print Bill
-  const printBill = useCallback(async (billData: BillData): Promise<{ success: boolean; method: string; error?: string }> => {
+  const printBill = useCallback(async (billData: BillData) => {
     console.log('🧾 Bill Print Request');
 
-    // Use POSYTUDE printer in Electron
+    console.log("billData", billData)
+    // 🖨️ Electron → direct USB print
     if (posytude.isElectron && posytude.isConnected) {
-      console.log('Using POSYTUDE USB printer for Bill');
       const result = await posytude.printBill(billData);
       return {
         success: result.success,
         method: 'usb',
-        error: result.error
+        error: result.error,
       };
     }
 
-    // Fallback to browser print
-    console.log('Falling back to browser print for Bill');
-    if (printRef.current) {
-      printWithBrowser(printRef.current, '80mm');
-      return { success: true, method: 'browser' };
-    }
+    // 📱 PWA → queue print job
+    try {
+      const { error } = await supabase.from('print_jobs').insert({
+        bill_id: billData.billId, // MAKE SURE billId exists in BillData
+        job_type: 'bill',
+        payload: billData, // SNAPSHOT
+        requested_from: 'pwa',
+      });
 
-    return { success: false, method: 'none', error: 'No print method available' };
+      if (error) throw error;
+
+      toast.success('Bill sent to counter printer');
+      return { success: true, method: 'queue' };
+
+    } catch (err: any) {
+      console.error('Print queue failed', err);
+      toast.error('Failed to send print job');
+      return {
+        success: false,
+        method: 'queue',
+        error: err.message ?? 'Print job failed',
+      };
+    }
   }, [posytude]);
 
   // Generic print function

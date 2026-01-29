@@ -52,6 +52,8 @@ export function BillActions() {
     setDiscount,
   } = useUIStore();
 
+  console.log("currentBillId", currentBillId)
+
   const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
   const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
   const {
@@ -115,6 +117,7 @@ export function BillActions() {
 
   // Build Bill data for printing
   const buildBillData = (): BillData => ({
+    billId: currentBillId || '',
     billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
     tableNumber: selectedTable?.number,
     tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
@@ -215,28 +218,32 @@ export function BillActions() {
 
     setIsPrinting(true);
     try {
-      // First send any pending items to kitchen
+      let billId: string | null = null;
+
+      // 🔥 ALWAYS ensure bill exists FIRST
       if (hasPendingItems) {
-        await printKOT();
+        billId = await printKOT(); // should internally save/update bill
       } else {
-        await saveOrUpdateBill();
+        billId = await saveOrUpdateBill();
       }
 
-      // Use default payment method from settings
+      if (!billId) {
+        toast.error('Failed to create bill');
+        return;
+      }
+
       const defaultMethod = settings.billing.defaultPaymentMethod;
 
-      // Print bill silently (Electron) or via browser
+      // ✅ billId is now guaranteed
       const billData = buildBillData();
       billData.paymentMethod = defaultMethod;
 
       const result = await printBillDirect(billData);
 
-      // Open cash drawer for cash payments (Electron only)
       if (defaultMethod === 'cash' && isElectron) {
         await openCashDrawer();
       }
 
-      // Settle with default payment method
       await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
 
       if (result.success) {
@@ -246,7 +253,6 @@ export function BillActions() {
       }
     } catch (error) {
       console.error('Bill print error:', error);
-      console.warn('Failed to settle bill');
     } finally {
       setIsPrinting(false);
     }
@@ -268,6 +274,23 @@ export function BillActions() {
     setShowKOTPreview(true);
   };
 
+  // Button click - show preview with customer/loyalty options
+  const handlePrintBill = async () => {
+    if (!hasItems) {
+      toast.error('Add items to print bill');
+      return;
+    }
+
+    const billId = await saveOrUpdateBill();
+
+    if (!billId) {
+      toast.error('Failed to create bill');
+      return;
+    }
+
+    setShowPaymentDialog(true);
+  };
+
   const confirmPrintKOT = async () => {
     await printKOT();
 
@@ -278,42 +301,33 @@ export function BillActions() {
     setShowKOTPreview(false);
   };
 
-  // Button click - show preview with customer/loyalty options
-  const handlePrintBill = async () => {
-    if (!hasItems) {
-      toast.error('Add items to print bill');
-      return;
-    }
-
-    await saveOrUpdateBill();
-
-    setShowPaymentDialog(true);
-  };
 
   const handlePayment = async (method: 'cash' | 'card' | 'upi') => {
     setShowPaymentDialog(false);
     setIsPrinting(true);
 
     try {
-      // Build bill data with payment method
+      // 🔥 Ensure bill exists before payment
+      const billId = currentBillId ?? await saveOrUpdateBill();
+
+      if (!billId) {
+        toast.error('Failed to create bill');
+        return;
+      }
+
       const billData = buildBillData();
       billData.paymentMethod = method;
 
-      // Print bill
       const result = await printBillDirect(billData);
 
-      // Open cash drawer for cash payments (Electron only)
       if (method === 'cash' && isElectron) {
         await openCashDrawer();
       }
 
-      // Settlement is optimistic - runs in background
       await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
 
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
-      } else {
-        console.log(`Bill paid with ${method.toUpperCase()}`);
       }
     } catch (error) {
       console.error('Payment error:', error);
@@ -324,31 +338,34 @@ export function BillActions() {
     }
   };
 
-  const handleSplitPayment = async (payments: { method: 'cash' | 'card' | 'upi'; amount: number }[]) => {
+  const handleSplitPayment = async (
+    payments: { method: 'cash' | 'card' | 'upi'; amount: number }[]
+  ) => {
     setShowSplitPayment(false);
     setShowPaymentDialog(false);
     setIsPrinting(true);
 
     try {
-      // Build bill data
+      const billId = currentBillId ?? await saveOrUpdateBill();
+
+      if (!billId) {
+        toast.error('Failed to create bill');
+        return;
+      }
+
       const billData = buildBillData();
       billData.paymentMethod = 'Split';
 
-      // Print bill
       const result = await printBillDirect(billData);
 
-      // Open cash drawer if any cash payment (Electron only)
       if (payments.some(p => p.method === 'cash') && isElectron) {
         await openCashDrawer();
       }
 
-      // Settlement
       await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
 
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
-      } else {
-        console.log('Split payment completed');
       }
     } catch (error) {
       console.error('Split payment error:', error);
@@ -358,6 +375,7 @@ export function BillActions() {
       setLoyaltyPointsToUse(0);
     }
   };
+
 
   const handleTotalAmountView = () => {
     setTotalAmountView(!totalAmountView);

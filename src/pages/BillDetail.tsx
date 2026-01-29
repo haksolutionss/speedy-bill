@@ -42,6 +42,7 @@ interface BillData {
   created_at: string;
   settled_at: string | null;
   customer_id?: string | null;
+  isReprint?: boolean;
 }
 
 export default function BillDetail() {

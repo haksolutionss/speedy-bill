@@ -28,7 +28,7 @@ Add these entries to your `package.json`:
 {
   "main": "electron/main.js",
   "scripts": {
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && electron .\"",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5172 && electron .\"",
     "electron:build": "npm run build && electron-builder --win",
     "electron:build:portable": "npm run build && electron-builder --win portable"
   }

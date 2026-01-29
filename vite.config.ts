@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: "::",
-      port: 8080,
+      port: 5172,
     },
 
     // Use relative paths for Electron file:// protocol compatibility

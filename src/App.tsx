@@ -21,6 +21,7 @@ import Customers from "./pages/Customers";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+import { PrintJobListener } from "./electron/PrintJobListener";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,8 +37,8 @@ const queryClient = new QueryClient({
 const isElectron =
   typeof window !== "undefined" &&
   ((window as any).isElectronApp === true ||
-   typeof (window as any).electronAPI !== "undefined" || 
-   navigator.userAgent.toLowerCase().includes('electron'));
+    typeof (window as any).electronAPI !== "undefined" ||
+    navigator.userAgent.toLowerCase().includes('electron'));
 
 const Router = isElectron ? HashRouter : BrowserRouter;
 
@@ -46,6 +47,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RealtimeSubscription />
+        <PrintJobListener />
         <Toaster />
         <Sonner position="top-right" />
         <Router>

@@ -52,7 +52,7 @@ function createWindow() {
   const isDev = !app.isPackaged;
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:8080');
+    mainWindow.loadURL('http://localhost:5172');
     mainWindow.webContents.openDevTools();
   } else {
     const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
@@ -73,7 +73,7 @@ function createWindow() {
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Load failed:', errorCode, errorDescription);
     if (isDev) {
-      setTimeout(() => mainWindow.loadURL('http://localhost:8080'), 2000);
+      setTimeout(() => mainWindow.loadURL('http://localhost:5172'), 2000);
     }
   });
 
@@ -135,10 +135,10 @@ async function discoverPrinterOnStartup() {
   if (!mainWindow || !printerService) return;
 
   console.log('Discovering POSYTUDE printer...');
-  
+
   try {
     const result = await printerService.discoverPrinters();
-    
+
     if (result.printer) {
       console.log('✓ POSYTUDE printer found:', result.printer.name);
     } else {
@@ -147,7 +147,7 @@ async function discoverPrinterOnStartup() {
 
     // Send to renderer
     mainWindow.webContents.send('printer:discovered', result);
-    
+
     return result;
   } catch (error) {
     console.error('Discovery error:', error);

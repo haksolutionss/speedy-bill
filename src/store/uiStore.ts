@@ -70,6 +70,9 @@ interface UIState {
 const generateId = () => crypto.randomUUID();
 
 export const useUIStore = create<UIState>()(
+
+
+
   persist(
     (set, get) => ({
       selectedTable: null,
@@ -93,11 +96,13 @@ export const useUIStore = create<UIState>()(
       },
 
       setSelectedTable: (table) => {
+        const prevTable = get().selectedTable;
+
         set({
           selectedTable: table,
           isParcelMode: false,
-          cart: [],
-          currentBillId: null,
+          cart: prevTable?.id !== table?.id ? [] : get().cart,
+          currentBillId: prevTable?.id !== table?.id ? null : get().currentBillId,
           coverCount: 1,
           discountType: null,
           discountValue: null,
@@ -105,18 +110,22 @@ export const useUIStore = create<UIState>()(
         });
       },
 
+
       setParcelMode: (mode) => {
+        const prevMode = get().isParcelMode;
+
         set({
           isParcelMode: mode,
           selectedTable: null,
-          cart: [],
-          currentBillId: null,
+          cart: prevMode !== mode ? [] : get().cart,
+          currentBillId: prevMode !== mode ? null : get().currentBillId,
           coverCount: 1,
           discountType: null,
           discountValue: null,
           discountReason: null,
         });
       },
+
 
       setCurrentBillId: (billId) => set({ currentBillId: billId }),
 
@@ -272,14 +281,15 @@ export const useUIStore = create<UIState>()(
         set({
           selectedTable: null,
           isParcelMode: false,
-          currentBillId: null,
           cart: [],
+          currentBillId: null,
           coverCount: 1,
           discountType: null,
           discountValue: null,
           discountReason: null,
         });
       },
+
 
       // Get items for KOT - only new items or increased quantities
       getKOTItems: () => {
@@ -307,6 +317,7 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         tokenCounter: state.tokenCounter,
         currentBillNumber: state.currentBillNumber,
+        currentBillId: state.currentBillId,
       }),
     }
   )

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { useUIStore, type CartItem } from '@/store/uiStore';
+import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateBillTotals } from '@/lib/billCalculations';
@@ -17,7 +17,6 @@ import type { DbBillItem } from '@/types/database';
 async function clearCartFromSupabase(tableId: string) {
   if (!tableId) return;
 
-
   try {
     const { error } = await supabase
       .from('cart_items')
@@ -26,8 +25,6 @@ async function clearCartFromSupabase(tableId: string) {
 
     if (error) {
       console.error('[BillingOps] Error clearing cart:', error);
-    } else {
-      console.log('[BillingOps] Cart cleared successfully');
     }
   } catch (err) {
     console.error('[BillingOps] Error clearing cart:', err);
@@ -44,12 +41,11 @@ export function useBillingOperations() {
     discountType,
     discountValue,
     discountReason,
-    clearCart,
     resetBillingState,
     markItemsSentToKitchen,
     getNextToken,
     setCurrentBillId,
-    incrementBillNumber
+    incrementBillNumber,
   } = useUIStore();
 
   const { settings, calculateLoyaltyPoints } = useSettingsStore();
@@ -61,9 +57,10 @@ export function useBillingOperations() {
   const [markItemsAsKOT] = useMarkItemsAsKOTMutation();
   const [addPaymentDetails] = useAddPaymentDetailsMutation();
 
-  // const billNumber = incrementBillNumber();
-
-  const saveOrUpdateBill = useCallback(async () => {
+  // -----------------------------------
+  // SAVE OR UPDATE BILL (returns billId)
+  // -----------------------------------
+  const saveOrUpdateBill = useCallback(async (): Promise<string | null> => {
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return null;
@@ -72,8 +69,8 @@ export function useBillingOperations() {
     const totals = calculateBillTotals(cart, discountType, discountValue, taxType);
 
     try {
+      // UPDATE
       if (currentBillId) {
-        // Update existing bill
         await updateBill({
           id: currentBillId,
           updates: {
@@ -91,66 +88,62 @@ export function useBillingOperations() {
         }).unwrap();
 
         return currentBillId;
-      } else {
-        // Create new bill
-        const billNumber = incrementBillNumber();
-
-        const billData = {
-          bill_number: billNumber,
-          type: isParcelMode ? 'parcel' : 'table',
-          table_id: selectedTable?.id || null,
-          table_number: selectedTable?.number || null,
-          token_number: isParcelMode ? getNextToken() : null,
-          sub_total: totals.subTotal,
-          discount_type: discountType,
-          discount_value: discountValue,
-          discount_reason: discountReason,
-          discount_amount: totals.discountAmount,
-          cgst_amount: totals.cgstAmount,
-          sgst_amount: totals.sgstAmount,
-          total_amount: totals.totalAmount,
-          final_amount: totals.finalAmount,
-          cover_count: coverCount,
-          status: 'active' as const,
-        };
-
-        const items: Partial<DbBillItem>[] = cart.map((item) => ({
-          product_id: item.productId,
-          product_name: item.productName,
-          product_code: item.productCode,
-          portion: item.portion,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          gst_rate: item.gstRate,
-          notes: item.notes || null,
-          sent_to_kitchen: item.sentToKitchen,
-          kot_printed_at: item.sentToKitchen ? new Date().toISOString() : null,
-        }));
-
-        const result = await createBill({ bill: billData, items }).unwrap();
-
-        // Update table status if table order
-        if (selectedTable) {
-          await updateTable({
-            id: selectedTable.id,
-            updates: {
-              status: 'occupied',
-              current_bill_id: result.id,
-              current_amount: totals.finalAmount,
-            },
-          }).unwrap();
-
-          // Clear cart items from Supabase since they're now in bill_items
-          await clearCartFromSupabase(selectedTable.id);
-        }
-
-        // Update current bill ID in store
-        setCurrentBillId(result.id);
-
-        return result.id;
       }
+
+      // CREATE
+      const billNumber = incrementBillNumber();
+
+      const billData = {
+        bill_number: billNumber,
+        type: isParcelMode ? 'parcel' : 'table',
+        table_id: selectedTable?.id || null,
+        table_number: selectedTable?.number || null,
+        token_number: isParcelMode ? getNextToken() : null,
+        sub_total: totals.subTotal,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_reason: discountReason,
+        discount_amount: totals.discountAmount,
+        cgst_amount: totals.cgstAmount,
+        sgst_amount: totals.sgstAmount,
+        total_amount: totals.totalAmount,
+        final_amount: totals.finalAmount,
+        cover_count: coverCount,
+        status: 'active' as const,
+      };
+
+      const items: Partial<DbBillItem>[] = cart.map((item) => ({
+        product_id: item.productId,
+        product_name: item.productName,
+        product_code: item.productCode,
+        portion: item.portion,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        gst_rate: item.gstRate,
+        notes: item.notes || null,
+        sent_to_kitchen: item.sentToKitchen,
+        kot_printed_at: item.sentToKitchen ? new Date().toISOString() : null,
+      }));
+
+      const result = await createBill({ bill: billData, items }).unwrap();
+
+      if (selectedTable) {
+        await updateTable({
+          id: selectedTable.id,
+          updates: {
+            status: 'occupied',
+            current_bill_id: result.id,
+            current_amount: totals.finalAmount,
+          },
+        }).unwrap();
+
+        await clearCartFromSupabase(selectedTable.id);
+      }
+
+      setCurrentBillId(result.id);
+      return result.id;
     } catch (error) {
-      console.error('Error saving bill:', error);
+      console.error('[BillingOps] Error saving bill:', error);
       toast.error('Failed to save bill');
       return null;
     }
@@ -168,36 +161,43 @@ export function useBillingOperations() {
     updateTable,
     getNextToken,
     setCurrentBillId,
-    incrementBillNumber,  // Add to dependencies
+    incrementBillNumber,
   ]);
 
-  const printKOT = useCallback(async () => {
-    const pendingItems = cart.filter((item) => !item.sentToKitchen);
+  // -----------------------------------
+  // PRINT KOT (RETURNS billId 🔥)
+  // -----------------------------------
+  const printKOT = useCallback(async (): Promise<string | null> => {
+    const pendingItems = cart.filter(
+      (item) => !item.sentToKitchen || item.quantity > item.printedQuantity
+    );
+
     if (pendingItems.length === 0) {
       toast.info('No new items to send to kitchen');
-      return false;
+      return null;
     }
 
     try {
-      // First save/update the bill
       const billId = await saveOrUpdateBill();
-      if (!billId) return false;
+      if (!billId) return null;
 
-      // Mark items as sent to kitchen
       const itemIds = pendingItems.map((item) => item.id);
+
       await markItemsAsKOT({ billId, itemIds }).unwrap();
 
-      // Update local state
       markItemsSentToKitchen();
 
-      return true;
+      return billId;
     } catch (error) {
-      console.error('Error printing KOT:', error);
+      console.error('[BillingOps] Error printing KOT:', error);
       toast.error('Failed to send KOT');
-      return false;
+      return null;
     }
   }, [cart, saveOrUpdateBill, markItemsAsKOT, markItemsSentToKitchen]);
 
+  // -----------------------------------
+  // SETTLE BILL (unchanged contract)
+  // -----------------------------------
   const settleBill = useCallback(
     async (
       paymentMethod: 'cash' | 'card' | 'upi' | 'split',
@@ -211,20 +211,13 @@ export function useBillingOperations() {
         return false;
       }
 
-      // Optimistically reset state for instant UI feedback
       const tableToUpdate = selectedTable;
 
-      // Do all DB operations in background
       (async () => {
         try {
-          // First save/update the bill
-          let billId = currentBillId;
-          if (!billId) {
-            billId = await saveOrUpdateBill();
-            if (!billId) return;
-          }
+          let billId = currentBillId ?? (await saveOrUpdateBill());
+          if (!billId) return;
 
-          // Update bill status to settled
           await updateBill({
             id: billId,
             updates: {
@@ -235,39 +228,34 @@ export function useBillingOperations() {
             },
           }).unwrap();
 
-          // Add payment details if split payment
           if (paymentMethod === 'split' && paymentDetails) {
-            await addPaymentDetails({
-              billId,
-              payments: paymentDetails,
-            }).unwrap();
+            await addPaymentDetails({ billId, payments: paymentDetails }).unwrap();
           }
 
-          // Update customer loyalty points if customer selected
           if (customerId) {
-            const { data: customerData } = await supabase
+            const { data } = await supabase
               .from('customers')
               .select('loyalty_points')
               .eq('id', customerId)
               .single();
 
-            if (customerData) {
-              // Calculate points to deduct (used) and add (earned)
-              const usedPoints = loyaltyPointsUsed || 0;
-              const billAmount = finalAmount ?? calculateBillTotals(cart, discountType, discountValue, taxType).finalAmount;
-              const earnedPoints = calculateLoyaltyPoints(billAmount);
+            if (data) {
+              const used = loyaltyPointsUsed || 0;
+              const amount =
+                finalAmount ??
+                calculateBillTotals(cart, discountType, discountValue, taxType).finalAmount;
 
-              const newPoints = Math.max(0, customerData.loyalty_points - usedPoints + earnedPoints);
+              const earned = calculateLoyaltyPoints(amount);
 
               await supabase
                 .from('customers')
-                .update({ loyalty_points: newPoints })
+                .update({
+                  loyalty_points: Math.max(0, data.loyalty_points - used + earned),
+                })
                 .eq('id', customerId);
-
             }
           }
 
-          // Free up the table and clear cart from Supabase
           if (tableToUpdate) {
             await updateTable({
               id: tableToUpdate.id,
@@ -278,23 +266,36 @@ export function useBillingOperations() {
               },
             }).unwrap();
 
-            // Clear any remaining cart items from Supabase
             await clearCartFromSupabase(tableToUpdate.id);
           }
 
           resetBillingState();
         } catch (error) {
-          console.error('[BillingOps] Error settling bill in background:', error);
-          // Error is logged but UI has already responded
+          console.error('[BillingOps] Error settling bill:', error);
         }
       })();
 
       return true;
     },
-    [cart, currentBillId, selectedTable, discountType, discountValue, saveOrUpdateBill, updateBill, updateTable, addPaymentDetails, resetBillingState, calculateLoyaltyPoints]
+    [
+      cart,
+      currentBillId,
+      selectedTable,
+      discountType,
+      discountValue,
+      saveOrUpdateBill,
+      updateBill,
+      updateTable,
+      addPaymentDetails,
+      resetBillingState,
+      calculateLoyaltyPoints,
+    ]
   );
 
-  const saveAsUnsettled = useCallback(async () => {
+  // -----------------------------------
+  // SAVE AS UNSETTLED
+  // -----------------------------------
+  const saveAsUnsettled = useCallback(async (): Promise<boolean> => {
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return false;
@@ -309,7 +310,6 @@ export function useBillingOperations() {
         updates: { status: 'unsettled' },
       }).unwrap();
 
-      // Clear cart from Supabase when saving as unsettled
       if (selectedTable) {
         await clearCartFromSupabase(selectedTable.id);
       }
@@ -317,7 +317,7 @@ export function useBillingOperations() {
       resetBillingState();
       return true;
     } catch (error) {
-      console.error('Error saving unsettled bill:', error);
+      console.error('[BillingOps] Error saving unsettled bill:', error);
       toast.error('Failed to save bill');
       return false;
     }
@@ -325,7 +325,7 @@ export function useBillingOperations() {
 
   return {
     saveOrUpdateBill,
-    printKOT,
+    printKOT, // 🔥 now returns billId
     settleBill,
     saveAsUnsettled,
   };
