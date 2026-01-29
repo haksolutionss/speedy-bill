@@ -210,69 +210,71 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   }, []);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin space-y-4 pb-4" ref={gridContainerRef}>
-        <div className="flex items-center gap-4 sticky top-0 bg-background z-10 pb-2">
-          <Input
-            ref={inputRef}
-            placeholder='Search table... (Press Enter to select)'
-            className='w-96 border-border'
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleInputKeyDown}
-          />
+      <div className="flex-1 overflow-y-auto scrollbar-thin px-4" ref={gridContainerRef}>
+        <div className="space-y-4 pb-4">
+          <div className="flex items-center gap-4 sticky top-0 bg-background z-10 py-2">
+            <Input
+              ref={inputRef}
+              placeholder='Search table... (Press Enter to select)'
+              className='w-96 border-border'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleInputKeyDown}
+            />
+          </div>
+
+          {/* Table Sections */}
+          {!isParcelMode && filteredSections.map((section) => (
+            <div key={section.id}>
+              <div className="section-header">
+                <div className="h-[0.1px] flex-1 bg-border border-border" />
+                <span>{section.name}</span>
+                <div className="h-[0.1px] flex-1 bg-border" />
+              </div>
+
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(100px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3 m-2">
+                {section.tables.map((table) => (
+                  <button
+                    key={table.id}
+                    ref={(el) => setTableRef(table.id, el)}
+                    onClick={() => handleTableClick(table)}
+                    onFocus={() => setFocusedTableId(table.id)}
+                    className={cn(
+                      "table-btn min-h-[80px] w-full relative",
+                      table.status === 'available' && "table-btn-available",
+                      table.status === 'occupied' && "table-btn-occupied",
+                      table.status === 'reserved' && "table-btn-reserved",
+                      focusedTableId === table.id && "table-btn-focused",
+                    )}
+                  >
+                    {selectedTable?.id === table.id && (
+                      <div className="absolute -top-2 -right-2 bg-background border-2 border-accent text-accent p-1.5 rounded-full shadow-md">
+                        <Check className="h-4 w-4" />
+                      </div>
+                    )}
+
+                    <span className="text-lg font-bold">{table.number}</span>
+                    <span className="text-[10px] opacity-70">{table.capacity} seats</span>
+
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Empty state when no tables match search */}
+          {!isParcelMode && filteredSections.length === 0 && searchQuery && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No tables found matching "{searchQuery}"</p>
+            </div>
+          )}
         </div>
-
-        {/* Table Sections */}
-        {!isParcelMode && filteredSections.map((section) => (
-          <div key={section.id}>
-            <div className="section-header">
-              <div className="h-[0.1px] flex-1 bg-border border-border" />
-              <span>{section.name}</span>
-              <div className="h-[0.1px] flex-1 bg-border" />
-            </div>
-
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3 m-2">
-              {section.tables.map((table) => (
-                <button
-                  key={table.id}
-                  ref={(el) => setTableRef(table.id, el)}
-                  onClick={() => handleTableClick(table)}
-                  onFocus={() => setFocusedTableId(table.id)}
-                  className={cn(
-                    "table-btn min-h-[80px] relative",
-                    table.status === 'available' && "table-btn-available",
-                    table.status === 'occupied' && "table-btn-occupied",
-                    table.status === 'reserved' && "table-btn-reserved",
-                    focusedTableId === table.id && "table-btn-focused",
-                  )}
-                >
-                  {selectedTable?.id === table.id && (
-                    <div className="absolute -top-2 -right-2 bg-background border-2 border-accent text-accent p-1.5 rounded-full shadow-md">
-                      <Check className="h-4 w-4" />
-                    </div>
-                  )}
-
-                  <span className="text-lg font-bold">{table.number}</span>
-                  <span className="text-[10px] opacity-70">{table.capacity} seats</span>
-
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* Empty state when no tables match search */}
-        {!isParcelMode && filteredSections.length === 0 && searchQuery && (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No tables found matching "{searchQuery}"</p>
-          </div>
-        )}
       </div>
 
       {/* Fixed Action Buttons at Bottom */}
-      <div className="flex items-center gap-2 py-3 border-t border-border bg-background action-buttons-row">
+      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-t border-border bg-background action-buttons-row">
         <Button
           variant="outline"
           size="sm"
