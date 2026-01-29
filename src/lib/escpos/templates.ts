@@ -234,22 +234,32 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder.dashedLine();
 
-  // Totals
-  builder.twoColumns('Sub Total:', formatAmount(data.subTotal, symbol));
+  // Totals - Right aligned single column
+  builder.align(Alignment.RIGHT);
+
+  builder.line(`Sub Total: ${formatAmount(data.subTotal, symbol)}`);
 
   if (data.discountAmount > 0) {
     const discountLabel = data.discountType === 'percentage'
       ? `Discount (${data.discountValue}%):`
       : 'Discount:';
-    builder.twoColumns(discountLabel, `-${formatAmount(data.discountAmount, symbol)}`);
+    builder.line(`${discountLabel} -${formatAmount(data.discountAmount, symbol)}`);
   }
 
   // Tax
   if (data.gstMode === 'igst') {
-    builder.twoColumns('IGST:', formatAmount(data.cgstAmount + data.sgstAmount, symbol));
+    builder.line(`IGST: ${formatAmount(data.cgstAmount + data.sgstAmount, symbol)}`);
   } else {
-    builder.twoColumns('CGST:', formatAmount(data.cgstAmount, symbol));
-    builder.twoColumns('SGST:', formatAmount(data.sgstAmount, symbol));
+    builder.line(`CGST: ${formatAmount(data.cgstAmount, symbol)}`);
+    builder.line(`SGST: ${formatAmount(data.sgstAmount, symbol)}`);
+  }
+
+  // Round off calculation
+  const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
+  const roundOff = data.finalAmount - calculatedTotal;
+
+  if (Math.abs(roundOff) > 0.01) {
+    builder.line(`Round Off: ${roundOff >= 0 ? '+' : ''}${formatAmount(Math.abs(roundOff), symbol)}`);
   }
 
   // Grand total
@@ -257,9 +267,10 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .dashedLine()
     .bold(true)
     .setFontSize(FontSize.DOUBLE_HEIGHT)
-    .twoColumns('GRAND TOTAL:', formatAmount(data.finalAmount, symbol))
+    .line(`GRAND TOTAL: ${formatAmount(data.finalAmount, symbol)}`)
     .setFontSize(FontSize.NORMAL)
-    .bold(false);
+    .bold(false)
+    .align(Alignment.LEFT);
 
   // // GST Breakdown - Single column, right-aligned
   // const gstBreakdown: Record<number, { taxable: number; cgst: number; sgst: number }> = {};
