@@ -158,8 +158,10 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
  * Generate ESC/POS commands for Bill printing
  */
 export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
+
+  console.log("Generating bill commands", data);
   const builder = new ESCPOSBuilder(paperWidth);
-  const symbol = data.currencySymbol || '₹';
+  const symbol = 'Rs.'; // Changed from ₹ to Rs. for better printer compatibility
 
   // Header
   builder
@@ -252,44 +254,51 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   // Grand total
   builder
-    .doubleLine()
+    .dashedLine()
     .bold(true)
     .setFontSize(FontSize.DOUBLE_HEIGHT)
     .twoColumns('GRAND TOTAL:', formatAmount(data.finalAmount, symbol))
     .setFontSize(FontSize.NORMAL)
     .bold(false);
 
-  // GST Breakdown
-  const gstBreakdown: Record<number, { taxable: number; cgst: number; sgst: number }> = {};
-  data.items.forEach(item => {
-    const itemTotal = item.unitPrice * item.quantity;
-    const itemDiscount = data.discountAmount > 0 ? (itemTotal / data.subTotal) * data.discountAmount : 0;
-    const taxable = itemTotal - itemDiscount;
-    const gst = taxable * (item.gstRate / 100);
+  // // GST Breakdown - Single column, right-aligned
+  // const gstBreakdown: Record<number, { taxable: number; cgst: number; sgst: number }> = {};
+  // data.items.forEach(item => {
+  //   const itemTotal = item.unitPrice * item.quantity;
+  //   const itemDiscount = data.discountAmount > 0 ? (itemTotal / data.subTotal) * data.discountAmount : 0;
+  //   const taxable = itemTotal - itemDiscount;
+  //   const gst = taxable * (item.gstRate / 100);
 
-    if (!gstBreakdown[item.gstRate]) {
-      gstBreakdown[item.gstRate] = { taxable: 0, cgst: 0, sgst: 0 };
-    }
-    gstBreakdown[item.gstRate].taxable += taxable;
-    gstBreakdown[item.gstRate].cgst += gst / 2;
-    gstBreakdown[item.gstRate].sgst += gst / 2;
-  });
+  //   if (!gstBreakdown[item.gstRate]) {
+  //     gstBreakdown[item.gstRate] = { taxable: 0, cgst: 0, sgst: 0 };
+  //   }
+  //   gstBreakdown[item.gstRate].taxable += taxable;
+  //   gstBreakdown[item.gstRate].cgst += gst / 2;
+  //   gstBreakdown[item.gstRate].sgst += gst / 2;
+  // });
 
-  if (Object.keys(gstBreakdown).length > 0) {
-    builder
-      .dashedLine()
-      .align(Alignment.CENTER)
-      .line('GST BREAKDOWN')
-      .align(Alignment.LEFT);
+  // if (Object.keys(gstBreakdown).length > 0) {
+  //   builder
+  //     .dashedLine()
+  //     .align(Alignment.CENTER)
+  //     .line('GST BREAKDOWN')
+  //     .align(Alignment.LEFT);
 
-    Object.entries(gstBreakdown).forEach(([rate, vals]) => {
-      if (data.gstMode === 'igst') {
-        builder.twoColumns(`${rate}% IGST on ${vals.taxable.toFixed(0)}:`, (vals.cgst + vals.sgst).toFixed(2));
-      } else {
-        builder.twoColumns(`${rate}% on ${vals.taxable.toFixed(0)}:`, `C:${vals.cgst.toFixed(2)} S:${vals.sgst.toFixed(2)}`);
-      }
-    });
-  }
+  //   Object.entries(gstBreakdown).forEach(([rate, vals]) => {
+  //     if (data.gstMode === 'igst') {
+  //       builder.twoColumns(
+  //         `${rate}% IGST on ${vals.taxable.toFixed(0)}:`,
+  //         `${symbol}${(vals.cgst + vals.sgst).toFixed(2)}`
+  //       );
+  //     } else {
+  //       // Single column with right-aligned total GST amount
+  //       builder.twoColumns(
+  //         `${rate}% on ${vals.taxable.toFixed(0)}:`,
+  //         `${symbol}${(vals.cgst + vals.sgst).toFixed(2)}`
+  //       );
+  //     }
+  //   });
+  // }
 
   // Payment method
   // if (data.paymentMethod) {
@@ -302,21 +311,21 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   // }
 
   // Customer & Loyalty
-  if (data.customerName || data.loyaltyPointsUsed || data.loyaltyPointsEarned) {
-    builder
-      .dashedLine()
-      .align(Alignment.LEFT);
+  // if (data.customerName || data.loyaltyPointsUsed || data.loyaltyPointsEarned) {
+  //   builder
+  //     .dashedLine()
+  //     .align(Alignment.LEFT);
 
-    if (data.customerName) {
-      builder.line(`Customer: ${data.customerName}`);
-    }
-    if (data.loyaltyPointsUsed && data.loyaltyPointsUsed > 0) {
-      builder.line(`Points Redeemed: ${data.loyaltyPointsUsed}`);
-    }
-    if (data.loyaltyPointsEarned && data.loyaltyPointsEarned > 0) {
-      builder.line(`Points Earned: +${data.loyaltyPointsEarned}`);
-    }
-  }
+  //   if (data.customerName) {
+  //     builder.line(`Customer: ${data.customerName}`);
+  //   }
+  //   if (data.loyaltyPointsUsed && data.loyaltyPointsUsed > 0) {
+  //     builder.line(`Points Redeemed: ${data.loyaltyPointsUsed}`);
+  //   }
+  //   if (data.loyaltyPointsEarned && data.loyaltyPointsEarned > 0) {
+  //     builder.line(`Points Earned: +${data.loyaltyPointsEarned}`);
+  //   }
+  // }
 
   // Footer
   builder
@@ -325,9 +334,6 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .bold(true)
     .line('Thank You! Visit Again!')
     .bold(false)
-    .line('--------------------------------')
-    .line('Computer Generated Invoice')
-    .line('E&OE')
     .feed(4)
     .partialCut();
 

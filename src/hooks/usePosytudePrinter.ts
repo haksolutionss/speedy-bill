@@ -4,7 +4,6 @@ import { formatToPaperWidth } from '@/lib/escpos/commands';
 import { toast } from 'sonner';
 import type { PosytudePrinter, PrintResult, PrinterStatus } from '@/types/printer';
 
-// Electron API types
 declare global {
   interface Window {
     electronAPI?: {
@@ -37,11 +36,9 @@ export function usePosytudePrinter() {
   useEffect(() => {
     if (window.isElectronApp && window.electronAPI) {
       setIsElectron(true);
-      console.log('✓ Electron detected - POSYTUDE printer mode');
 
       // Listen for auto-discovery on startup
       const unsubscribe = window.electronAPI.onPrinterDiscovered((data) => {
-        console.log('Printer discovery result:', data);
 
         if (data.printer) {
           const p: PosytudePrinter = {
