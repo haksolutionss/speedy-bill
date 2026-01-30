@@ -57,12 +57,12 @@ export function usePrint() {
 
     // 📱 PWA → queue print job
     try {
-      const { error } = await supabase.from('print_jobs').insert({
-        bill_id: billData.billId, // MAKE SURE billId exists in BillData
+      const { error } = await supabase.from('print_jobs').insert([{
+        bill_id: billData.billId,
         job_type: 'bill',
-        payload: billData, // SNAPSHOT
+        payload: billData as unknown as import('@/integrations/supabase/types').Json,
         requested_from: 'pwa',
-      });
+      }]);
 
       if (error) throw error;
 
