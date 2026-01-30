@@ -30,6 +30,30 @@ export function usePrint() {
       };
     }
 
+    // Need to Add KOT adding functionaltiy from mobile to print
+    // try {
+    //   const { error } = await supabase.from('print_jobs').insert([{
+    //     bill_id: kotData.billId,
+    //     job_type: 'bill',
+    //     payload: kotData as unknown as import('@/integrations/supabase/types').Json,
+    //     requested_from: 'pwa',
+    //   }]);
+
+    //   if (error) throw error;
+
+    //   toast.success('Bill sent to counter printer');
+    //   return { success: true, method: 'queue' };
+
+    // } catch (err: any) {
+    //   console.error('Print queue failed', err);
+    //   toast.error('Failed to send print job');
+    //   return {
+    //     success: false,
+    //     method: 'queue',
+    //     error: err.message ?? 'Print job failed',
+    //   };
+    // }
+
     // Fallback to browser print
     console.log('Falling back to browser print for KOT');
     if (printRef.current) {
@@ -57,6 +81,7 @@ export function usePrint() {
 
     // 📱 PWA → queue print job
     try {
+      console.log("billData", billData)
       const { error } = await supabase.from('print_jobs').insert([{
         bill_id: billData.billId,
         job_type: 'bill',

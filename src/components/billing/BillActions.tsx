@@ -116,8 +116,8 @@ export function BillActions() {
   };
 
   // Build Bill data for printing
-  const buildBillData = (): BillData => ({
-    billId: currentBillId || '',
+  const buildBillData = (overrideBillId?: string): BillData => ({
+    billId: overrideBillId || currentBillId || '',
     billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
     tableNumber: selectedTable?.number,
     tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
@@ -234,8 +234,11 @@ export function BillActions() {
 
       const defaultMethod = settings.billing.defaultPaymentMethod;
 
-      // ✅ billId is now guaranteed
-      const billData = buildBillData();
+      const billData = {
+        ...buildBillData(),
+        billId: billId
+      };
+
       billData.paymentMethod = defaultMethod;
 
       const result = await printBillDirect(billData);
