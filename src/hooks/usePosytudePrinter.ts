@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { generateKOTCommands, generateBillCommands, KOTData, BillData } from '@/lib/escpos/templates';
 import { formatToPaperWidth } from '@/lib/escpos/commands';
 import { toast } from 'sonner';
@@ -236,15 +236,13 @@ export function usePosytudePrinter() {
     }
   }, [isElectron, printer]);
 
-  return {
-    // State
+
+  return useMemo(() => ({
     isElectron,
     printer,
     status,
     isPrinting,
     isConnected: printer?.status === 'connected',
-
-    // Actions
     discoverPrinter,
     refreshStatus,
     printKOT,
@@ -252,5 +250,11 @@ export function usePosytudePrinter() {
     printRaw,
     testPrint,
     openCashDrawer,
-  };
+  }), [
+    isElectron,
+    printer,
+    status,
+    isPrinting,
+    // Include function dependencies if they change
+  ]);
 }
