@@ -1,17 +1,21 @@
 import { useState, useMemo } from 'react';
-import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat } from 'lucide-react';
+import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
+import { usePrint } from '@/hooks/usePrint';
 import { calculateBillTotals } from '@/lib/billCalculations';
 import { cn } from '@/lib/utils';
 import { PaymentModal } from '@/components/billing/PaymentModal';
 import { toast } from 'sonner';
+import { getNextKOTNumber } from '@/lib/kotNumberManager';
+import type { KOTData, BillData } from '@/lib/escpos/templates';
 
 export function MobileCartTab() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isPrintingKOT, setIsPrintingKOT] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const {
     cart,
@@ -19,12 +23,17 @@ export function MobileCartTab() {
     isParcelMode,
     discountType,
     discountValue,
+    discountReason,
     updateCartItem,
     removeFromCart,
+    currentBillId,
+    getKOTItems,
+    incrementBillNumber,
   } = useUIStore();
 
   const { settings } = useSettingsStore();
-  const { printKOT, settleBill } = useBillingOperations();
+  const { printKOT: printKOTOps, settleBill, saveOrUpdateBill } = useBillingOperations();
+  const { printKOT: printKOTDirect, printBill: printBillDirect, getBusinessInfo, currencySymbol: printCurrencySymbol, gstMode } = usePrint();
 
   const taxType = settings.tax.type;
   const currencySymbol = settings.currency.symbol;
@@ -33,7 +42,8 @@ export function MobileCartTab() {
     return calculateBillTotals(cart, discountType, discountValue, taxType);
   }, [cart, discountType, discountValue, taxType]);
 
-  const hasKOTItems = cart.some((item) => !item.sentToKitchen || item.quantity > item.printedQuantity);
+  const kotItems = getKOTItems();
+  const hasKOTItems = kotItems.length > 0;
   const isTableSelected = selectedTable || isParcelMode;
 
   const handleQuantityChange = (itemId: string, newQty: number, isSent: boolean, printedQty: number) => {
@@ -45,6 +55,50 @@ export function MobileCartTab() {
     updateCartItem(itemId, { quantity: newQty });
   };
 
+  // Build KOT data for printing
+  const buildKOTData = (billId: string): KOTData & { billId: string } => {
+    const kotNumber = getNextKOTNumber();
+    return {
+      billId,
+      tableNumber: selectedTable?.number,
+      tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+      items: kotItems,
+      billNumber: billId.slice(0, 8),
+      kotNumber: parseInt(kotNumber, 10),
+      kotNumberFormatted: kotNumber,
+      isParcel: isParcelMode,
+    };
+  };
+
+  // Build Bill data for printing
+  const buildBillData = (billId: string): BillData => {
+    const businessInfo = getBusinessInfo();
+    return {
+      billId,
+      billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
+      tableNumber: selectedTable?.number,
+      tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+      items: cart,
+      subTotal: totals.subTotal,
+      discountAmount: totals.discountAmount,
+      discountType: discountType || undefined,
+      discountValue: discountValue || undefined,
+      discountReason: discountReason || undefined,
+      cgstAmount: taxType === 'gst' ? totals.cgstAmount : 0,
+      sgstAmount: taxType === 'gst' ? totals.sgstAmount : 0,
+      totalAmount: totals.totalAmount,
+      finalAmount: totals.finalAmount,
+      isParcel: isParcelMode,
+      restaurantName: businessInfo.name,
+      address: businessInfo.address,
+      phone: businessInfo.phone,
+      gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,
+      currencySymbol: printCurrencySymbol,
+      gstMode,
+      showGST: taxType === 'gst',
+    };
+  };
+
   const handlePrintKOT = async () => {
     if (!hasKOTItems) {
       toast.info('No new items to print');
@@ -52,18 +106,55 @@ export function MobileCartTab() {
     }
     setIsPrintingKOT(true);
     try {
-      await printKOT();
+      // First save/update the bill to get billId
+      const billId = await printKOTOps();
+      
+      if (billId) {
+        // Now queue the KOT print job with billId
+        const kotData = buildKOTData(billId);
+        await printKOTDirect(kotData);
+      }
+    } catch (error) {
+      console.error('KOT print error:', error);
+      toast.error('Failed to print KOT');
     } finally {
       setIsPrintingKOT(false);
     }
   };
 
   const handlePayment = async (method: 'cash' | 'card' | 'upi') => {
+    setIsProcessingPayment(true);
     try {
-      await settleBill(method);
-      setShowPaymentModal(false);
+      // Ensure bill exists first
+      let billId = currentBillId;
+      if (!billId) {
+        billId = await saveOrUpdateBill();
+      }
+      
+      if (!billId) {
+        toast.error('Failed to create bill');
+        return;
+      }
+
+      // Build and send bill print job
+      const billData = buildBillData(billId);
+      billData.paymentMethod = method;
+      
+      const printResult = await printBillDirect(billData);
+      
+      if (printResult.success) {
+        // Settle the bill
+        await settleBill(method);
+        setShowPaymentModal(false);
+        toast.success('Payment completed successfully');
+      } else if (printResult.error) {
+        toast.error(`Print failed: ${printResult.error}`);
+      }
     } catch (error) {
       console.error('Settlement error:', error);
+      toast.error('Payment failed');
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -199,29 +290,61 @@ export function MobileCartTab() {
             onClick={handlePrintKOT}
             disabled={isPrintingKOT || !hasKOTItems}
           >
-            <Printer className="h-4 w-4 mr-2" />
-            {isPrintingKOT ? 'Printing...' : 'Print KOT'}
+            {isPrintingKOT ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Printer className="h-4 w-4 mr-2" />
+                Print KOT
+              </>
+            )}
           </Button>
           <Button
             className="flex-1 h-12"
             onClick={() => setShowPaymentModal(true)}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isProcessingPayment}
           >
-            <CreditCard className="h-4 w-4 mr-2" />
-            Pay
+            {isProcessingPayment ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Pay
+              </>
+            )}
           </Button>
         </div>
       </div>
 
+      {/* Processing Overlay */}
+      {isProcessingPayment && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-lg text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <div>
+              <h3 className="text-lg font-semibold">Processing Payment</h3>
+              <p className="text-sm text-muted-foreground">Sending bill to printer...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Payment Modal */}
       <PaymentModal
-        open={showPaymentModal}
+        open={showPaymentModal && !isProcessingPayment}
         onClose={() => setShowPaymentModal(false)}
         onPayment={handlePayment}
         onSaveUnsettled={handleSaveUnsettled}
         finalAmount={typeof totals.finalAmount === 'string' ? parseFloat(totals.finalAmount) : totals.finalAmount}
         showNotNow={true}
         showSplit={false}
+        isProcessing={isProcessingPayment}
       />
     </div>
   );
