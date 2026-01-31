@@ -52,8 +52,6 @@ export function BillActions() {
     setDiscount,
   } = useUIStore();
 
-  console.log("currentBillId", currentBillId)
-
   const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
   const { printKOT, settleBill, saveOrUpdateBill } = useBillingOperations();
   const {

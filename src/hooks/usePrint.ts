@@ -85,6 +85,7 @@ export function usePrint() {
       const { error } = await supabase.from('print_jobs').insert([{
         bill_id: billData.billId,
         job_type: 'bill',
+        status: "pending",
         payload: billData as unknown as import('@/integrations/supabase/types').Json,
         requested_from: 'pwa',
       }]);
