@@ -48,10 +48,22 @@ export function PrintJobListener() {
 
         try {
 
-            const payload = typeof job.payload === 'string' ? JSON.parse(job.payload) : job.payload;
-            const result = await printer.printBill(payload);
+            const payload =
+                typeof job.payload === 'string'
+                    ? JSON.parse(job.payload)
+                    : job.payload;
 
-            if (!result.success) throw new Error(result.error || 'Print failed');
+            let result;
+
+            if (job.job_type === 'kot') {
+                result = await printer.printKOT(payload);
+            } else {
+                result = await printer.printBill(payload);
+            }
+
+            if (!result?.success) {
+                throw new Error(result?.error || 'Print failed');
+            }
 
             await supabase
                 .from('print_jobs')

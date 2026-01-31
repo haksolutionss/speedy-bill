@@ -115,7 +115,7 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 
   // KOT info - use formatted number
   builder
-    .twoColumns(`KOT #: ${displayKotNumber}`, billNumber ? `Bill: ${billNumber}` : '')
+    .twoColumns(`KOT #: ${displayKotNumber}`, '')
     .twoColumns(`Date: ${formatDate()}`, `Time: ${formatTime()}`)
     .dashedLine();
 
