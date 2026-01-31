@@ -4,6 +4,7 @@ import {
   Smartphone,
   Clock,
   Split,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +32,7 @@ interface PaymentModalProps {
   finalAmount: number;
   showNotNow?: boolean;
   showSplit?: boolean;
+  isProcessing?: boolean;
   // Optional loyalty props for enhanced display
   customer?: Customer | null;
   loyaltyPointsToUse?: number;
@@ -47,6 +49,7 @@ export function PaymentModal({
   finalAmount,
   showNotNow = true,
   showSplit = true,
+  isProcessing = false,
   customer,
   loyaltyPointsToUse = 0,
   loyaltyDiscount = 0,
@@ -96,24 +99,39 @@ export function PaymentModal({
             variant="outline"
             className="h-24 flex-col gap-2 hover:bg-success/10 hover:border-success hover:text-success"
             onClick={() => onPayment('cash')}
+            disabled={isProcessing}
           >
-            <Banknote className="h-8 w-8" />
+            {isProcessing ? (
+              <Loader2 className="h-8 w-8 animate-spin" />
+            ) : (
+              <Banknote className="h-8 w-8" />
+            )}
             <span>Cash</span>
           </Button>
           <Button
             variant="outline"
             className="h-24 flex-col gap-2 hover:bg-blue-500/10 hover:border-blue-500 hover:text-blue-400"
             onClick={() => onPayment('card')}
+            disabled={isProcessing}
           >
-            <CreditCard className="h-8 w-8" />
+            {isProcessing ? (
+              <Loader2 className="h-8 w-8 animate-spin" />
+            ) : (
+              <CreditCard className="h-8 w-8" />
+            )}
             <span>Card</span>
           </Button>
           <Button
             variant="outline"
             className="h-24 flex-col gap-2 hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-400"
             onClick={() => onPayment('upi')}
+            disabled={isProcessing}
           >
-            <Smartphone className="h-8 w-8" />
+            {isProcessing ? (
+              <Loader2 className="h-8 w-8 animate-spin" />
+            ) : (
+              <Smartphone className="h-8 w-8" />
+            )}
             <span>UPI</span>
           </Button>
           {showSplit && onSplitPayment && (
@@ -121,8 +139,13 @@ export function PaymentModal({
               variant="outline"
               className="h-24 flex-col gap-2 hover:bg-orange-500/10 hover:border-orange-500 hover:text-orange-400"
               onClick={onSplitPayment}
+              disabled={isProcessing}
             >
-              <Split className="h-8 w-8" />
+              {isProcessing ? (
+                <Loader2 className="h-8 w-8 animate-spin" />
+              ) : (
+                <Split className="h-8 w-8" />
+              )}
               <span>Split</span>
             </Button>
           )}
@@ -141,6 +164,7 @@ export function PaymentModal({
               variant="ghost"
               onClick={onSaveUnsettled}
               className="flex-1"
+              disabled={isProcessing}
             >
               <Clock className="h-4 w-4 mr-2" />
               Not Now
@@ -149,6 +173,7 @@ export function PaymentModal({
               variant="outline"
               onClick={onClose}
               className="flex-1"
+              disabled={isProcessing}
             >
               Cancel
             </Button>

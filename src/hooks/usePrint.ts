@@ -16,8 +16,8 @@ export function usePrint() {
   const posytude = usePosytudePrinter();
 
   // Print KOT
-  const printKOT = useCallback(async (kotData: KOTData): Promise<{ success: boolean; method: string; error?: string }> => {
-    console.log('🍽️ KOT Print Request');
+  const printKOT = useCallback(async (kotData: KOTData & { billId?: string }): Promise<{ success: boolean; method: string; error?: string }> => {
+    console.log('🍽️ KOT Print Request', kotData);
 
     // Use POSYTUDE printer in Electron
     if (posytude.isElectron && posytude.isConnected) {
@@ -30,29 +30,33 @@ export function usePrint() {
       };
     }
 
-    // Need to Add KOT adding functionaltiy from mobile to print
-    // try {
-    //   const { error } = await supabase.from('print_jobs').insert([{
-    //     bill_id: kotData.billId,
-    //     job_type: 'bill',
-    //     payload: kotData as unknown as import('@/integrations/supabase/types').Json,
-    //     requested_from: 'pwa',
-    //   }]);
+    // PWA → queue KOT print job (requires billId)
+    if (kotData.billId) {
+      try {
+        console.log('Queuing KOT print job for bill:', kotData.billId);
+        const { error } = await supabase.from('print_jobs').insert([{
+          bill_id: kotData.billId,
+          job_type: 'kot',
+          status: 'pending',
+          payload: kotData as unknown as import('@/integrations/supabase/types').Json,
+          requested_from: 'pwa',
+        }]);
 
-    //   if (error) throw error;
+        if (error) throw error;
 
-    //   toast.success('Bill sent to counter printer');
-    //   return { success: true, method: 'queue' };
+        toast.success('KOT sent to kitchen printer');
+        return { success: true, method: 'queue' };
 
-    // } catch (err: any) {
-    //   console.error('Print queue failed', err);
-    //   toast.error('Failed to send print job');
-    //   return {
-    //     success: false,
-    //     method: 'queue',
-    //     error: err.message ?? 'Print job failed',
-    //   };
-    // }
+      } catch (err: any) {
+        console.error('KOT print queue failed', err);
+        toast.error('Failed to send KOT to printer');
+        return {
+          success: false,
+          method: 'queue',
+          error: err.message ?? 'KOT print job failed',
+        };
+      }
+    }
 
     // Fallback to browser print
     console.log('Falling back to browser print for KOT');
