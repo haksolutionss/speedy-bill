@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Package, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGetTableSectionsQuery } from '@/store/redux/api/billingApi';
 import { useUIStore } from '@/store/uiStore';
+import { useCartSync } from '@/hooks/useCartSync';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import type { DbTable, DbTableSection } from '@/types/database';
 import { sortTablesByNumber } from '@/utils/tableSorter';
@@ -15,9 +17,46 @@ interface MobileTableTabProps {
 export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
   const [search, setSearch] = useState('');
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [tableCartCounts, setTableCartCounts] = useState<Record<string, number>>({});
 
-  const { data: tableSections = [], isLoading } = useGetTableSectionsQuery();
+  const { data: tableSections = [], isLoading, refetch } = useGetTableSectionsQuery();
   const { selectedTable, setSelectedTable, setParcelMode, isParcelMode } = useUIStore();
+  const { syncBeforeTableChange } = useCartSync();
+
+  // Fetch cart item counts for all tables to determine active state
+  useEffect(() => {
+    const fetchCartCounts = async () => {
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('table_id');
+      
+      if (!error && data) {
+        const counts: Record<string, number> = {};
+        data.forEach((item) => {
+          counts[item.table_id] = (counts[item.table_id] || 0) + 1;
+        });
+        setTableCartCounts(counts);
+      }
+    };
+
+    fetchCartCounts();
+
+    // Subscribe to cart_items changes for real-time sync
+    const channel = supabase
+      .channel('cart_items_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cart_items' },
+        () => {
+          fetchCartCounts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Get all tables across sections
   const allTables = useMemo(() => {
@@ -47,14 +86,24 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
     return tables.sort(sortTablesByNumber);
   }, [allTables, activeSection, search, tableSections]);
 
-  const handleTableSelect = (table: DbTable) => {
+  const handleTableSelect = async (table: DbTable) => {
+    // Sync current cart before switching
+    await syncBeforeTableChange();
     setSelectedTable(table);
     onTableSelect();
   };
 
-  const handleParcelMode = () => {
+  const handleParcelMode = async () => {
+    await syncBeforeTableChange();
     setParcelMode(true);
     onTableSelect();
+  };
+
+  // Determine if a table is "occupied" based on cart items OR current_bill
+  const isTableOccupied = (table: DbTable) => {
+    return table.status === 'occupied' || 
+           table.current_bill_id !== null || 
+           (tableCartCounts[table.id] || 0) > 0;
   };
 
   if (isLoading) {
@@ -140,7 +189,8 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
           <div className="grid grid-cols-3 gap-3">
             {filteredTables.map((table) => {
               const isSelected = selectedTable?.id === table.id;
-              const isOccupied = table.status === 'occupied';
+              const isOccupied = isTableOccupied(table);
+              const cartCount = tableCartCounts[table.id] || 0;
 
               return (
                 <button
@@ -159,9 +209,13 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
                   <span className="text-xs text-muted-foreground">
                     {table.capacity} seats
                   </span>
-                  {isOccupied && table.current_amount && (
+                  {isOccupied && (
                     <span className="text-xs font-medium text-success">
-                      ₹{table.current_amount}
+                      {table.current_amount 
+                        ? `₹${table.current_amount}` 
+                        : cartCount > 0 
+                          ? `${cartCount} items`
+                          : 'Active'}
                     </span>
                   )}
                 </button>

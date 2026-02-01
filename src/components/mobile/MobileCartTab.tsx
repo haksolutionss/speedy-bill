@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
-import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
 import { usePrint } from '@/hooks/usePrint';
+import { useCartSync } from '@/hooks/useCartSync';
 import { calculateBillTotals } from '@/lib/billCalculations';
 import { cn } from '@/lib/utils';
 import { PaymentModal } from '@/components/billing/PaymentModal';
@@ -12,7 +13,11 @@ import { toast } from 'sonner';
 import { getNextKOTNumber } from '@/lib/kotNumberManager';
 import type { KOTData, BillData } from '@/lib/escpos/templates';
 
-export function MobileCartTab() {
+interface MobileCartTabProps {
+  onBack?: () => void;
+}
+
+export function MobileCartTab({ onBack }: MobileCartTabProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isPrintingKOT, setIsPrintingKOT] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -34,6 +39,7 @@ export function MobileCartTab() {
   const { settings } = useSettingsStore();
   const { printKOT: printKOTOps, settleBill, saveOrUpdateBill } = useBillingOperations();
   const { printKOT: printKOTDirect, printBill: printBillDirect, getBusinessInfo, currencySymbol: printCurrencySymbol, gstMode } = usePrint();
+  const { clearCartFromSupabase } = useCartSync();
 
   const taxType = settings.tax.type;
   const currencySymbol = settings.currency.symbol;
@@ -45,6 +51,7 @@ export function MobileCartTab() {
   const kotItems = getKOTItems();
   const hasKOTItems = kotItems.length > 0;
   const isTableSelected = selectedTable || isParcelMode;
+  const hasItems = cart.length > 0;
 
   const handleQuantityChange = (itemId: string, newQty: number, isSent: boolean, printedQty: number) => {
     if (isSent && newQty <= printedQty) return;
@@ -145,6 +152,12 @@ export function MobileCartTab() {
       if (printResult.success) {
         // Settle the bill
         await settleBill(method);
+        
+        // Clear cart from Supabase cart_items table
+        if (selectedTable?.id) {
+          await clearCartFromSupabase(selectedTable.id);
+        }
+        
         setShowPaymentModal(false);
         toast.success('Payment completed successfully');
       } else if (printResult.error) {
@@ -163,6 +176,7 @@ export function MobileCartTab() {
     toast.info('Bill saved as unsettled');
   };
 
+  // Empty state - no table selected
   if (!isTableSelected) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -177,6 +191,7 @@ export function MobileCartTab() {
     );
   }
 
+  // Empty cart state
   if (cart.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -195,7 +210,22 @@ export function MobileCartTab() {
   const pendingItems = cart.filter((item) => !item.sentToKitchen);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex flex-col h-full">
+      {/* Back Button Header - Only show when we have items */}
+      {onBack && hasItems && (
+        <div className="shrink-0 p-3 border-b border-border bg-card">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products
+          </Button>
+        </div>
+      )}
+
       {/* Order Header */}
       <div className="p-4 border-b border-border shrink-0">
         <div className="flex items-center justify-between">
@@ -215,110 +245,115 @@ export function MobileCartTab() {
         </div>
       </div>
 
-      {/* Cart Items */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {/* Sent Items */}
-        {sentItems.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-              <ChefHat className="h-3 w-3" />
-              Sent to Kitchen ({sentItems.length})
-            </p>
-            {sentItems.map((item) => (
-              <CartItemCard
-                key={item.id}
-                item={item}
-                currencySymbol={currencySymbol}
-                onQuantityChange={handleQuantityChange}
-                onRemove={removeFromCart}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Pending Items */}
-        {pendingItems.length > 0 && (
-          <div className="space-y-2">
-            {sentItems.length > 0 && (
-              <p className="text-xs text-muted-foreground font-medium mt-4">
-                Pending ({pendingItems.length})
+      {/* Cart Items - Scrollable area */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="p-4 space-y-3">
+          {/* Sent Items */}
+          {sentItems.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                <ChefHat className="h-3 w-3" />
+                Sent to Kitchen ({sentItems.length})
               </p>
-            )}
-            {pendingItems.map((item) => (
-              <CartItemCard
-                key={item.id}
-                item={item}
-                currencySymbol={currencySymbol}
-                onQuantityChange={handleQuantityChange}
-                onRemove={removeFromCart}
-              />
-            ))}
-          </div>
-        )}
+              {sentItems.map((item) => (
+                <CartItemCard
+                  key={item.id}
+                  item={item}
+                  currencySymbol={currencySymbol}
+                  onQuantityChange={handleQuantityChange}
+                  onRemove={removeFromCart}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Pending Items */}
+          {pendingItems.length > 0 && (
+            <div className="space-y-2">
+              {sentItems.length > 0 && (
+                <p className="text-xs text-muted-foreground font-medium mt-4">
+                  Pending ({pendingItems.length})
+                </p>
+              )}
+              {pendingItems.map((item) => (
+                <CartItemCard
+                  key={item.id}
+                  item={item}
+                  currencySymbol={currencySymbol}
+                  onQuantityChange={handleQuantityChange}
+                  onRemove={removeFromCart}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Bill Summary */}
-      <div className="border-t border-border p-4 space-y-2 shrink-0 bg-card/80 backdrop-blur">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span>{currencySymbol}{totals.subTotal.toFixed(2)}</span>
-        </div>
-        {totals.discountAmount > 0 && (
-          <div className="flex justify-between text-sm text-success">
-            <span>Discount</span>
-            <span>-{currencySymbol}{totals.discountAmount.toFixed(2)}</span>
-          </div>
-        )}
-        {taxType === 'gst' && (
+      {/* Fixed Bottom Section */}
+      <div className="shrink-0 border-t border-border bg-card">
+        {/* Bill Summary */}
+        <div className="p-4 space-y-2 border-b border-border">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">GST</span>
-            <span>{currencySymbol}{(totals.cgstAmount + totals.sgstAmount).toFixed(2)}</span>
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{currencySymbol}{totals.subTotal.toFixed(2)}</span>
           </div>
-        )}
-        <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
-          <span>Total</span>
-          <span className="text-success">{currencySymbol}{totals.finalAmount}</span>
+          {totals.discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-success">
+              <span>Discount</span>
+              <span>-{currencySymbol}{totals.discountAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {taxType === 'gst' && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">GST</span>
+              <span>{currencySymbol}{(totals.cgstAmount + totals.sgstAmount).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
+            <span>Total</span>
+            <span className="text-success">{currencySymbol}{totals.finalAmount}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div className="p-4 border-t border-border shrink-0 bg-card space-y-2 safe-area-bottom">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1 h-12"
-            onClick={handlePrintKOT}
-            disabled={isPrintingKOT || !hasKOTItems}
-          >
-            {isPrintingKOT ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Printer className="h-4 w-4 mr-2" />
-                Print KOT
-              </>
-            )}
-          </Button>
-          <Button
-            className="flex-1 h-12"
-            onClick={() => setShowPaymentModal(true)}
-            disabled={cart.length === 0 || isProcessingPayment}
-          >
-            {isProcessingPayment ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <CreditCard className="h-4 w-4 mr-2" />
-                Pay
-              </>
-            )}
-          </Button>
+        {/* Action Buttons - Fixed at bottom */}
+        <div className="p-4 pb-6">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 h-14 text-base"
+              onClick={handlePrintKOT}
+              disabled={isPrintingKOT || !hasKOTItems}
+            >
+              {isPrintingKOT ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Printer className="h-5 w-5 mr-2" />
+                  KOT
+                </>
+              )}
+            </Button>
+            <Button
+              className="flex-1 h-14 text-base"
+              onClick={() => setShowPaymentModal(true)}
+              disabled={cart.length === 0 || isProcessingPayment}
+            >
+              {isProcessingPayment ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-5 w-5 mr-2" />
+                  Pay
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
