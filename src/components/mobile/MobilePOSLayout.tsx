@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUIStore } from '@/store/uiStore';
+import { useCartSync } from '@/hooks/useCartSync';
 import { MobileBottomTabs, MobileTab } from './MobileBottomTabs';
 import { MobileTableTab } from './MobileTableTab';
 import { MobileProductsTab } from './MobileProductsTab';
@@ -9,9 +10,15 @@ import { cn } from '@/lib/utils';
 export function MobilePOSLayout() {
   const [activeTab, setActiveTab] = useState<MobileTab>('tables');
   const { cart, selectedTable, isParcelMode } = useUIStore();
+  
+  // Initialize cart sync
+  useCartSync();
 
   const isTableSelected = selectedTable || isParcelMode;
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  
+  // Hide bottom tabs when in cart with items (to show fixed buttons)
+  const hideBottomTabs = activeTab === 'cart' && cart.length > 0;
 
   // When table is selected, auto-switch to products tab
   const handleTableSelect = () => {
@@ -21,6 +28,11 @@ export function MobilePOSLayout() {
   // When item is added, show feedback (optional: could switch to cart)
   const handleItemAdded = () => {
     // Could add haptic feedback here if needed
+  };
+
+  // Back from cart to products
+  const handleBackFromCart = () => {
+    setActiveTab('products');
   };
 
   return (
@@ -41,7 +53,10 @@ export function MobilePOSLayout() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 min-h-0 pb-16">
+      <div className={cn(
+        "flex-1 min-h-0",
+        !hideBottomTabs && "pb-16" // Only add padding when bottom tabs are visible
+      )}>
         <div className={cn("h-full", activeTab !== 'tables' && "hidden")}>
           <MobileTableTab onTableSelect={handleTableSelect} />
         </div>
@@ -49,17 +64,19 @@ export function MobilePOSLayout() {
           <MobileProductsTab onItemAdded={handleItemAdded} />
         </div>
         <div className={cn("h-full", activeTab !== 'cart' && "hidden")}>
-          <MobileCartTab />
+          <MobileCartTab onBack={handleBackFromCart} />
         </div>
       </div>
 
-      {/* Bottom Tabs */}
-      <MobileBottomTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        cartItemCount={cartItemCount}
-        isProductsDisabled={!isTableSelected}
-      />
+      {/* Bottom Tabs - Hidden when in cart with items */}
+      {!hideBottomTabs && (
+        <MobileBottomTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          cartItemCount={cartItemCount}
+          isProductsDisabled={!isTableSelected}
+        />
+      )}
     </div>
   );
 }
