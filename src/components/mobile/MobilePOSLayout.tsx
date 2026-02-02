@@ -10,13 +10,13 @@ import { cn } from '@/lib/utils';
 export function MobilePOSLayout() {
   const [activeTab, setActiveTab] = useState<MobileTab>('tables');
   const { cart, selectedTable, isParcelMode } = useUIStore();
-  
+
   // Initialize cart sync
   useCartSync();
 
   const isTableSelected = selectedTable || isParcelMode;
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  
+
   // Hide bottom tabs when in cart with items (to show fixed buttons)
   const hideBottomTabs = activeTab === 'cart' && cart.length > 0;
 
@@ -38,7 +38,7 @@ export function MobilePOSLayout() {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="h-12 border-b border-border flex items-center px-4 shrink-0 bg-card">
+      {/* <div className="h-12 border-b border-border flex items-center px-4 shrink-0 bg-card">
         <h1 className="text-lg font-semibold">
           {activeTab === 'tables' && 'Select Table'}
           {activeTab === 'products' && (
@@ -50,12 +50,11 @@ export function MobilePOSLayout() {
           )}
           {activeTab === 'cart' && 'Cart'}
         </h1>
-      </div>
+      </div> */}
 
       {/* Tab Content */}
       <div className={cn(
         "flex-1 min-h-0",
-        !hideBottomTabs && "pb-16" // Only add padding when bottom tabs are visible
       )}>
         <div className={cn("h-full", activeTab !== 'tables' && "hidden")}>
           <MobileTableTab onTableSelect={handleTableSelect} />
