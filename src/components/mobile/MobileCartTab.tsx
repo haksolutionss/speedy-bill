@@ -115,7 +115,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
     try {
       // First save/update the bill to get billId
       const billId = await printKOTOps();
-      
+
       if (billId) {
         // Now queue the KOT print job with billId
         const kotData = buildKOTData(billId);
@@ -137,7 +137,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       if (!billId) {
         billId = await saveOrUpdateBill();
       }
-      
+
       if (!billId) {
         toast.error('Failed to create bill');
         return;
@@ -146,18 +146,18 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       // Build and send bill print job
       const billData = buildBillData(billId);
       billData.paymentMethod = method;
-      
+
       const printResult = await printBillDirect(billData);
-      
+
       if (printResult.success) {
         // Settle the bill
         await settleBill(method);
-        
+
         // Clear cart from Supabase cart_items table
         if (selectedTable?.id) {
           await clearCartFromSupabase(selectedTable.id);
         }
-        
+
         setShowPaymentModal(false);
         toast.success('Payment completed successfully');
       } else if (printResult.error) {
@@ -246,7 +246,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       </div>
 
       {/* Cart Items - Scrollable area */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto max-h-[70vh]">
         <div className="p-4 space-y-3">
           {/* Sent Items */}
           {sentItems.length > 0 && (
@@ -291,29 +291,6 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
 
       {/* Fixed Bottom Section */}
       <div className="shrink-0 border-t border-border bg-card">
-        {/* Bill Summary */}
-        <div className="p-4 space-y-2 border-b border-border">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span>{currencySymbol}{totals.subTotal.toFixed(2)}</span>
-          </div>
-          {totals.discountAmount > 0 && (
-            <div className="flex justify-between text-sm text-success">
-              <span>Discount</span>
-              <span>-{currencySymbol}{totals.discountAmount.toFixed(2)}</span>
-            </div>
-          )}
-          {taxType === 'gst' && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">GST</span>
-              <span>{currencySymbol}{(totals.cgstAmount + totals.sgstAmount).toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
-            <span>Total</span>
-            <span className="text-success">{currencySymbol}{totals.finalAmount}</span>
-          </div>
-        </div>
 
         {/* Action Buttons - Fixed at bottom */}
         <div className="p-4 pb-6">

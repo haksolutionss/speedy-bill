@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Search, Eye, RotateCcw, Printer, Trash2, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Eye, RotateCcw, Printer, Trash2, Receipt, Filter } from 'lucide-react';
 import { useGetBillsQuery, useUpdateBillMutation, useUpdateTableMutation } from '@/store/redux/api/billingApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { BillHistorySkeleton } from '@/components/common/skeletons/BillHistorySkeleton';
@@ -67,13 +74,14 @@ export default function History() {
   const paginatedBills = filteredBills.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   // Reset to page 1 when filters change
-  const handleFilterChange = (type: 'status' | 'type', value: string) => {
+  const handleStatusFilterChange = (value: string) => {
     setCurrentPage(1);
-    if (type === 'status') {
-      setStatusFilter(value as 'all' | 'settled' | 'unsettled' | 'active');
-    } else {
-      setTypeFilter(value as 'all' | 'table' | 'parcel');
-    }
+    setStatusFilter(value as 'all' | 'settled' | 'unsettled' | 'active');
+  };
+
+  const handleTypeFilterChange = (value: string) => {
+    setCurrentPage(1);
+    setTypeFilter(value as 'all' | 'table' | 'parcel');
   };
 
   const handleSearchChange = (value: string) => {
@@ -104,6 +112,8 @@ export default function History() {
         }).unwrap();
       }
 
+      toast.success('Bill reverted successfully');
+      refetch();
     } catch (error) {
       console.error('Error reverting bill:', error);
       toast.error('Failed to revert bill');
@@ -121,6 +131,8 @@ export default function History() {
         },
       }).unwrap();
 
+      toast.success('Bill deleted successfully');
+      refetch();
     } catch (error) {
       console.error('Error deleting bill:', error);
       toast.error('Failed to delete bill');
@@ -151,237 +163,353 @@ export default function History() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 ">
         <BillHistorySkeleton />
       </div>
     );
   }
 
   if (error) {
-    return <QueryErrorHandler error={error} onRetry={refetch} />;
+    return (
+      <div className="">
+        <QueryErrorHandler error={error} onRetry={refetch} />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 ">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Bill History</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl md:text-2xl font-bold">Bill History</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             View and manage past bills
             {filteredBills.length > 0 && (
-              <span className="ml-2 text-sm">
+              <span className="ml-2">
                 ({filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''})
               </span>
             )}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="w-full sm:w-auto"
+        >
           {isFetching ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search by bill number or table..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10"
+            className="pl-10 w-full"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant={statusFilter === 'all' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('status', 'all')}
-          >
-            All
-          </Button>
-          <Button
-            variant={statusFilter === 'active' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('status', 'active')}
-          >
-            Active
-          </Button>
-          <Button
-            variant={statusFilter === 'settled' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('status', 'settled')}
-          >
-            Settled
-          </Button>
-          <Button
-            variant={statusFilter === 'unsettled' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('status', 'unsettled')}
-          >
-            Unsettled
-          </Button>
-        </div>
+        {/* Status Filter */}
+        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <SelectValue placeholder="Status" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="settled">Settled</SelectItem>
+            <SelectItem value="unsettled">Unsettled</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant={typeFilter === 'all' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('type', 'all')}
-          >
-            All Types
-          </Button>
-          <Button
-            variant={typeFilter === 'table' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('type', 'table')}
-          >
-            Table
-          </Button>
-          <Button
-            variant={typeFilter === 'parcel' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleFilterChange('type', 'parcel')}
-          >
-            Parcel
-          </Button>
-        </div>
+        {/* Type Filter */}
+        <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <SelectValue placeholder="Type" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="table">Table</SelectItem>
+            <SelectItem value="parcel">Parcel</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Bills Table */}
-      <div className="border border-border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Bill No.</TableHead>
-              <TableHead>Date & Time</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Table/Token</TableHead>
-              <TableHead className="text-center">Items</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Payment</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-32"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedBills.length === 0 ? (
+      {/* Bills Table - Desktop */}
+      <div className="hidden lg:block border border-border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                  <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No bills found</p>
-                </TableCell>
+                <TableHead className="whitespace-nowrap">Bill No.</TableHead>
+                <TableHead className="whitespace-nowrap">Date & Time</TableHead>
+                <TableHead className="whitespace-nowrap">Type</TableHead>
+                <TableHead className="whitespace-nowrap">Table/Token</TableHead>
+                <TableHead className="text-center whitespace-nowrap">Items</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+                <TableHead className="whitespace-nowrap">Payment</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="w-32"></TableHead>
               </TableRow>
-            ) : (
-              paginatedBills.map(bill => (
-                <TableRow key={bill.id}>
-                  <TableCell className="text-sm ">
-                    {bill.bill_number}
+            </TableHeader>
+            <TableBody>
+              {paginatedBills.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                    <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No bills found</p>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(bill.created_at), 'dd MMM yyyy')}
-                    <br />
-                    <span className="text-xs">{format(new Date(bill.created_at), 'hh:mm a')}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {bill.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {bill.type === 'table' ? bill.table_number : `Token #${bill.token_number}`}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {bill.items?.length || 0}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold text-success">
-                    ₹{bill.final_amount}
-                  </TableCell>
-                  <TableCell>
-                    {bill.payment_method ? (
-                      <Badge variant="outline" className="capitalize">
-                        {bill.payment_method}
+                </TableRow>
+              ) : (
+                paginatedBills.map(bill => (
+                  <TableRow key={bill.id}>
+                    <TableCell className="text-sm font-medium whitespace-nowrap">
+                      {bill.bill_number}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {format(new Date(bill.created_at), 'dd MMM yyyy')}
+                      <br />
+                      <span className="text-xs">{format(new Date(bill.created_at), 'hh:mm a')}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize whitespace-nowrap">
+                        {bill.type}
                       </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        bill.status === 'settled' && "bg-success/10 text-success border-success/30",
-                        bill.status === 'unsettled' && "bg-warning/10 text-warning border-warning/30",
-                        bill.status === 'active' && "bg-accent/10 text-accent border-accent/30"
+                    </TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {bill.type === 'table' ? bill.table_number : `Token #${bill.token_number}`}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {bill.items?.length || 0}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-success whitespace-nowrap">
+                      ₹{bill.final_amount}
+                    </TableCell>
+                    <TableCell>
+                      {bill.payment_method ? (
+                        <Badge variant="outline" className="capitalize whitespace-nowrap">
+                          {bill.payment_method}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
                       )}
-                    >
-                      {bill.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => navigate(`/bill/${bill.id}?isEdit=false`)}
-                        title="View Bill"
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "whitespace-nowrap",
+                          bill.status === 'settled' && "bg-success/10 text-success border-success/30",
+                          bill.status === 'unsettled' && "bg-warning/10 text-warning border-warning/30",
+                          bill.status === 'active' && "bg-accent/10 text-accent border-accent/30"
+                        )}
                       >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      {bill.status === 'settled' && (
+                        {bill.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => handleRevertBill(bill.id, bill.table_id)}
+                          onClick={() => navigate(`/bill/${bill.id}?isEdit=false`)}
+                          title="View Bill"
                         >
-                          <RotateCcw className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDeleteBill(bill.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Print Bill"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        {bill.status === 'settled' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRevertBill(bill.id, bill.table_id)}
+                            title="Revert Bill"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteBill(bill.id)}
+                          title="Delete Bill"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Bills Cards - Mobile/Tablet */}
+      <div className="lg:hidden space-y-3">
+        {paginatedBills.length === 0 ? (
+          <div className="border border-border rounded-lg p-12 text-center text-muted-foreground">
+            <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No bills found</p>
+          </div>
+        ) : (
+          paginatedBills.map(bill => (
+            <div
+              key={bill.id}
+              className="border border-border rounded-lg p-4 space-y-3 bg-card hover:bg-accent/5 transition-colors"
+            >
+              {/* Header Row */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm mb-1">{bill.bill_number}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {format(new Date(bill.created_at), 'dd MMM yyyy, hh:mm a')}
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "whitespace-nowrap",
+                    bill.status === 'settled' && "bg-success/10 text-success border-success/30",
+                    bill.status === 'unsettled' && "bg-warning/10 text-warning border-warning/30",
+                    bill.status === 'active' && "bg-accent/10 text-accent border-accent/30"
+                  )}
+                >
+                  {bill.status}
+                </Badge>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Type</div>
+                  <Badge variant="outline" className="capitalize">
+                    {bill.type}
+                  </Badge>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Table/Token</div>
+                  <div className="font-medium">
+                    {bill.type === 'table' ? bill.table_number : `Token #${bill.token_number}`}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Items</div>
+                  <div className="font-medium">{bill.items?.length || 0}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Payment</div>
+                  {bill.payment_method ? (
+                    <Badge variant="outline" className="capitalize">
+                      {bill.payment_method}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">-</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Amount and Actions */}
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <div className="text-lg font-bold text-success">
+                  ₹{bill.final_amount}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => navigate(`/bill/${bill.id}?isEdit=false`)}
+                    title="View Bill"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    title="Print Bill"
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                  {bill.status === 'settled' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={() => handleRevertBill(bill.id, bill.table_id)}
+                      title="Revert Bill"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteBill(bill.id)}
+                    title="Delete Bill"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
             Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredBills.length)} of {filteredBills.length} bills
           </p>
-          <Pagination>
-            <PaginationContent>
+          <Pagination className="order-1 sm:order-2">
+            <PaginationContent className="flex-wrap justify-center">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
+                  className={cn(
+                    "cursor-pointer",
+                    currentPage === 1 && "pointer-events-none opacity-50"
+                  )}
                 />
               </PaginationItem>
 
               {getPaginationItems().map((item, index) => (
-                <PaginationItem key={index}>
+                <PaginationItem key={index} className="hidden sm:inline-flex">
                   {item === 'ellipsis' ? (
                     <PaginationEllipsis />
                   ) : (
                     <PaginationLink
                       onClick={() => setCurrentPage(item as number)}
                       isActive={currentPage === item}
+                      className="cursor-pointer"
                     >
                       {item}
                     </PaginationLink>
@@ -389,10 +517,20 @@ export default function History() {
                 </PaginationItem>
               ))}
 
+              {/* Mobile: Show only current page */}
+              <PaginationItem className="sm:hidden">
+                <div className="px-3 py-2 text-sm">
+                  Page {currentPage} of {totalPages}
+                </div>
+              </PaginationItem>
+
               <PaginationItem>
                 <PaginationNext
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className={cn(currentPage === totalPages && "pointer-events-none opacity-50")}
+                  className={cn(
+                    "cursor-pointer",
+                    currentPage === totalPages && "pointer-events-none opacity-50"
+                  )}
                 />
               </PaginationItem>
             </PaginationContent>

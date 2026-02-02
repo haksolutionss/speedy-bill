@@ -29,7 +29,7 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
       const { data, error } = await supabase
         .from('cart_items')
         .select('table_id');
-      
+
       if (!error && data) {
         const counts: Record<string, number> = {};
         data.forEach((item) => {
@@ -60,7 +60,7 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
 
   // Get all tables across sections
   const allTables = useMemo(() => {
-    return tableSections.flatMap((section) => 
+    return tableSections.flatMap((section) =>
       section.tables.map((table) => ({ ...table, sectionName: section.name }))
     );
   }, [tableSections]);
@@ -78,7 +78,7 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      tables = tables.filter((t) => 
+      tables = tables.filter((t) =>
         t.number.toLowerCase().includes(q)
       );
     }
@@ -101,9 +101,9 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
 
   // Determine if a table is "occupied" based on cart items OR current_bill
   const isTableOccupied = (table: DbTable) => {
-    return table.status === 'occupied' || 
-           table.current_bill_id !== null || 
-           (tableCartCounts[table.id] || 0) > 0;
+    return table.status === 'occupied' ||
+      table.current_bill_id !== null ||
+      (tableCartCounts[table.id] || 0) > 0;
   };
 
   if (isLoading) {
@@ -163,23 +163,8 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
         </div>
       </div>
 
-      {/* Parcel/Takeaway Button */}
-      <div className="p-4 pb-0 shrink-0">
-        <Button
-          variant={isParcelMode ? "default" : "outline"}
-          className={cn(
-            "w-full h-14 text-base gap-3",
-            isParcelMode && "bg-accent text-accent-foreground"
-          )}
-          onClick={handleParcelMode}
-        >
-          <Package className="h-5 w-5" />
-          Parcel / Takeaway
-        </Button>
-      </div>
-
       {/* Table Grid */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-20">
         {filteredTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Users className="h-12 w-12 mb-3 opacity-50" />
@@ -198,8 +183,8 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
                   onClick={() => handleTableSelect(table)}
                   className={cn(
                     "aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-95",
-                    isSelected 
-                      ? "border-primary bg-primary/10 text-primary" 
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary"
                       : isOccupied
                         ? "border-success/50 bg-success/10 text-success"
                         : "border-border bg-card hover:border-primary/50"
@@ -211,9 +196,9 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
                   </span>
                   {isOccupied && (
                     <span className="text-xs font-medium text-success">
-                      {table.current_amount 
-                        ? `₹${table.current_amount}` 
-                        : cartCount > 0 
+                      {table.current_amount
+                        ? `₹${table.current_amount}`
+                        : cartCount > 0
                           ? `${cartCount} items`
                           : 'Active'}
                     </span>
