@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { format, subDays, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
-import { 
-  FileText, 
-  Download, 
+import {
+  FileText,
+  Download,
   Calendar as CalendarIcon,
   Receipt,
   CreditCard,
@@ -60,25 +60,25 @@ import { cn } from '@/lib/utils';
 type DateRange = { from: Date; to: Date };
 
 const REPORT_TYPES = [
-  { id: 'sales', label: 'Sales Report', icon: Receipt, description: 'Daily sales summary' },
-  { id: 'bills', label: 'Bill History', icon: FileText, description: 'All past bills' },
-  { id: 'payment', label: 'Payment Mode', icon: CreditCard, description: 'Cash/Card/UPI split' },
-  { id: 'gst', label: 'GST Report', icon: BarChart3, description: 'Tax compliance' },
-  { id: 'items', label: 'Item-wise Sales', icon: ShoppingBag, description: 'Best selling items' },
-  { id: 'categories', label: 'Category-wise', icon: Layers, description: 'Sales by category' },
-  { id: 'tables', label: 'Table-wise', icon: MapPin, description: 'Revenue per table' },
-  { id: 'kot', label: 'KOT Report', icon: ChefHat, description: 'Kitchen orders' },
-  { id: 'peak', label: 'Peak Hours', icon: Clock, description: 'Busiest hours' },
-  { id: 'trends', label: 'Sales Trends', icon: TrendingUp, description: 'Daily comparison' },
+  { id: 'sales', label: 'Sales Report', shortLabel: 'Sales', icon: Receipt, description: 'Daily sales summary' },
+  { id: 'bills', label: 'Bill History', shortLabel: 'Bills', icon: FileText, description: 'All past bills' },
+  { id: 'payment', label: 'Payment Mode', shortLabel: 'Payment', icon: CreditCard, description: 'Cash/Card/UPI split' },
+  { id: 'gst', label: 'GST Report', shortLabel: 'GST', icon: BarChart3, description: 'Tax compliance' },
+  { id: 'items', label: 'Item-wise Sales', shortLabel: 'Items', icon: ShoppingBag, description: 'Best selling items' },
+  { id: 'categories', label: 'Category-wise', shortLabel: 'Categories', icon: Layers, description: 'Sales by category' },
+  { id: 'tables', label: 'Table-wise', shortLabel: 'Tables', icon: MapPin, description: 'Revenue per table' },
+  { id: 'kot', label: 'KOT Report', shortLabel: 'KOT', icon: ChefHat, description: 'Kitchen orders' },
+  { id: 'peak', label: 'Peak Hours', shortLabel: 'Peak', icon: Clock, description: 'Busiest hours' },
+  { id: 'trends', label: 'Sales Trends', shortLabel: 'Trends', icon: TrendingUp, description: 'Daily comparison' },
 ];
 
 const COLORS = ['#2563eb', '#16a34a', '#dc2626', '#ca8a04', '#9333ea', '#0891b2'];
 
-function DateRangePicker({ 
-  dateRange, 
-  onDateRangeChange 
-}: { 
-  dateRange: DateRange; 
+function DateRangePicker({
+  dateRange,
+  onDateRangeChange
+}: {
+  dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -94,20 +94,22 @@ function DateRangePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {format(dateRange.from, 'dd MMM yyyy')} - {format(dateRange.to, 'dd MMM yyyy')}
+        <Button variant="outline" className="w-full sm:w-[280px] justify-start text-left font-normal text-xs sm:text-sm">
+          <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">
+            {format(dateRange.from, 'dd MMM yyyy')} - {format(dateRange.to, 'dd MMM yyyy')}
+          </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="flex">
-          <div className="border-r p-3 space-y-1">
+      <PopoverContent className="w-auto p-0" align="end">
+        <div className="flex flex-col sm:flex-row">
+          <div className="border-b sm:border-b-0 sm:border-r p-3 space-y-1">
             {presets.map((preset) => (
               <Button
                 key={preset.label}
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start"
+                className="w-full justify-start text-xs sm:text-sm"
                 onClick={() => {
                   onDateRangeChange({ from: preset.from, to: preset.to });
                   setOpen(false);
@@ -125,7 +127,19 @@ function DateRangePicker({
                 onDateRangeChange({ from: range.from, to: range.to });
               }
             }}
+            numberOfMonths={1}
+            className="sm:hidden"
+          />
+          <Calendar
+            mode="range"
+            selected={{ from: dateRange.from, to: dateRange.to }}
+            onSelect={(range) => {
+              if (range?.from && range?.to) {
+                onDateRangeChange({ from: range.from, to: range.to });
+              }
+            }}
             numberOfMonths={2}
+            className="hidden sm:block"
           />
         </div>
       </PopoverContent>
@@ -192,81 +206,83 @@ function SalesReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Total Sales</p>
-            <p className="text-2xl font-bold">{formatCurrency(totalSales)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Sales</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{formatCurrency(totalSales)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Orders</p>
-            <p className="text-2xl font-bold">{totalOrders}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Orders</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold">{totalOrders}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Avg Order</p>
-            <p className="text-2xl font-bold">{formatCurrency(avgOrder)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Avg Order</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{formatCurrency(avgOrder)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Dine-in</p>
-            <p className="text-2xl font-bold">{formatCurrency(tableSales)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Dine-in</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{formatCurrency(tableSales)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Parcel</p>
-            <p className="text-2xl font-bold">{formatCurrency(parcelSales)}</p>
+        <Card className="col-span-2 sm:col-span-3 lg:col-span-1">
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Parcel</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{formatCurrency(parcelSales)}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Export Button */}
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Bill No</TableHead>
-              <TableHead>Date/Time</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Table</TableHead>
-              <TableHead className="text-right">Subtotal</TableHead>
-              <TableHead className="text-right">Discount</TableHead>
-              <TableHead className="text-right">GST</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {settledBills.slice(0, 50).map((bill) => (
-              <TableRow key={bill.id}>
-                <TableCell className="font-medium">{bill.bill_number}</TableCell>
-                <TableCell>{format(new Date(bill.created_at), 'dd/MM/yyyy HH:mm')}</TableCell>
-                <TableCell>
-                  <Badge variant={bill.type === 'table' ? 'default' : 'secondary'}>
-                    {bill.type}
-                  </Badge>
-                </TableCell>
-                <TableCell>{bill.table_number || '-'}</TableCell>
-                <TableCell className="text-right">{formatCurrency(bill.sub_total)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(bill.discount_amount)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(bill.cgst_amount + bill.sgst_amount)}</TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(bill.final_amount)}</TableCell>
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Bill No</TableHead>
+                <TableHead className="whitespace-nowrap">Date/Time</TableHead>
+                <TableHead className="whitespace-nowrap">Type</TableHead>
+                <TableHead className="whitespace-nowrap">Table</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Subtotal</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Discount</TableHead>
+                <TableHead className="text-right whitespace-nowrap">GST</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Total</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {settledBills.slice(0, 50).map((bill) => (
+                <TableRow key={bill.id}>
+                  <TableCell className="font-medium whitespace-nowrap text-xs sm:text-sm">{bill.bill_number}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{format(new Date(bill.created_at), 'dd/MM/yyyy HH:mm')}</TableCell>
+                  <TableCell>
+                    <Badge variant={bill.type === 'table' ? 'default' : 'secondary'} className="text-xs">
+                      {bill.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs sm:text-sm">{bill.table_number || '-'}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(bill.sub_total)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(bill.discount_amount)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(bill.cgst_amount + bill.sgst_amount)}</TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap text-xs sm:text-sm">{formatCurrency(bill.final_amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
@@ -303,50 +319,52 @@ function BillHistoryReport({ dateRange }: { dateRange: DateRange }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-muted-foreground">{filteredBills.length} bills found</p>
-        <Button onClick={handleExport}>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <p className="text-sm text-muted-foreground">{filteredBills.length} bills found</p>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Bill No</TableHead>
-              <TableHead>Date/Time</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Payment</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredBills.slice(0, 100).map((bill) => (
-              <TableRow key={bill.id}>
-                <TableCell className="font-medium">{bill.bill_number}</TableCell>
-                <TableCell>{format(new Date(bill.created_at), 'dd/MM/yyyy HH:mm')}</TableCell>
-                <TableCell>
-                  <Badge variant={bill.type === 'table' ? 'default' : 'secondary'}>
-                    {bill.type}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={
-                    bill.status === 'settled' ? 'default' :
-                    bill.status === 'active' ? 'secondary' : 'destructive'
-                  }>
-                    {bill.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>{bill.payment_method?.toUpperCase() || '-'}</TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(bill.final_amount)}</TableCell>
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Bill No</TableHead>
+                <TableHead className="whitespace-nowrap">Date/Time</TableHead>
+                <TableHead className="whitespace-nowrap">Type</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Payment</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredBills.slice(0, 100).map((bill) => (
+                <TableRow key={bill.id}>
+                  <TableCell className="font-medium whitespace-nowrap text-xs sm:text-sm">{bill.bill_number}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{format(new Date(bill.created_at), 'dd/MM/yyyy HH:mm')}</TableCell>
+                  <TableCell>
+                    <Badge variant={bill.type === 'table' ? 'default' : 'secondary'} className="text-xs">
+                      {bill.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      bill.status === 'settled' ? 'default' :
+                        bill.status === 'active' ? 'secondary' : 'destructive'
+                    } className="text-xs">
+                      {bill.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs sm:text-sm">{bill.payment_method?.toUpperCase() || '-'}</TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap text-xs sm:text-sm">{formatCurrency(bill.final_amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
@@ -386,26 +404,26 @@ function PaymentModeReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Payment Distribution</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Payment Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  innerRadius={50}
+                  outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
@@ -422,25 +440,25 @@ function PaymentModeReport({ dateRange }: { dateRange: DateRange }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Payment Summary</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Payment Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {(payments || []).map((p, i) => (
-                <div key={p.method} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="h-4 w-4 rounded" 
+                <div key={p.method} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div
+                      className="h-3 w-3 sm:h-4 sm:w-4 rounded flex-shrink-0"
                       style={{ backgroundColor: COLORS[i % COLORS.length] }}
                     />
-                    <div>
-                      <p className="font-medium">{p.method}</p>
-                      <p className="text-sm text-muted-foreground">{p.count} transactions</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm sm:text-base truncate">{p.method}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{p.count} transactions</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">{formatCurrency(p.amount)}</p>
-                    <p className="text-sm text-muted-foreground">{formatPercentage(p.percentage)}</p>
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <p className="font-bold text-sm sm:text-base">{formatCurrency(p.amount)}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{formatPercentage(p.percentage)}</p>
                   </div>
                 </div>
               ))}
@@ -497,73 +515,75 @@ function GSTReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Taxable Value</p>
-            <p className="text-xl font-bold">{formatCurrency(totalSubTotal)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Taxable Value</p>
+            <p className="text-base sm:text-lg md:text-xl font-bold truncate">{formatCurrency(totalSubTotal)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">CGST</p>
-            <p className="text-xl font-bold">{formatCurrency(totalCGST)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">CGST</p>
+            <p className="text-base sm:text-lg md:text-xl font-bold truncate">{formatCurrency(totalCGST)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">SGST</p>
-            <p className="text-xl font-bold">{formatCurrency(totalSGST)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">SGST</p>
+            <p className="text-base sm:text-lg md:text-xl font-bold truncate">{formatCurrency(totalSGST)}</p>
           </CardContent>
         </Card>
         <Card className="bg-primary/5">
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Total GST</p>
-            <p className="text-xl font-bold text-primary">{formatCurrency(totalGST)}</p>
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total GST</p>
+            <p className="text-base sm:text-lg md:text-xl font-bold text-primary truncate">{formatCurrency(totalGST)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Invoice Value</p>
-            <p className="text-xl font-bold">{formatCurrency(totalFinal)}</p>
+        <Card className="col-span-2 sm:col-span-3 lg:col-span-1">
+          <CardContent className="pt-3 md:pt-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">Invoice Value</p>
+            <p className="text-base sm:text-lg md:text-xl font-bold truncate">{formatCurrency(totalFinal)}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Bill No</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Taxable Value</TableHead>
-              <TableHead className="text-right">CGST</TableHead>
-              <TableHead className="text-right">SGST</TableHead>
-              <TableHead className="text-right">Total GST</TableHead>
-              <TableHead className="text-right">Invoice Value</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(gstData || []).slice(0, 50).map((g) => (
-              <TableRow key={g.billNumber}>
-                <TableCell className="font-medium">{g.billNumber}</TableCell>
-                <TableCell>{format(new Date(g.date), 'dd/MM/yyyy')}</TableCell>
-                <TableCell className="text-right">{formatCurrency(g.subTotal)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(g.cgst)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(g.sgst)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(g.totalGst)}</TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(g.finalAmount)}</TableCell>
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Bill No</TableHead>
+                <TableHead className="whitespace-nowrap">Date</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Taxable Value</TableHead>
+                <TableHead className="text-right whitespace-nowrap">CGST</TableHead>
+                <TableHead className="text-right whitespace-nowrap">SGST</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Total GST</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Invoice Value</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {(gstData || []).slice(0, 50).map((g) => (
+                <TableRow key={g.billNumber}>
+                  <TableCell className="font-medium whitespace-nowrap text-xs sm:text-sm">{g.billNumber}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{format(new Date(g.date), 'dd/MM/yyyy')}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(g.subTotal)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(g.cgst)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(g.sgst)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap text-xs sm:text-sm">{formatCurrency(g.totalGst)}</TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap text-xs sm:text-sm">{formatCurrency(g.finalAmount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
@@ -605,23 +625,23 @@ function ItemSalesReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Top 10 Items by Revenue</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Top 10 Items by Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={chartData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tickFormatter={(v) => `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
-                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
+                <XAxis type="number" tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 9 }} />
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
                 <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -629,23 +649,23 @@ function ItemSalesReport({ dateRange }: { dateRange: DateRange }) {
           </CardContent>
         </Card>
 
-        <div className="border rounded-lg max-h-[400px] overflow-auto">
+        <div className="border rounded-lg max-h-[350px] overflow-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background">
               <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Portion</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="whitespace-nowrap">Item</TableHead>
+                <TableHead className="whitespace-nowrap">Portion</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Qty</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Revenue</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(items || []).map((item, i) => (
                 <TableRow key={`${item.productCode}-${item.portion}`}>
-                  <TableCell className="font-medium">{item.productName}</TableCell>
-                  <TableCell>{item.portion}</TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(item.revenue)}</TableCell>
+                  <TableCell className="font-medium text-xs sm:text-sm">{item.productName}</TableCell>
+                  <TableCell className="text-xs sm:text-sm">{item.portion}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{item.quantity}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{formatCurrency(item.revenue)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -689,25 +709,25 @@ function CategorySalesReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Sales by Category</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Sales by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
+                  outerRadius={80}
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
@@ -723,23 +743,23 @@ function CategorySalesReport({ dateRange }: { dateRange: DateRange }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Category Breakdown</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Category Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {(categories || []).map((c, i) => (
                 <div key={c.category} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="h-4 w-4 rounded" 
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div
+                      className="h-3 w-3 sm:h-4 sm:w-4 rounded flex-shrink-0"
                       style={{ backgroundColor: COLORS[i % COLORS.length] }}
                     />
-                    <div>
-                      <p className="font-medium">{c.category}</p>
-                      <p className="text-sm text-muted-foreground">{c.quantity} items sold</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm sm:text-base truncate">{c.category}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{c.quantity} items sold</p>
                     </div>
                   </div>
-                  <p className="font-bold">{formatCurrency(c.sales)}</p>
+                  <p className="font-bold text-sm sm:text-base flex-shrink-0 ml-2">{formatCurrency(c.sales)}</p>
                 </div>
               ))}
             </div>
@@ -778,23 +798,23 @@ function TableSalesReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Revenue by Table</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Revenue by Table</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={(tables || []).slice(0, 10)}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="tableNumber" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={(v) => `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
+                <XAxis dataKey="tableNumber" tick={{ fontSize: 10 }} />
+                <YAxis tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
                 <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -802,23 +822,23 @@ function TableSalesReport({ dateRange }: { dateRange: DateRange }) {
           </CardContent>
         </Card>
 
-        <div className="border rounded-lg max-h-[400px] overflow-auto">
+        <div className="border rounded-lg max-h-[350px] overflow-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background">
               <TableRow>
-                <TableHead>Table</TableHead>
-                <TableHead className="text-right">Orders</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
-                <TableHead className="text-right">Avg Order</TableHead>
+                <TableHead className="whitespace-nowrap">Table</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Orders</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Revenue</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Avg Order</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(tables || []).map((t) => (
                 <TableRow key={t.tableNumber}>
-                  <TableCell className="font-medium">Table {t.tableNumber}</TableCell>
-                  <TableCell className="text-right">{t.orders}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(t.revenue)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(t.avgOrderValue)}</TableCell>
+                  <TableCell className="font-medium text-xs sm:text-sm">Table {t.tableNumber}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{t.orders}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{formatCurrency(t.revenue)}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{formatCurrency(t.avgOrderValue)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -858,51 +878,53 @@ function KOTReport({ dateRange }: { dateRange: DateRange }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-muted-foreground">{(kots || []).length} KOTs found</p>
-        <Button onClick={handleExport}>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <p className="text-sm text-muted-foreground">{(kots || []).length} KOTs found</p>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>KOT No</TableHead>
-              <TableHead>Bill No</TableHead>
-              <TableHead>Table/Token</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Printed At</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(kots || []).slice(0, 50).map((k) => (
-              <TableRow key={k.kotNumber}>
-                <TableCell className="font-medium">{k.kotNumber}</TableCell>
-                <TableCell>{k.billNumber}</TableCell>
-                <TableCell>
-                  {k.tableNumber ? `Table ${k.tableNumber}` : 
-                   k.tokenNumber ? `Token ${k.tokenNumber}` : '-'}
-                </TableCell>
-                <TableCell>
-                  <div className="max-w-xs">
-                    {k.items.map((item, i) => (
-                      <div key={i} className="text-sm">
-                        {item.name} x{item.quantity}
-                        {item.notes && (
-                          <span className="text-muted-foreground ml-1">({item.notes})</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell>{format(new Date(k.printedAt), 'dd/MM/yyyy HH:mm')}</TableCell>
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">KOT No</TableHead>
+                <TableHead className="whitespace-nowrap">Bill No</TableHead>
+                <TableHead className="whitespace-nowrap">Table/Token</TableHead>
+                <TableHead className="whitespace-nowrap">Items</TableHead>
+                <TableHead className="whitespace-nowrap">Printed At</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {(kots || []).slice(0, 50).map((k) => (
+                <TableRow key={k.kotNumber}>
+                  <TableCell className="font-medium whitespace-nowrap text-xs sm:text-sm">{k.kotNumber}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{k.billNumber}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">
+                    {k.tableNumber ? `Table ${k.tableNumber}` :
+                      k.tokenNumber ? `Token ${k.tokenNumber}` : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-xs">
+                      {k.items.map((item, i) => (
+                        <div key={i} className="text-xs sm:text-sm">
+                          {item.name} x{item.quantity}
+                          {item.notes && (
+                            <span className="text-muted-foreground ml-1">({item.notes})</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{format(new Date(k.printedAt), 'dd/MM/yyyy HH:mm')}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
@@ -920,7 +942,7 @@ function PeakHoursReport({ dateRange }: { dateRange: DateRange }) {
     revenue: h.revenue,
   }));
 
-  const peakHour = (peakData || []).reduce((max, h) => 
+  const peakHour = (peakData || []).reduce((max, h) =>
     h.orderCount > (max?.orderCount || 0) ? h : max, peakData?.[0]);
 
   const handleExport = () => {
@@ -951,12 +973,12 @@ function PeakHoursReport({ dateRange }: { dateRange: DateRange }) {
     <div className="space-y-4">
       {peakHour && (
         <Card className="bg-primary/5">
-          <CardContent className="pt-4 flex items-center gap-4">
-            <Clock className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground">Peak Hour</p>
-              <p className="text-xl font-bold">{peakHour.hour}:00 - {peakHour.hour + 1}:00</p>
-              <p className="text-sm text-muted-foreground">
+          <CardContent className="pt-3 md:pt-4 flex items-center gap-3 md:gap-4">
+            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Peak Hour</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold truncate">{peakHour.hour}:00 - {peakHour.hour + 1}:00</p>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 {peakHour.orderCount} orders • {formatCurrency(peakHour.revenue)} revenue
               </p>
             </div>
@@ -965,7 +987,7 @@ function PeakHoursReport({ dateRange }: { dateRange: DateRange }) {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
@@ -973,15 +995,15 @@ function PeakHoursReport({ dateRange }: { dateRange: DateRange }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Orders by Hour</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Orders by Hour</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
+              <XAxis dataKey="hour" tick={{ fontSize: 9 }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+              <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} tick={{ fontSize: 10 }} />
               <Tooltip />
               <Line yAxisId="left" type="monotone" dataKey="orders" stroke="hsl(var(--primary))" strokeWidth={2} name="Orders" />
               <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={2} name="Revenue" />
@@ -1041,7 +1063,7 @@ function SalesTrendsReport({ dateRange }: { dateRange: DateRange }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>
@@ -1049,15 +1071,15 @@ function SalesTrendsReport({ dateRange }: { dateRange: DateRange }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Daily Sales Trend</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Daily Sales Trend</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="displayDate" tick={{ fontSize: 10 }} />
-              <YAxis tickFormatter={(v) => `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
-              <Tooltip formatter={(value: number, name) => 
+              <XAxis dataKey="displayDate" tick={{ fontSize: 9 }} />
+              <YAxis tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(value: number, name) =>
                 name === 'sales' ? formatCurrency(value) : value
               } />
               <Bar dataKey="sales" fill="hsl(var(--primary))" name="Revenue" radius={[4, 4, 0, 0]} />
@@ -1066,27 +1088,29 @@ function SalesTrendsReport({ dateRange }: { dateRange: DateRange }) {
         </CardContent>
       </Card>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Orders</TableHead>
-              <TableHead className="text-right">Revenue</TableHead>
-              <TableHead className="text-right">Avg Order</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {chartData.map((d) => (
-              <TableRow key={d.date}>
-                <TableCell className="font-medium">{format(new Date(d.date), 'dd MMM yyyy')}</TableCell>
-                <TableCell className="text-right">{d.orders}</TableCell>
-                <TableCell className="text-right">{formatCurrency(d.sales)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(d.orders > 0 ? d.sales / d.orders : 0)}</TableCell>
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Date</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Orders</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Revenue</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Avg Order</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {chartData.map((d) => (
+                <TableRow key={d.date}>
+                  <TableCell className="font-medium whitespace-nowrap text-xs sm:text-sm">{format(new Date(d.date), 'dd MMM yyyy')}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{d.orders}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{formatCurrency(d.sales)}</TableCell>
+                  <TableCell className="text-right text-xs sm:text-sm">{formatCurrency(d.orders > 0 ? d.sales / d.orders : 0)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
@@ -1116,27 +1140,28 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Reports & Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Generate and export detailed business reports
           </p>
         </div>
         <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
       </div>
 
-      {/* Report Type Selector */}
-      <div className="grid grid-cols-5 gap-3">
+      {/* Report Type Selector - Desktop Grid */}
+      <div className="hidden lg:grid lg:grid-cols-5 gap-3">
         {REPORT_TYPES.map((report) => (
           <button
             key={report.id}
             onClick={() => setActiveReport(report.id)}
             className={cn(
               "p-4 rounded-lg border text-left transition-all hover:shadow-md",
-              activeReport === report.id 
-                ? "border-primary bg-primary/5 ring-1 ring-primary" 
+              activeReport === report.id
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
                 : "bg-card hover:border-primary/50"
             )}
           >
@@ -1150,15 +1175,48 @@ export default function Reports() {
         ))}
       </div>
 
+      {/* Report Type Selector - Mobile/Tablet Scrollable */}
+      <div className="lg:hidden -mx-4 md:mx-0">
+        <div className="overflow-x-auto scrollbar-hide px-4 md:px-0">
+          <div className="flex gap-2 pb-2 min-w-max">
+            {REPORT_TYPES.map((report) => (
+              <button
+                key={report.id}
+                onClick={() => setActiveReport(report.id)}
+                className={cn(
+                  "flex-shrink-0 px-4 py-3 rounded-lg border text-left transition-all",
+                  activeReport === report.id
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "bg-card hover:border-primary/50"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <report.icon className={cn(
+                    "h-4 w-4",
+                    activeReport === report.id ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <p className="font-medium text-sm whitespace-nowrap">
+                    {window.innerWidth < 640 ? report.shortLabel : report.label}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Fade indicators */}
+        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none md:hidden" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+      </div>
+
       {/* Report Content */}
       <Card>
-        <CardHeader>
-          <CardTitle>{REPORT_TYPES.find(r => r.id === activeReport)?.label}</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3 md:pb-6 p-3">
+          <CardTitle className="text-base sm:text-lg">{REPORT_TYPES.find(r => r.id === activeReport)?.label}</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             {format(dateRange.from, 'dd MMM yyyy')} - {format(dateRange.to, 'dd MMM yyyy')}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {renderReport()}
         </CardContent>
       </Card>

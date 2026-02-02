@@ -56,58 +56,71 @@ export default function Settings() {
   const hasValidationErrors = validationErrors.length > 0 && touchedFields.size > 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Configure your POS system</p>
+          <h1 className="text-xl md:text-2xl font-bold">Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">Configure your POS system</p>
         </div>
-        <Button onClick={handleSave}>
+        <Button onClick={handleSave} className="w-max sm:w-auto">
           <Save className="h-4 w-4 mr-2" />
-          Save Changes
+          Save
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-max grid-cols-4">
-          <TabsTrigger value="business">
-            <Building2 className="h-4 w-4 mr-2" />
-            Business
-            {hasValidationErrors && (
-              <AlertCircle className="h-3 w-3 ml-2 text-destructive" />
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="tax">
-            <Receipt className="h-4 w-4 mr-2" />
-            Tax
-          </TabsTrigger>
-          {/* <TabsTrigger value="theme">
-            <Palette className="h-4 w-4 mr-2" />
-            Theme
-          </TabsTrigger> */}
-          {/* <TabsTrigger value="currency">
-            <Banknote className="h-4 w-4 mr-2" />
-            Currency
-          </TabsTrigger> */}
-          <TabsTrigger value="loyalty">
-            <Gift className="h-4 w-4 mr-2" />
-            Loyalty
-          </TabsTrigger>
-          <TabsTrigger value="billing">
-            <CreditCard className="h-4 w-4 mr-2" />
-            Billing
-          </TabsTrigger>
-          {/* <TabsTrigger value="printers">
-            <Printer className="h-4 w-4 mr-2" />
-            Printers
-          </TabsTrigger>
-          <TabsTrigger value="sync">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Sync
-          </TabsTrigger> */}
-        </TabsList>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+        {/* Scrollable Tabs List */}
+        <div className="relative -mx-4 md:mx-0">
+          <div className="overflow-x-auto scrollbar-hide px-4 md:px-0">
+            <TabsList className="inline-flex w-auto min-w-full md:min-w-0 h-auto p-1 gap-1">
+              <TabsTrigger value="business" className="flex-shrink-0 text-xs sm:text-sm">
+                <Building2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="">Business</span>
+                {hasValidationErrors && (
+                  <AlertCircle className="h-3 w-3 ml-1 sm:ml-2 text-destructive flex-shrink-0" />
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="tax" className="flex-shrink-0 text-xs sm:text-sm">
+                <Receipt className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span>Tax</span>
+              </TabsTrigger>
+              {/* <TabsTrigger value="theme" className="flex-shrink-0 text-xs sm:text-sm">
+                <Palette className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span>Theme</span>
+              </TabsTrigger> */}
+              {/* <TabsTrigger value="currency" className="flex-shrink-0 text-xs sm:text-sm">
+                <Banknote className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="">Currency</span>
+                <span className="xs:hidden">Curr.</span>
+              </TabsTrigger> */}
+              <TabsTrigger value="loyalty" className="flex-shrink-0 text-xs sm:text-sm">
+                <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="">Loyalty</span>
+              </TabsTrigger>
+              <TabsTrigger value="billing" className="flex-shrink-0 text-xs sm:text-sm">
+                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="">Billing</span>
+              </TabsTrigger>
+              {/* <TabsTrigger value="printers" className="flex-shrink-0 text-xs sm:text-sm">
+                <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="">Printers</span>
+                <span className="xs:hidden">Print.</span>
+              </TabsTrigger> */}
+              {/* <TabsTrigger value="sync" className="flex-shrink-0 text-xs sm:text-sm">
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span>Sync</span>
+              </TabsTrigger> */}
+            </TabsList>
+          </div>
+          {/* Fade indicators for scroll */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none md:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+        </div>
 
-        <TabsContent value="business" className="mt-6">
+        {/* Tab Contents */}
+        <TabsContent value="business" className="mt-0">
           <BusinessTab
             settings={settings}
             updateSettings={updateSettings}
@@ -118,31 +131,31 @@ export default function Settings() {
           />
         </TabsContent>
 
-        <TabsContent value="tax" className="mt-6">
+        <TabsContent value="tax" className="mt-0">
           <TaxTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        {/* <TabsContent value="theme" className="mt-6">
+        {/* <TabsContent value="theme" className="mt-0">
           <ThemeTab settings={settings} updateSettings={updateSettings} />
         </TabsContent> */}
 
-        {/* <TabsContent value="currency" className="mt-6">
+        {/* <TabsContent value="currency" className="mt-0">
           <CurrencyTab settings={settings} updateSettings={updateSettings} />
         </TabsContent> */}
 
-        <TabsContent value="loyalty" className="mt-6">
+        <TabsContent value="loyalty" className="mt-0">
           <LoyaltyTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        <TabsContent value="billing" className="mt-6">
+        <TabsContent value="billing" className="mt-0">
           <BillingTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        {/* <TabsContent value="printers" className="mt-6">
+        {/* <TabsContent value="printers" className="mt-0">
           <PrintersTab />
         </TabsContent> */}
 
-        {/* <TabsContent value="sync" className="mt-6">
+        {/* <TabsContent value="sync" className="mt-0">
           <SyncTab settings={settings} updateSettings={updateSettings} />
         </TabsContent> */}
       </Tabs>

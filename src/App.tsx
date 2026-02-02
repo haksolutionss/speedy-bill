@@ -1,27 +1,26 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, HashRouter, Routes, Route } from "react-router-dom";
-import { ReduxProvider } from "@/providers/ReduxProvider";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { RealtimeSubscription } from "@/components/common/RealtimeSubscription";
-import Index from "./pages/Index";
-import Products from "./pages/Products";
-import Tables from "./pages/Tables";
-import History from "./pages/History";
-import Dashboard from "./pages/Dashboard";
-import Reports from "./pages/Reports";
-import BillDetail from "./pages/BillDetail";
-import Settings from "./pages/Settings";
-import Staff from "./pages/Staff";
-import Customers from "./pages/Customers";
-import Auth from "./pages/Auth";
-import Onboarding from "./pages/Onboarding";
-import NotFound from "./pages/NotFound";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ReduxProvider } from "@/providers/ReduxProvider";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
 import { PrintJobListener } from "./electron/PrintJobListener";
+import Auth from "./pages/Auth";
+import BillDetail from "./pages/BillDetail";
+import Customers from "./pages/Customers";
+import Dashboard from "./pages/Dashboard";
+import History from "./pages/History";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import Onboarding from "./pages/Onboarding";
+import Products from "./pages/Products";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
+// import Staff from "./pages/Staff";
+import Tables from "./pages/Tables";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +61,7 @@ const App = () => (
                 <Route path="/products" element={<Products />} />
                 <Route path="/tables" element={<Tables />} />
                 <Route path="/customers" element={<Customers />} />
-                <Route path="/staff" element={<Staff />} />
+                {/* <Route path="/staff" element={<Staff />} /> */}
                 <Route path="/history" element={<History />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/bill/:id" element={<BillDetail />} />

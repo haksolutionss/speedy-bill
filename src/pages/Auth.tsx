@@ -93,51 +93,54 @@ export default function Auth() {
           <CardDescription>Sign in to manage your restaurant</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+
+          <form onSubmit={handleLogin} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="login-mobile">Mobile Number</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="login-mobile"
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  value={loginMobile}
+                  onChange={(e) => setLoginMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  className="pl-10"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="login-pin">4-Digit PIN</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="login-pin"
+                  type="password"
+                  placeholder="••••"
+                  value={loginPin}
+                  onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="pl-10 text-center tracking-[0.5em]"
+                  maxLength={4}
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Sign In
+            </Button>
+          </form>
+
+          {/* <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-mobile">Mobile Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="login-mobile"
-                      type="tel"
-                      placeholder="10-digit mobile number"
-                      value={loginMobile}
-                      onChange={(e) => setLoginMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      className="pl-10"
-                      maxLength={10}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="login-pin">4-Digit PIN</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="login-pin"
-                      type="password"
-                      placeholder="••••"
-                      value={loginPin}
-                      onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      className="pl-10 text-center tracking-[0.5em]"
-                      maxLength={4}
-                    />
-                  </div>
-                </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Sign In
-                </Button>
-              </form>
+              
             </TabsContent>
 
             <TabsContent value="signup">
@@ -211,7 +214,7 @@ export default function Auth() {
                 </Button>
               </form>
             </TabsContent>
-          </Tabs>
+          </Tabs> */}
         </CardContent>
       </Card>
     </div>
