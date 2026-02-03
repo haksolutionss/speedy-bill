@@ -23,6 +23,8 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   const [selectedPortion, setSelectedPortion] = useState<DbProductPortion | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [step, setStep] = useState<'search' | 'portion' | 'quantity'>('search');
+  // Flag to prevent Enter key event from bubbling to portion selection
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
@@ -76,16 +78,11 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
       return;
     }
 
-    // Use all portions from the product (already filtered by API to only include active)
-    const availablePortions = product.portions;
+    const portionsCount = product.portions.length;
 
-    if (availablePortions.length === 0) {
-      return;
-    }
-
-    if (availablePortions.length === 1) {
+    if (portionsCount === 1) {
       // Single portion - go directly to quantity
-      setSelectedPortion(availablePortions[0]);
+      setSelectedPortion(product.portions[0]);
       setStep('quantity');
       setShowPortionSelect(false);
       setTimeout(() => quantityRef.current?.focus(), 50);
@@ -141,7 +138,12 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
         setSelectedIndex(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter' && suggestions.length > 0) {
         e.preventDefault();
+        e.stopPropagation();
+        // Set transitioning flag to prevent global listener from catching this event
+        setIsTransitioning(true);
         handleSelectProduct(suggestions[selectedIndex]);
+        // Clear flag after a short delay
+        setTimeout(() => setIsTransitioning(false), 100);
       } else if (e.key === 'Escape') {
         setQuery('');
         setSuggestions([]);
@@ -185,6 +187,9 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     if (step !== 'portion' || !selectedProduct) return;
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Skip if we're still transitioning from product selection
+      if (isTransitioning) return;
+      
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex(prev => Math.min(prev + 1, selectedProduct.portions.length - 1));
@@ -204,7 +209,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [step, selectedProduct, selectedIndex, handleSelectPortion]);
+  }, [step, selectedProduct, selectedIndex, handleSelectPortion, isTransitioning]);
 
   return (
     <div className="relative" ref={containerRef}>
