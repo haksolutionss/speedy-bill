@@ -58,33 +58,21 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
     };
   }, []);
 
-  // Get all tables across sections
-  const allTables = useMemo(() => {
-    return tableSections.flatMap((section) =>
-      section.tables.map((table) => ({ ...table, sectionName: section.name }))
-    );
-  }, [tableSections]);
 
-  // Filter tables by search and section
   const filteredTables = useMemo(() => {
-    let tables = allTables;
+    let sections = tableSections;
 
     if (activeSection) {
-      tables = tables.filter((t) => {
-        const section = tableSections.find((s) => s.id === t.section_id);
-        return section?.id === activeSection;
-      });
+      sections = sections.filter(s => s.id === activeSection);
     }
 
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      tables = tables.filter((t) =>
-        t.number.toLowerCase().includes(q)
-      );
-    }
+    return sections.flatMap(section =>
+      [...section.tables].sort(sortTablesByNumber)
+    );
+  }, [tableSections, activeSection, search]);
 
-    return tables.sort(sortTablesByNumber);
-  }, [allTables, activeSection, search, tableSections]);
+
+
 
   const handleTableSelect = async (table: DbTable) => {
     // Sync current cart before switching

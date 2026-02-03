@@ -210,43 +210,42 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
   const pendingItems = cart.filter((item) => !item.sentToKitchen);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Back Button Header - Only show when we have items */}
       {onBack && hasItems && (
-        <div className="shrink-0 p-3 border-b border-border bg-card">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Products
-          </Button>
+        <div className="fixed top-0 w-full z-50 bg-card border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Left */}
+            <button
+              onClick={onBack}
+              className="px-2"
+            >
+              <ArrowLeft size={20} />
+            </button>
+
+            {/* Center */}
+            <div className="text-center">
+              <h2 className="text-base font-semibold">
+                {isParcelMode ? 'Parcel Order' : `Table ${selectedTable?.number}`}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {cart.length} item{cart.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+
+            {/* Right */}
+            <div className="text-right">
+              <p className="text-lg font-bold text-success">
+                {currencySymbol}{totals.finalAmount}
+              </p>
+            </div>
+          </div>
         </div>
+
       )}
 
-      {/* Order Header */}
-      <div className="p-4 border-b border-border shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {isParcelMode ? 'Parcel Order' : `Table ${selectedTable?.number}`}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {cart.length} item{cart.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-success">
-              {currencySymbol}{totals.finalAmount}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Cart Items - Scrollable area */}
-      <div className="flex-1 overflow-y-auto max-h-[70vh]">
+      <div className="flex-1 min-h-0 overflow-y-auto pt-4 pb-20">
         <div className="p-4 space-y-3">
           {/* Sent Items */}
           {sentItems.length > 0 && (
@@ -290,10 +289,10 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       </div>
 
       {/* Fixed Bottom Section */}
-      <div className="shrink-0 border-t border-border bg-card">
+      <div className="fixed bottom-0 w-full shrink-0 border-t border-border bg-card">
 
         {/* Action Buttons - Fixed at bottom */}
-        <div className="p-4 pb-6">
+        <div className="p-2">
           <div className="flex gap-2">
             <Button
               variant="outline"
