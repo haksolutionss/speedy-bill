@@ -70,25 +70,22 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   }, [selectedTable?.section_id]);
 
   const handleSelectProduct = useCallback((product: ProductWithPortions) => {
-
     setSelectedProduct(product);
 
     if (!product.portions || product.portions.length === 0) {
-      console.error('[ItemSearch] Product has no portions:', product);
       return;
     }
 
-    // Filter active portions
-    const activePortions = product.portions.filter(p => p.is_active !== false);
+    // Use all portions from the product (already filtered by API to only include active)
+    const availablePortions = product.portions;
 
-    if (activePortions.length === 0) {
-      console.error('[ItemSearch] Product has no active portions:', product);
+    if (availablePortions.length === 0) {
       return;
     }
 
-    if (activePortions.length === 1) {
+    if (availablePortions.length === 1) {
       // Single portion - go directly to quantity
-      setSelectedPortion(activePortions[0]);
+      setSelectedPortion(availablePortions[0]);
       setStep('quantity');
       setShowPortionSelect(false);
       setTimeout(() => quantityRef.current?.focus(), 50);
