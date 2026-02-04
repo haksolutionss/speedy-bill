@@ -87,11 +87,17 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
     onTableSelect();
   };
 
-  // Determine if a table is "occupied" based on cart items OR current_bill
-  const isTableOccupied = (table: DbTable) => {
-    return table.status === 'occupied' ||
-      table.current_bill_id !== null ||
-      (tableCartCounts[table.id] || 0) > 0;
+  // Determine table status for display
+  const getTableStatus = (table: DbTable) => {
+    // Check for 'active' status (KOT printed)
+    if (table.status === 'active') return 'active';
+    // Check for 'occupied' status (items in cart but no KOT)
+    if (table.status === 'occupied' ||
+        table.current_bill_id !== null ||
+        (tableCartCounts[table.id] || 0) > 0) {
+      return 'occupied';
+    }
+    return 'available';
   };
 
   if (isLoading) {
@@ -162,7 +168,7 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
           <div className="grid grid-cols-3 gap-3">
             {filteredTables.map((table) => {
               const isSelected = selectedTable?.id === table.id;
-              const isOccupied = isTableOccupied(table);
+              const tableStatus = getTableStatus(table);
               const cartCount = tableCartCounts[table.id] || 0;
 
               return (
@@ -173,22 +179,29 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
                     "aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-95",
                     isSelected
                       ? "border-primary bg-primary/10 text-primary"
-                      : isOccupied
-                        ? "border-success/50 bg-success/10 text-success"
-                        : "border-border bg-card hover:border-primary/50"
+                      : tableStatus === 'active'
+                        ? "border-warning/50 bg-warning/10 text-warning"
+                        : tableStatus === 'occupied'
+                          ? "border-success/50 bg-success/10 text-success"
+                          : "border-border bg-card hover:border-primary/50"
                   )}
                 >
                   <span className="text-2xl font-bold">{table.number}</span>
                   <span className="text-xs text-muted-foreground">
                     {table.capacity} seats
                   </span>
-                  {isOccupied && (
-                    <span className="text-xs font-medium text-success">
+                  {tableStatus !== 'available' && (
+                    <span className={cn(
+                      "text-xs font-medium",
+                      tableStatus === 'active' ? "text-warning" : "text-success"
+                    )}>
                       {table.current_amount
                         ? `₹${table.current_amount}`
-                        : cartCount > 0
-                          ? `${cartCount} items`
-                          : 'Active'}
+                        : tableStatus === 'active'
+                          ? 'In Kitchen'
+                          : cartCount > 0
+                            ? `${cartCount} items`
+                            : 'Occupied'}
                     </span>
                   )}
                 </button>

@@ -128,6 +128,7 @@ export function useBillingOperations() {
       const result = await createBill({ bill: billData, items }).unwrap();
 
       if (selectedTable) {
+        // Set table to 'occupied' when bill is created (before KOT is printed)
         await updateTable({
           id: selectedTable.id,
           updates: {
@@ -166,6 +167,7 @@ export function useBillingOperations() {
 
   // -----------------------------------
   // PRINT KOT (RETURNS billId 🔥)
+  // Updates table status to 'active' after KOT is printed
   // -----------------------------------
   const printKOT = useCallback(async (): Promise<string | null> => {
     const pendingItems = cart.filter(
@@ -185,6 +187,16 @@ export function useBillingOperations() {
 
       await markItemsAsKOT({ billId, itemIds }).unwrap();
 
+      // After KOT is printed, update table status to 'active'
+      if (selectedTable) {
+        await updateTable({
+          id: selectedTable.id,
+          updates: {
+            status: 'active',
+          },
+        }).unwrap();
+      }
+
       markItemsSentToKitchen();
 
       return billId;
@@ -193,7 +205,7 @@ export function useBillingOperations() {
       toast.error('Failed to send KOT');
       return null;
     }
-  }, [cart, saveOrUpdateBill, markItemsAsKOT, markItemsSentToKitchen]);
+  }, [cart, selectedTable, saveOrUpdateBill, markItemsAsKOT, markItemsSentToKitchen, updateTable]);
 
   // -----------------------------------
   // SETTLE BILL (unchanged contract)

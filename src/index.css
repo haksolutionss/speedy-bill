@@ -301,8 +301,14 @@
     @apply border-2 border-dashed;
   }
 
-  /* ACTIVE / SELECTED — overrides all */
+  /* 'Active' status — KOT has been printed (in kitchen) */
   .table-btn-active {
+    @apply bg-warning/15 text-warning border-warning;
+    box-shadow: 0 0 0 2px hsl(var(--warning) / 0.2);
+  }
+
+  /* Selected table — overrides all */
+  .table-btn-selected {
     @apply ring-4 ring-accent/40 border-accent scale-[1.06] z-10;
   }
 
