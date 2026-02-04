@@ -140,32 +140,34 @@ export class ESCPOSBuilder {
     const rightWidth = right.length;
     const leftMaxWidth = this.charsPerLine - centerWidth - rightWidth - 2;
     const leftTrimmed = left.substring(0, leftMaxWidth);
-    
+
     const totalUsed = leftTrimmed.length + centerWidth + rightWidth;
     const totalSpaces = this.charsPerLine - totalUsed;
     const leftSpaces = Math.floor(totalSpaces / 2);
     const rightSpaces = totalSpaces - leftSpaces;
-    
+
     return this.line(leftTrimmed + ' '.repeat(leftSpaces) + center + ' '.repeat(rightSpaces) + right);
   }
 
   // Print four columns (for item lines: name, qty, rate, amount)
+  // Print four columns (for item lines: name, qty, rate, amount)
   fourColumns(col1: string, col2: string, col3: string, col4: string): this {
-    const widths = this.paperWidth === '58mm' 
-      ? [14, 4, 6, 8] 
+    const widths = this.paperWidth === '58mm'
+      ? [18, 4, 5, 5]   // 58mm: Item=18, Qty=4, Rate=5, Amt=5 (Total=32)
       : this.paperWidth === '76mm'
-      ? [20, 5, 7, 10]
-      : [24, 5, 8, 11];
-    
+        ? [26, 5, 5, 6]   // 76mm: Item=26, Qty=5, Rate=5, Amt=6 (Total=42)
+        : [29, 4, 7, 7];  // 80mm: Item=30, Qty=6, Rate=6, Amt=6 (Total=48)
+
     const formatted = [
       col1.substring(0, widths[0]).padEnd(widths[0]),
       col2.substring(0, widths[1]).padStart(widths[1]),
       col3.substring(0, widths[2]).padStart(widths[2]),
       col4.substring(0, widths[3]).padStart(widths[3]),
     ].join('');
-    
+
     return this.line(formatted);
   }
+
 
   // Feed paper
   feed(lines: number = 3): this {

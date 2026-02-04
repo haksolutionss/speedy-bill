@@ -295,9 +295,14 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         {items.map((item, index) => (
           <div key={item.id}>
             <div className="bill-item">
-              <span>
-                {index + 1}. {item.productName}
-                {isParcel && item.portion !== 'single' && ` (${item.portion})`}
+              <span className='line-break' style={{
+                display: 'inline-block',
+                maxWidth: '150px',
+                wordWrap: 'break-word'
+              }}>
+                {index + 1}. {formatItemNameWithLineBreaks(
+                  item.productName + (isParcel && item.portion !== 'single' ? ` (${item.portion})` : '')
+                )}
               </span>
               <span>{item.quantity}</span>
               <span>{item.unitPrice.toFixed(2)}</span>
@@ -397,3 +402,23 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 );
 
 BillTemplate.displayName = 'BillTemplate';
+
+
+
+// Add this helper function before the component or inside it
+const formatItemNameWithLineBreaks = (name: string, maxWordsPerLine: number = 3): JSX.Element[] => {
+  const words = name.split(' ');
+  const lines: JSX.Element[] = [];
+
+  for (let i = 0; i < words.length; i += maxWordsPerLine) {
+    const lineWords = words.slice(i, i + maxWordsPerLine);
+    lines.push(
+      <span key={i}>
+        {lineWords.join(' ')}
+        {i + maxWordsPerLine < words.length && <br />}
+      </span>
+    );
+  }
+
+  return lines;
+};
