@@ -600,10 +600,11 @@ export function EditViewBillingModule({
     }
   };
 
-  // Handle Save button click
+  // Handle Save button click - JUST SAVE, no print
   const handleSave = async () => {
     const saved = await saveChanges();
     if (saved) {
+      toast.success('Bill saved successfully');
       onBillUpdated();
       onModeChange(false);
     }
@@ -611,7 +612,11 @@ export function EditViewBillingModule({
 
   // Handle save with settlement prompt - also allow re-settlement for already settled bills
   const handleSaveWithSettlement = async () => {
-    // Show payment modal for both new settlement and re-settlement
+    // First save changes
+    const saved = await saveChanges();
+    if (!saved) return;
+
+    // Then show payment modal for settlement
     setShowPaymentModal(true);
   };
 
@@ -809,21 +814,21 @@ export function EditViewBillingModule({
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Top Header Bar */}
-      <div className="shrink-0 border-b border-border bg-card px-4 py-3">
-        <div className="flex items-center justify-between">
+      {/* Top Header Bar - Responsive */}
+      <div className="shrink-0 border-b border-border bg-card px-2 sm:px-4 py-2 sm:py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {/* Left: Back button + Bill info */}
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 sm:h-10 sm:w-10">
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold">{bill.bill_number}</h1>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-sm sm:text-lg font-bold truncate">{bill.bill_number}</h1>
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-xs",
+                    "text-[10px] sm:text-xs",
                     bill.status === 'settled' && "bg-success/10 text-success border-success/30",
                     bill.status === 'unsettled' && "bg-warning/10 text-warning border-warning/30",
                     bill.status === 'active' && "bg-accent/10 text-accent border-accent/30"
@@ -832,75 +837,84 @@ export function EditViewBillingModule({
                   {bill.status.toUpperCase()}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                 {isParcel ? `Parcel #${bill.token_number}` : `Table ${bill.table_number}`}
                 {' • '}
-                {new Date(bill.created_at).toLocaleDateString('en-IN', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                <span className="hidden sm:inline">
+                  {new Date(bill.created_at).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+                <span className="sm:hidden">
+                  {new Date(bill.created_at).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                  })}
+                </span>
               </p>
             </div>
           </div>
 
-          <div className='flex items-center gap-2 '>
-            {/* Center: View/Edit Toggle */}
-            <div className="flex items-center gap-3 bg-muted rounded-lg p-1">
+          <div className='flex items-center gap-1 sm:gap-2 flex-wrap justify-end'>
+            {/* View/Edit Toggle */}
+            <div className="flex items-center gap-1 sm:gap-3 bg-muted rounded-lg p-0.5 sm:p-1">
               <Button
                 variant={!isEditMode ? "default" : "outline"}
                 size="sm"
                 onClick={() => onModeChange(false)}
-                className={cn(
-                  "gap-2",
-                )}
+                className="gap-1 sm:gap-2 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
               >
-                <Eye className="h-4 w-4" />
-                View
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">View</span>
               </Button>
-              {/* {bill.status !== 'settled' && ( */}
               <Button
                 variant={isEditMode ? "default" : "outline"}
                 size="sm"
                 onClick={() => onModeChange(true)}
-                className={cn(
-                  "gap-2",
-                )}
+                className="gap-1 sm:gap-2 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
               >
-                <Edit3 className="h-4 w-4" />
-                Edit
+                <Edit3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Edit</span>
               </Button>
-              {/* )} */}
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
+            {/* Actions */}
+            <div className="flex items-center gap-1 sm:gap-2">
               {isEditMode ? (
                 <>
-                  <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
+                  <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving} size="sm" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
+                    <X className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Cancel</span>
                   </Button>
-                  <Button onClick={handleSaveWithSettlement} disabled={isSaving}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save Bill'}
+                  <Button onClick={handleSave} disabled={isSaving || !hasChanges} size="sm" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
+                    <Save className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
                   </Button>
+                  {canSettle && (
+                    <Button onClick={handleSaveWithSettlement} disabled={isSaving} size="sm" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 bg-success hover:bg-success/90">
+                      <Receipt className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Settle</span>
+                    </Button>
+                  )}
                 </>
               ) : (
                 <>
-                  <Button variant="outline" onClick={handlePrint}>
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print Bill
+                  <Button variant="outline" onClick={handlePrint} size="sm" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
+                    <Printer className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Print</span>
                   </Button>
                   {canSettle && (
                     <Button
-                      className="gap-2 bg-success hover:bg-success/90"
+                      className="gap-1 sm:gap-2 bg-success hover:bg-success/90 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
                       onClick={() => setShowPaymentModal(true)}
+                      size="sm"
                     >
-                      <Receipt className="h-4 w-4" />
-                      Settle Bill
+                      <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="hidden sm:inline">Settle Bill</span>
                     </Button>
                   )}
                 </>
@@ -910,94 +924,94 @@ export function EditViewBillingModule({
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Content - Responsive */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Panel - Bill Details */}
-        <div className="flex-1 overflow-auto p-6">
-          {/* Info Cards */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  {isParcel ? <Package className="h-5 w-5 text-primary" /> : <Hash className="h-5 w-5 text-primary" />}
+        <div className="flex-1 overflow-auto p-3 sm:p-6 order-2 lg:order-1">
+          {/* Info Cards - Responsive Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="bg-card border border-border rounded-lg p-2 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  {isParcel ? <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" /> : <Hash className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Type</p>
-                  <p className="font-semibold capitalize">{bill.type}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Type</p>
+                  <p className="text-xs sm:text-base font-semibold capitalize truncate">{bill.type}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                  <span className="font-bold text-muted-foreground">
+            <div className="bg-card border border-border rounded-lg p-2 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <span className="text-xs sm:text-base font-bold text-muted-foreground">
                     {isParcel ? `#${bill.token_number}` : bill.table_number}
                   </span>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{isParcel ? 'Token' : 'Table'}</p>
-                  <p className="font-semibold">{isParcel ? `Token ${bill.token_number}` : bill.table_number}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">{isParcel ? 'Token' : 'Table'}</p>
+                  <p className="text-xs sm:text-base font-semibold truncate">{isParcel ? `Token ${bill.token_number}` : bill.table_number}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                  <Users className="h-5 w-5 text-muted-foreground" />
+            <div className="bg-card border border-border rounded-lg p-2 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Covers</p>
-                  <p className="font-semibold">{bill.cover_count || 1}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Covers</p>
+                  <p className="text-xs sm:text-base font-semibold">{bill.cover_count || 1}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                  <span className="font-bold text-muted-foreground capitalize">
+            <div className="bg-card border border-border rounded-lg p-2 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <span className="text-xs sm:text-base font-bold text-muted-foreground capitalize">
                     {bill.payment_method?.charAt(0) || '?'}
                   </span>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Payment</p>
-                  <p className="font-semibold capitalize">{bill.payment_method || 'Pending'}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Payment</p>
+                  <p className="text-xs sm:text-base font-semibold capitalize truncate">{bill.payment_method || 'Pending'}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Customer & Discount Section */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Customer & Discount Section - Responsive */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {/* Customer */}
             <div
               className={cn(
-                "bg-card border border-border rounded-lg p-4 transition-all",
+                "bg-card border border-border rounded-lg p-3 sm:p-4 transition-all",
                 isEditMode && "cursor-pointer hover:border-accent"
               )}
               onClick={() => isEditMode && setShowCustomerModal(true)}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-accent" />
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Customer</p>
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-sm text-muted-foreground">Customer</p>
                     {selectedCustomer ? (
                       <div>
-                        <p className="font-semibold">{selectedCustomer.name}</p>
-                        <p className="text-xs text-muted-foreground">{selectedCustomer.phone}</p>
+                        <p className="text-xs sm:text-base font-semibold truncate">{selectedCustomer.name}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">{selectedCustomer.phone}</p>
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">No customer linked</p>
+                      <p className="text-xs sm:text-base text-muted-foreground">No customer</p>
                     )}
                   </div>
                 </div>
                 {selectedCustomer && (
-                  <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                  <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px] sm:text-xs shrink-0">
                     {selectedCustomer.loyalty_points} pts
                   </Badge>
                 )}
@@ -1007,41 +1021,41 @@ export function EditViewBillingModule({
             {/* Discount */}
             <div
               className={cn(
-                "bg-card border border-border rounded-lg p-4 transition-all",
+                "bg-card border border-border rounded-lg p-3 sm:p-4 transition-all",
                 isEditMode && "cursor-pointer hover:border-accent"
               )}
               onClick={() => isEditMode && setShowDiscountModal(true)}
             >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                  <Percent className="h-5 w-5 text-warning" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                  <Percent className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Discount</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-sm text-muted-foreground">Discount</p>
                   {discountType && discountValue ? (
                     <div>
-                      <p className="font-semibold text-warning">
+                      <p className="text-xs sm:text-base font-semibold text-warning">
                         -{formatCurrency(totals.discountAmount)}
-                        <span className="text-xs text-muted-foreground ml-1">
+                        <span className="text-[10px] sm:text-xs text-muted-foreground ml-1">
                           ({discountType === 'percentage' ? `${discountValue}%` : 'Fixed'})
                         </span>
                       </p>
                       {discountReason && (
-                        <p className="text-xs text-muted-foreground">{discountReason}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{discountReason}</p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">No discount applied</p>
+                    <p className="text-xs sm:text-base text-muted-foreground">No discount</p>
                   )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bill Summary */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="font-semibold mb-3">Bill Summary</h3>
-            <div className="space-y-2 text-sm">
+          {/* Bill Summary - Responsive */}
+          <div className="bg-card border border-border rounded-lg p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3">Bill Summary</h3>
+            <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatCurrency(totals.subTotal)}</span>
@@ -1060,7 +1074,7 @@ export function EditViewBillingModule({
                 <span className="text-muted-foreground">SGST</span>
                 <span>{formatCurrency(totals.sgstAmount)}</span>
               </div>
-              <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
+              <div className="flex justify-between font-bold text-base sm:text-lg pt-2 border-t border-border">
                 <span>Total</span>
                 <span className="text-success">{formatCurrency(totals.finalAmount)}</span>
               </div>
@@ -1068,8 +1082,8 @@ export function EditViewBillingModule({
           </div>
         </div>
 
-        {/* Right Panel - Cart/Items */}
-        <div className="w-[480px] border-l border-border flex flex-col bg-card shrink-0 overflow-hidden">
+        {/* Right Panel - Cart/Items - Responsive */}
+        <div className="w-full lg:w-[400px] xl:w-[480px] border-t lg:border-t-0 lg:border-l border-border flex flex-col bg-card shrink-0 overflow-hidden order-1 lg:order-2 max-h-[50vh] lg:max-h-none">
           {/* Header */}
           <div className="border-b border-border p-4 shrink-0">
             <div className="flex items-center justify-between">

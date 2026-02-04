@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Search, Eye, RotateCcw, Printer, Trash2, Receipt, Filter } from 'lucide-react';
@@ -34,6 +34,9 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from '@/components/ui/pagination';
+import { usePrint } from '@/hooks/usePrint';
+import { useSettingsStore } from '@/store/settingsStore';
+import type { BillData } from '@/lib/escpos/templates';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -43,6 +46,11 @@ export default function History() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'settled' | 'unsettled' | 'active'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'table' | 'parcel'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [printingBillId, setPrintingBillId] = useState<string | null>(null);
+
+  // Print hook
+  const { printBill, getBusinessInfo, currencySymbol, gstMode } = usePrint();
+  const { settings } = useSettingsStore();
 
   // Use RTK Query to fetch bills from Supabase
   const {
@@ -139,7 +147,70 @@ export default function History() {
     }
   };
 
-  // Generate pagination items
+  // Print bill from history
+  const handlePrintBill = async (bill: typeof bills[0]) => {
+    setPrintingBillId(bill.id);
+    
+    try {
+      const businessInfo = getBusinessInfo();
+      const taxType = settings.tax.type;
+      
+      // Calculate totals from bill items
+      const items = (bill.items || []).map(item => ({
+        id: item.id,
+        productId: item.product_id,
+        productName: item.product_name,
+        productCode: item.product_code,
+        portion: item.portion,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        gstRate: item.gst_rate,
+        notes: item.notes || undefined,
+        sentToKitchen: item.sent_to_kitchen,
+        printedQuantity: item.quantity,
+      }));
+
+      const billData: BillData = {
+        billId: bill.id,
+        billNumber: bill.bill_number,
+        tableNumber: bill.table_number || undefined,
+        tokenNumber: bill.token_number || undefined,
+        items,
+        subTotal: bill.sub_total,
+        discountAmount: bill.discount_amount,
+        discountType: (bill.discount_type as 'percentage' | 'fixed') || undefined,
+        discountValue: bill.discount_value || undefined,
+        discountReason: bill.discount_reason || undefined,
+        cgstAmount: taxType === 'gst' ? bill.cgst_amount : 0,
+        sgstAmount: taxType === 'gst' ? bill.sgst_amount : 0,
+        totalAmount: bill.total_amount,
+        finalAmount: bill.final_amount,
+        isParcel: bill.type === 'parcel',
+        restaurantName: businessInfo.name,
+        address: businessInfo.address,
+        phone: businessInfo.phone,
+        gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,
+        currencySymbol,
+        gstMode,
+        showGST: taxType === 'gst',
+        paymentMethod: bill.payment_method || undefined,
+        isReprint: true,
+      };
+
+      const result = await printBill(billData);
+      
+      if (result.success) {
+        toast.success('Bill sent to printer');
+      } else if (result.error) {
+        toast.error(`Print failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error printing bill:', error);
+      toast.error('Failed to print bill');
+    } finally {
+      setPrintingBillId(null);
+    }
+  };
   const getPaginationItems = () => {
     const items = [];
     const maxVisiblePages = 5;
@@ -335,9 +406,11 @@ export default function History() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
+                          onClick={() => handlePrintBill(bill)}
+                          disabled={printingBillId === bill.id}
                           title="Print Bill"
                         >
-                          <Printer className="h-4 w-4" />
+                          <Printer className={cn("h-4 w-4", printingBillId === bill.id && "animate-spin")} />
                         </Button>
                         {bill.status === 'settled' && (
                           <Button
@@ -452,9 +525,11 @@ export default function History() {
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9"
+                    onClick={() => handlePrintBill(bill)}
+                    disabled={printingBillId === bill.id}
                     title="Print Bill"
                   >
-                    <Printer className="h-4 w-4" />
+                    <Printer className={cn("h-4 w-4", printingBillId === bill.id && "animate-spin")} />
                   </Button>
                   {bill.status === 'settled' && (
                     <Button

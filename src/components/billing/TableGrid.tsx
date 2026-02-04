@@ -245,6 +245,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
                       "table-btn min-h-[80px] w-full relative",
                       table.status === 'available' && "table-btn-available",
                       table.status === 'occupied' && "table-btn-occupied",
+                      table.status === 'active' && "table-btn-active",
                       table.status === 'reserved' && "table-btn-reserved",
                       focusedTableId === table.id && "table-btn-focused",
                     )}

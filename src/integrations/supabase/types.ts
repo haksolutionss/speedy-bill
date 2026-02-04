@@ -521,6 +521,78 @@ export type Database = {
           },
         ]
       }
+      product_portions_backup_2026_02_03: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          price: number | null
+          product_id: string | null
+          section_prices: Json | null
+          size_id: string | null
+          template_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          price?: number | null
+          product_id?: string | null
+          section_prices?: Json | null
+          size_id?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          price?: number | null
+          product_id?: string | null
+          section_prices?: Json | null
+          size_id?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      product_portions_backup_2026_02_03_v2: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          price: number | null
+          product_id: string | null
+          section_prices: Json | null
+          size_id: string | null
+          template_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          price?: number | null
+          product_id?: string | null
+          section_prices?: Json | null
+          size_id?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          price?: number | null
+          product_id?: string | null
+          section_prices?: Json | null
+          size_id?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category_id: string

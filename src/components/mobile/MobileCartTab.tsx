@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2, ArrowLeft } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2, ArrowLeft, Users, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -9,9 +9,19 @@ import { useCartSync } from '@/hooks/useCartSync';
 import { calculateBillTotals } from '@/lib/billCalculations';
 import { cn } from '@/lib/utils';
 import { PaymentModal } from '@/components/billing/PaymentModal';
+import { CustomerModal } from '@/components/billing/CustomerModal';
+import { DiscountModal } from '@/components/billing/DiscountModal';
 import { toast } from 'sonner';
 import { getNextKOTNumber } from '@/lib/kotNumberManager';
 import type { KOTData, BillData } from '@/lib/escpos/templates';
+
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  loyalty_points: number;
+}
 
 interface MobileCartTabProps {
   onBack?: () => void;
@@ -19,8 +29,12 @@ interface MobileCartTabProps {
 
 export function MobileCartTab({ onBack }: MobileCartTabProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [isPrintingKOT, setIsPrintingKOT] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
 
   const {
     cart,
@@ -29,6 +43,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
     discountType,
     discountValue,
     discountReason,
+    setDiscount,
     updateCartItem,
     removeFromCart,
     currentBillId,
@@ -36,17 +51,29 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
     incrementBillNumber,
   } = useUIStore();
 
-  const { settings } = useSettingsStore();
+  const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
   const { printKOT: printKOTOps, settleBill, saveOrUpdateBill } = useBillingOperations();
   const { printKOT: printKOTDirect, printBill: printBillDirect, getBusinessInfo, currencySymbol: printCurrencySymbol, gstMode } = usePrint();
   const { clearCartFromSupabase } = useCartSync();
 
   const taxType = settings.tax.type;
   const currencySymbol = settings.currency.symbol;
+  const loyaltyEnabled = settings.loyalty?.enabled ?? false;
+
+  // Calculate loyalty discount
+  const loyaltyDiscount = calculateRedemptionValue(loyaltyPointsToUse);
 
   const totals = useMemo(() => {
-    return calculateBillTotals(cart, discountType, discountValue, taxType);
-  }, [cart, discountType, discountValue, taxType]);
+    const baseTotals = calculateBillTotals(cart, discountType, discountValue, taxType);
+    return {
+      ...baseTotals,
+      loyaltyDiscount,
+      adjustedFinalAmount: Math.max(0, baseTotals.finalAmount - loyaltyDiscount),
+    };
+  }, [cart, discountType, discountValue, taxType, loyaltyDiscount]);
+
+  // Points that will be earned on this bill
+  const pointsToEarn = calculateLoyaltyPoints(totals.adjustedFinalAmount);
 
   const kotItems = getKOTItems();
   const hasKOTItems = kotItems.length > 0;
@@ -94,7 +121,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       cgstAmount: taxType === 'gst' ? totals.cgstAmount : 0,
       sgstAmount: taxType === 'gst' ? totals.sgstAmount : 0,
       totalAmount: totals.totalAmount,
-      finalAmount: totals.finalAmount,
+      finalAmount: totals.adjustedFinalAmount,
       isParcel: isParcelMode,
       restaurantName: businessInfo.name,
       address: businessInfo.address,
@@ -103,6 +130,9 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       currencySymbol: printCurrencySymbol,
       gstMode,
       showGST: taxType === 'gst',
+      customerName: selectedCustomer?.name,
+      loyaltyPointsUsed: loyaltyPointsToUse,
+      loyaltyPointsEarned: pointsToEarn,
     };
   };
 
@@ -150,8 +180,14 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       const printResult = await printBillDirect(billData);
 
       if (printResult.success) {
-        // Settle the bill
-        await settleBill(method);
+        // Settle the bill with customer and loyalty info
+        await settleBill(
+          method,
+          undefined,
+          selectedCustomer?.id,
+          loyaltyPointsToUse,
+          totals.adjustedFinalAmount
+        );
 
         // Clear cart from Supabase cart_items table
         if (selectedTable?.id) {
@@ -174,6 +210,30 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
   const handleSaveUnsettled = () => {
     setShowPaymentModal(false);
     toast.info('Bill saved as unsettled');
+  };
+
+  // Customer modal handlers
+  const handleSelectCustomer = (customer: Customer | null) => {
+    setSelectedCustomer(customer);
+    if (!customer) {
+      setLoyaltyPointsToUse(0);
+    }
+  };
+
+  const handleUseLoyaltyPoints = (points: number) => {
+    if (selectedCustomer && points <= selectedCustomer.loyalty_points) {
+      setLoyaltyPointsToUse(points);
+    }
+  };
+
+  // Discount modal handler
+  const handleApplyDiscount = (
+    type: 'percentage' | 'fixed' | null,
+    value: number | null,
+    reason: string | null
+  ) => {
+    setDiscount(type, value, reason);
+    setShowDiscountModal(false);
   };
 
   // Empty state - no table selected
@@ -216,10 +276,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
         <div className="fixed top-0 w-full z-50 bg-card border-b border-border px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Left */}
-            <button
-              onClick={onBack}
-              className="px-2"
-            >
+            <button onClick={onBack} className="px-2">
               <ArrowLeft size={20} />
             </button>
 
@@ -236,17 +293,104 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
             {/* Right */}
             <div className="text-right">
               <p className="text-lg font-bold text-success">
-                {currencySymbol}{totals.finalAmount}
+                {currencySymbol}{totals.adjustedFinalAmount}
               </p>
             </div>
           </div>
         </div>
-
       )}
 
       {/* Cart Items - Scrollable area */}
-      <div className="flex-1 min-h-0 overflow-y-auto pt-4 pb-20">
+      <div className="flex-1 min-h-0 overflow-y-auto pt-4 pb-44">
         <div className="p-4 space-y-3">
+          {/* Customer & Discount Bar */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setShowCustomerModal(true)}
+              className={cn(
+                "flex-1 flex items-center gap-2 p-3 rounded-lg border transition-colors",
+                selectedCustomer
+                  ? "border-accent bg-accent/10 text-accent"
+                  : "border-border bg-card"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">Customer</p>
+                <p className="text-sm font-medium truncate">
+                  {selectedCustomer?.name || 'Add Customer'}
+                </p>
+              </div>
+              {selectedCustomer && loyaltyEnabled && (
+                <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full">
+                  {selectedCustomer.loyalty_points} pts
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setShowDiscountModal(true)}
+              className={cn(
+                "flex-1 flex items-center gap-2 p-3 rounded-lg border transition-colors",
+                discountValue
+                  ? "border-warning bg-warning/10 text-warning"
+                  : "border-border bg-card"
+              )}
+            >
+              <Percent className="h-4 w-4" />
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">Discount</p>
+                <p className="text-sm font-medium">
+                  {discountValue
+                    ? discountType === 'percentage'
+                      ? `${discountValue}% off`
+                      : `${currencySymbol}${discountValue} off`
+                    : 'Add Discount'}
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Loyalty Points Usage - Show if customer has points */}
+          {selectedCustomer && loyaltyEnabled && selectedCustomer.loyalty_points > 0 && (
+            <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 mb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Use Loyalty Points</p>
+                  <p className="text-xs text-muted-foreground">
+                    Available: {selectedCustomer.loyalty_points} pts
+                    ({currencySymbol}{calculateRedemptionValue(selectedCustomer.loyalty_points)})
+                  </p>
+                </div>
+                {loyaltyPointsToUse > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLoyaltyPointsToUse(0)}
+                    className="text-destructive border-destructive"
+                  >
+                    Remove ({currencySymbol}{loyaltyDiscount})
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => {
+                      // Use maximum points that don't exceed bill amount
+                      const redemptionValue = settings.loyalty?.redemptionValue || 1;
+                      const maxRedeemable = Math.floor(totals.finalAmount / redemptionValue);
+                      const pointsToUse = Math.min(selectedCustomer.loyalty_points, maxRedeemable);
+                      setLoyaltyPointsToUse(pointsToUse);
+                    }}
+                    className="bg-accent hover:bg-accent/90"
+                  >
+                    Use All
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Sent Items */}
           {sentItems.length > 0 && (
             <div className="space-y-2">
@@ -290,6 +434,40 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
 
       {/* Fixed Bottom Section */}
       <div className="fixed bottom-0 w-full shrink-0 border-t border-border bg-card">
+        {/* Bill Summary */}
+        <div className="p-3 border-b border-border space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{currencySymbol}{totals.subTotal.toFixed(2)}</span>
+          </div>
+          {totals.discountAmount > 0 && (
+            <div className="flex justify-between text-warning">
+              <span>Discount</span>
+              <span>-{currencySymbol}{totals.discountAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {loyaltyDiscount > 0 && (
+            <div className="flex justify-between text-accent">
+              <span>Loyalty Points ({loyaltyPointsToUse} pts)</span>
+              <span>-{currencySymbol}{loyaltyDiscount.toFixed(2)}</span>
+            </div>
+          )}
+          {taxType === 'gst' && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>GST</span>
+              <span>{currencySymbol}{(totals.cgstAmount + totals.sgstAmount).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-base pt-1 border-t border-border">
+            <span>Total</span>
+            <span className="text-success">{currencySymbol}{totals.adjustedFinalAmount.toFixed(2)}</span>
+          </div>
+          {loyaltyEnabled && pointsToEarn > 0 && (
+            <p className="text-xs text-center text-muted-foreground pt-1">
+              {selectedCustomer ? `${selectedCustomer.name} will` : 'Customer can'} earn <span className="font-medium text-accent">{pointsToEarn} points</span>
+            </p>
+          )}
+        </div>
 
         {/* Action Buttons - Fixed at bottom */}
         <div className="p-2">
@@ -352,10 +530,32 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
         onClose={() => setShowPaymentModal(false)}
         onPayment={handlePayment}
         onSaveUnsettled={handleSaveUnsettled}
-        finalAmount={typeof totals.finalAmount === 'string' ? parseFloat(totals.finalAmount) : totals.finalAmount}
+        finalAmount={totals.adjustedFinalAmount}
         showNotNow={true}
         showSplit={false}
         isProcessing={isProcessingPayment}
+      />
+
+      {/* Customer Modal */}
+      <CustomerModal
+        open={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        currentCustomer={selectedCustomer}
+        onSelect={handleSelectCustomer}
+        loyaltyPointsToUse={loyaltyPointsToUse}
+        onUseLoyaltyPoints={handleUseLoyaltyPoints}
+        billAmount={totals.finalAmount}
+      />
+
+      {/* Discount Modal */}
+      <DiscountModal
+        open={showDiscountModal}
+        onClose={() => setShowDiscountModal(false)}
+        currentType={discountType}
+        currentValue={discountValue}
+        currentReason={discountReason}
+        onApply={handleApplyDiscount}
+        subTotal={totals.subTotal}
       />
     </div>
   );
