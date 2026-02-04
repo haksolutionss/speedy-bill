@@ -28,20 +28,20 @@ export function BillingModule() {
   const tableSearchRef = useRef<HTMLInputElement>(null);
 
   // RTK Query hooks
-  const { 
-    data: tableSections, 
-    isLoading: sectionsLoading, 
+  const {
+    data: tableSections,
+    isLoading: sectionsLoading,
     error: sectionsError,
-    refetch: refetchSections 
+    refetch: refetchSections
   } = useGetTableSectionsQuery();
-  
-  const { 
-    data: products, 
-    isLoading: productsLoading, 
+
+  const {
+    data: products,
+    isLoading: productsLoading,
     error: productsError,
-    refetch: refetchProducts 
+    refetch: refetchProducts
   } = useGetProductsQuery();
-  
+
   // Note: Active bills are now loaded via useCartSync
 
   const showBillingPanel = selectedTable || isParcelMode;
@@ -50,7 +50,7 @@ export function BillingModule() {
   // Focus management: focus item search when table selected, table search when no table
   useEffect(() => {
     if (isLoading) return;
-    
+
     // Small delay to ensure DOM is ready
     const timer = setTimeout(() => {
       if (showBillingPanel) {
@@ -59,7 +59,7 @@ export function BillingModule() {
         tableSearchRef.current?.focus();
       }
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [showBillingPanel, isLoading, selectedTable?.id]);
 
@@ -96,7 +96,7 @@ export function BillingModule() {
   if (sectionsError) {
     return <QueryErrorHandler error={sectionsError} onRetry={refetchSections} />;
   }
-  
+
   if (productsError) {
     return <QueryErrorHandler error={productsError} onRetry={refetchProducts} />;
   }
@@ -112,8 +112,8 @@ export function BillingModule() {
             {isLoading ? (
               <TableGridSkeleton />
             ) : (
-              <TableGrid 
-                onTableSelect={handleTableSelect} 
+              <TableGrid
+                onTableSelect={handleTableSelect}
                 searchInputRef={tableSearchRef}
               />
             )}
@@ -144,18 +144,7 @@ export function BillingModule() {
                     </div>
                   )}
                 </div>
-                {!isParcelMode && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span>Covers: {coverCount || 1}</span>
-                  </div>
-                )}
               </div>
-              {currentBillId && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Bill ID: {currentBillId.slice(0, 8)}...
-                </p>
-              )}
             </div>
 
             {/* Item Search */}

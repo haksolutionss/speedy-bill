@@ -165,7 +165,7 @@ export const KOTTemplate = forwardRef<HTMLDivElement, KOTTemplateProps>(
                     <span className="kot-item-portion"> ({item.portion})</span>
                   )}
                 </div>
-                <div className="kot-item-qty">x{item.quantity}</div>
+                <div className="kot-item-qty">{item.quantity}</div>
               </div>
               {item.notes && (
                 <div className="kot-item-notes">📝 {item.notes}</div>
