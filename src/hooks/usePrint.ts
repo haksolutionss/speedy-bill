@@ -17,11 +17,9 @@ export function usePrint() {
 
   // Print KOT
   const printKOT = useCallback(async (kotData: KOTData & { billId?: string }): Promise<{ success: boolean; method: string; error?: string }> => {
-    console.log('🍽️ KOT Print Request', kotData);
 
     // Use POSYTUDE printer in Electron
     if (posytude.isElectron && posytude.isConnected) {
-      console.log('Using POSYTUDE USB printer for KOT');
       const result = await posytude.printKOT(kotData);
       return {
         success: result.success,
@@ -33,7 +31,6 @@ export function usePrint() {
     // PWA → queue KOT print job (requires billId)
     if (kotData.billId) {
       try {
-        console.log('Queuing KOT print job for bill:', kotData.billId);
         const { error } = await supabase.from('print_jobs').insert([{
           bill_id: kotData.billId,
           job_type: 'kot',
@@ -59,7 +56,6 @@ export function usePrint() {
     }
 
     // Fallback to browser print
-    console.log('Falling back to browser print for KOT');
     if (printRef.current) {
       printWithBrowser(printRef.current, '80mm');
       return { success: true, method: 'browser' };
@@ -70,9 +66,7 @@ export function usePrint() {
 
   // Print Bill
   const printBill = useCallback(async (billData: BillData) => {
-    console.log('🧾 Bill Print Request');
 
-    console.log("billData", billData)
     // 🖨️ Electron → direct USB print
     if (posytude.isElectron && posytude.isConnected) {
       const result = await posytude.printBill(billData);
@@ -85,7 +79,6 @@ export function usePrint() {
 
     // 📱 PWA → queue print job
     try {
-      console.log("billData", billData)
       const { error } = await supabase.from('print_jobs').insert([{
         bill_id: billData.billId,
         job_type: 'bill',

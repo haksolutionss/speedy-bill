@@ -226,7 +226,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
           </div>
 
           {/* Table Sections */}
-          {!isParcelMode && filteredSections.map((section) => (
+          {filteredSections.map((section) => (
             <div key={section.id}>
               <div className="section-header">
                 <div className="h-[0.1px] flex-1 bg-border border-border" />
@@ -266,7 +266,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
           ))}
 
           {/* Empty state when no tables match search */}
-          {!isParcelMode && filteredSections.length === 0 && searchQuery && (
+          {filteredSections.length === 0 && searchQuery && (
             <div className="text-center py-8 text-muted-foreground">
               <p>No tables found matching "{searchQuery}"</p>
             </div>

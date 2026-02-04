@@ -85,6 +85,13 @@ export const useUIStore = create<UIState>()(
       discountReason: null,
       tokenCounter: 1,
 
+      // The getNextToken function:
+      getNextToken: () => {
+        const token = get().tokenCounter;
+        set({ tokenCounter: token + 1 });  // Increments by 1
+        return token;
+      },
+
       currentBillNumber: 'BILL-0000',
 
       incrementBillNumber: () => {
@@ -97,10 +104,12 @@ export const useUIStore = create<UIState>()(
 
       setSelectedTable: (table) => {
         const prevTable = get().selectedTable;
+        // Auto-enable parcel mode if table number starts with 'P'
+        const isParcel = table?.number?.startsWith('P') ?? false;
 
         set({
           selectedTable: table,
-          isParcelMode: false,
+          isParcelMode: isParcel,  // ← Now dynamically set based on table number
           cart: prevTable?.id !== table?.id ? [] : get().cart,
           currentBillId: prevTable?.id !== table?.id ? null : get().currentBillId,
           coverCount: 1,
@@ -271,11 +280,6 @@ export const useUIStore = create<UIState>()(
 
       setCoverCount: (count) => set({ coverCount: count }),
 
-      getNextToken: () => {
-        const token = get().tokenCounter;
-        set({ tokenCounter: token + 1 });
-        return token;
-      },
 
       resetBillingState: () => {
         set({

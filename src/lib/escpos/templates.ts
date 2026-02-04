@@ -87,14 +87,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     .bold(false)
     .newline();
 
-  // Parcel indicator
-  if (isParcel) {
-    builder
-      .inverse(true)
-      .line(' PARCEL ')
-      .inverse(false)
-      .newline();
-  }
 
   // Table/Token number prominently
   builder
@@ -102,7 +94,7 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     .bold(true);
 
   if (isParcel) {
-    builder.line(`TOKEN #${tokenNumber || 0}`);
+    builder.line(`PARCEL: #${tokenNumber || 0}`);
   } else {
     builder.line(`TABLE: ${tableNumber || '-'}`);
   }
@@ -164,7 +156,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
  */
 export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
 
-  console.log("Generating bill commands", data);
   const builder = new ESCPOSBuilder(paperWidth);
   const symbol = 'Rs.'; // Changed from ₹ to Rs. for better printer compatibility
   const store = useUIStore.getState();
@@ -172,6 +163,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   // Get current + increment for next time
   const currentBillNumber = store.currentBillNumber;
 
+  console.log("IsParceMode", data.isParcel)
   // Increase for next bill
   if (!data.isReprint) {
     store.incrementBillNumber();
@@ -223,7 +215,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   // Items
   data.items.forEach((item, index) => {
-    const itemName = item.portion !== 'single'
+    const itemName = item.portion !== 'single' && data.isParcel
       ? `${index + 1}.${item.productName}(${item.portion})`
       : `${index + 1}.${item.productName}`;
 

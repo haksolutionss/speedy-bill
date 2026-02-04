@@ -71,9 +71,11 @@ export function useBillActions() {
 
   const buildKOTData = useCallback((): KOTData => {
     const kotNumber = getNextKOTNumber();
+    const tokenNumber = useUIStore.getState().getNextToken();
+
     return {
       tableNumber: selectedTable?.number,
-      tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+      tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: kotItems,
       billNumber: currentBillId?.slice(0, 8),
       kotNumber: parseInt(kotNumber, 10),
@@ -82,33 +84,38 @@ export function useBillActions() {
     };
   }, [selectedTable, isParcelMode, kotItems, currentBillId]);
 
-  const buildBillData = useCallback((overrideBillId?: string): BillData => ({
-    billId: overrideBillId || currentBillId || '',
-    billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
-    tableNumber: selectedTable?.number,
-    tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
-    items: cart,
-    subTotal,
-    discountAmount: discountAmount + loyaltyDiscount,
-    discountType: discountType || undefined,
-    discountValue: discountValue || undefined,
-    discountReason: discountReason || undefined,
-    cgstAmount: taxType === 'gst' ? cgstAmount : 0,
-    sgstAmount: taxType === 'gst' ? sgstAmount : 0,
-    totalAmount,
-    finalAmount,
-    isParcel: isParcelMode,
-    restaurantName: businessInfo.name,
-    address: businessInfo.address,
-    phone: businessInfo.phone,
-    gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,
-    currencySymbol,
-    gstMode,
-    customerName: selectedCustomer?.name,
-    loyaltyPointsUsed: loyaltyPointsToUse,
-    loyaltyPointsEarned: pointsToEarn,
-    showGST: taxType === 'gst',
-  }), [
+  const buildBillData = useCallback((overrideBillId?: string): BillData => {
+    const tokenNumber = useUIStore.getState().getNextToken();
+
+    return {
+
+      billId: overrideBillId || currentBillId || '',
+      billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
+      tableNumber: selectedTable?.number,
+      tokenNumber: isParcelMode ? tokenNumber : undefined,
+      items: cart,
+      subTotal,
+      discountAmount: discountAmount + loyaltyDiscount,
+      discountType: discountType || undefined,
+      discountValue: discountValue || undefined,
+      discountReason: discountReason || undefined,
+      cgstAmount: taxType === 'gst' ? cgstAmount : 0,
+      sgstAmount: taxType === 'gst' ? sgstAmount : 0,
+      totalAmount,
+      finalAmount,
+      isParcel: isParcelMode,
+      restaurantName: businessInfo.name,
+      address: businessInfo.address,
+      phone: businessInfo.phone,
+      gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,
+      currencySymbol,
+      gstMode,
+      customerName: selectedCustomer?.name,
+      loyaltyPointsUsed: loyaltyPointsToUse,
+      loyaltyPointsEarned: pointsToEarn,
+      showGST: taxType === 'gst',
+    }
+  }, [
     currentBillId, selectedTable, isParcelMode, cart, subTotal, discountAmount,
     loyaltyDiscount, discountType, discountValue, discountReason, taxType,
     cgstAmount, sgstAmount, totalAmount, finalAmount, businessInfo, currencySymbol,
@@ -364,7 +371,7 @@ export function useBillActions() {
     selectedCustomer,
     loyaltyPointsToUse,
     isPrinting,
-    
+
     // Computed
     hasPendingItems,
     hasItems,
@@ -378,12 +385,12 @@ export function useBillActions() {
     gstMode,
     taxType,
     isElectron,
-    
+
     // Refs
     printRef,
     kotRef,
     billRef,
-    
+
     // Handlers
     handlePrintKOT,
     handlePrintBill,
@@ -394,7 +401,7 @@ export function useBillActions() {
     handleSelectCustomer,
     handleUseLoyaltyPoints,
     print,
-    
+
     // Store state
     cart,
     currentBillId,

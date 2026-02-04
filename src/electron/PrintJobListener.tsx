@@ -17,7 +17,6 @@ export function PrintJobListener() {
                 .eq('status', 'pending')
                 .order('created_at', { ascending: true });
 
-            console.log('📊 Pending jobs query:', { data, error });
 
             if (error) {
                 console.error('Query error:', error);
@@ -36,7 +35,6 @@ export function PrintJobListener() {
     }, [printer.isElectron, printer.isConnected]);
 
     const processJob = async (job: any) => {
-        console.log('📥 Processing job:', job);
 
         if (!printer.isConnected) {
             await supabase
@@ -70,7 +68,6 @@ export function PrintJobListener() {
                 .update({ status: 'printed', printed_at: new Date().toISOString() })
                 .eq('id', job.id);
 
-            console.log('✅ Job completed:', job.id);
 
         } catch (err: any) {
             console.error('❌ Job failed:', err.message);
@@ -92,8 +89,6 @@ export function PrintJobListener() {
                 schema: 'public',
                 table: 'print_jobs',
             }, async (payload) => {
-                console.log('🔔 New job received:', payload.new);
-
                 const job = payload.new as any;
 
                 if (job.status !== 'pending' || processingRef.current.has(job.id)) return;
