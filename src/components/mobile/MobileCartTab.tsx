@@ -300,96 +300,53 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
         </div>
       )}
 
-      {/* Cart Items - Scrollable area */}
-      <div className="flex-1 min-h-0 overflow-y-auto pt-4 pb-44">
-        <div className="p-4 space-y-3">
-          {/* Customer & Discount Bar */}
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => setShowCustomerModal(true)}
-              className={cn(
-                "flex-1 flex items-center gap-2 p-3 rounded-lg border transition-colors",
-                selectedCustomer
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-border bg-card"
-              )}
-            >
-              <Users className="h-4 w-4" />
-              <div className="text-left flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Customer</p>
-                <p className="text-sm font-medium truncate">
-                  {selectedCustomer?.name || 'Add Customer'}
-                </p>
-              </div>
-              {selectedCustomer && loyaltyEnabled && (
-                <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full">
-                  {selectedCustomer.loyalty_points} pts
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setShowDiscountModal(true)}
-              className={cn(
-                "flex-1 flex items-center gap-2 p-3 rounded-lg border transition-colors",
-                discountValue
-                  ? "border-warning bg-warning/10 text-warning"
-                  : "border-border bg-card"
-              )}
-            >
-              <Percent className="h-4 w-4" />
-              <div className="text-left flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Discount</p>
-                <p className="text-sm font-medium">
-                  {discountValue
-                    ? discountType === 'percentage'
-                      ? `${discountValue}% off`
-                      : `${currencySymbol}${discountValue} off`
-                    : 'Add Discount'}
-                </p>
-              </div>
-            </button>
-          </div>
-
+      {/* Customer & Discount Bar */}
+      {selectedCustomer && loyaltyEnabled && selectedCustomer.loyalty_points > 0 && (
+        <div className='fixed top-14 w-full z-50 bg-card border-b border-border px-4 py-2'>
           {/* Loyalty Points Usage - Show if customer has points */}
-          {selectedCustomer && loyaltyEnabled && selectedCustomer.loyalty_points > 0 && (
-            <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 mb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Use Loyalty Points</p>
-                  <p className="text-xs text-muted-foreground">
-                    Available: {selectedCustomer.loyalty_points} pts
-                    ({currencySymbol}{calculateRedemptionValue(selectedCustomer.loyalty_points)})
-                  </p>
-                </div>
-                {loyaltyPointsToUse > 0 ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setLoyaltyPointsToUse(0)}
-                    className="text-destructive border-destructive"
-                  >
-                    Remove ({currencySymbol}{loyaltyDiscount})
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="default"
-                    onClick={() => {
-                      // Use maximum points that don't exceed bill amount
-                      const redemptionValue = settings.loyalty?.redemptionValue || 1;
-                      const maxRedeemable = Math.floor(totals.finalAmount / redemptionValue);
-                      const pointsToUse = Math.min(selectedCustomer.loyalty_points, maxRedeemable);
-                      setLoyaltyPointsToUse(pointsToUse);
-                    }}
-                    className="bg-accent hover:bg-accent/90"
-                  >
-                    Use All
-                  </Button>
-                )}
+          <div className="bg-accent/10 border border-accent/30 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Use Loyalty Points</p>
+                <p className="text-xs text-muted-foreground">
+                  Available: {selectedCustomer.loyalty_points} pts
+                  ({currencySymbol}{calculateRedemptionValue(selectedCustomer.loyalty_points)})
+                </p>
               </div>
+              {loyaltyPointsToUse > 0 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setLoyaltyPointsToUse(0)}
+                  className="text-destructive border-destructive"
+                >
+                  Remove ({currencySymbol}{loyaltyDiscount})
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => {
+                    // Use maximum points that don't exceed bill amount
+                    const redemptionValue = settings.loyalty?.redemptionValue || 1;
+                    const maxRedeemable = Math.floor(totals.finalAmount / redemptionValue);
+                    const pointsToUse = Math.min(selectedCustomer.loyalty_points, maxRedeemable);
+                    setLoyaltyPointsToUse(pointsToUse);
+                  }}
+                  className="bg-accent hover:bg-accent/90"
+                >
+                  Use All
+                </Button>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* Cart Items - Scrollable area */}
+      <div className={`flex-1 min-h-0 overflow-y-auto ${selectedCustomer && loyaltyEnabled && selectedCustomer.loyalty_points ? 'pt-24' : 'pt-4'} pb-44`}>
+        <div className="p-2 space-y-3">
+
 
           {/* Sent Items */}
           {sentItems.length > 0 && (
@@ -434,80 +391,76 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
 
       {/* Fixed Bottom Section */}
       <div className="fixed bottom-0 w-full shrink-0 border-t border-border bg-card">
-        {/* Bill Summary */}
-        <div className="p-3 border-b border-border space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span>{currencySymbol}{totals.subTotal.toFixed(2)}</span>
-          </div>
-          {totals.discountAmount > 0 && (
-            <div className="flex justify-between text-warning">
-              <span>Discount</span>
-              <span>-{currencySymbol}{totals.discountAmount.toFixed(2)}</span>
-            </div>
-          )}
-          {loyaltyDiscount > 0 && (
-            <div className="flex justify-between text-accent">
-              <span>Loyalty Points ({loyaltyPointsToUse} pts)</span>
-              <span>-{currencySymbol}{loyaltyDiscount.toFixed(2)}</span>
-            </div>
-          )}
-          {taxType === 'gst' && (
-            <div className="flex justify-between text-muted-foreground">
-              <span>GST</span>
-              <span>{currencySymbol}{(totals.cgstAmount + totals.sgstAmount).toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-bold text-base pt-1 border-t border-border">
-            <span>Total</span>
-            <span className="text-success">{currencySymbol}{totals.adjustedFinalAmount.toFixed(2)}</span>
-          </div>
-          {loyaltyEnabled && pointsToEarn > 0 && (
-            <p className="text-xs text-center text-muted-foreground pt-1">
-              {selectedCustomer ? `${selectedCustomer.name} will` : 'Customer can'} earn <span className="font-medium text-accent">{pointsToEarn} points</span>
-            </p>
-          )}
-        </div>
+        <div className="flex gap-2 p-2">
 
-        {/* Action Buttons - Fixed at bottom */}
-        <div className="p-2">
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1 h-14 text-base"
-              onClick={handlePrintKOT}
-              disabled={isPrintingKOT || !hasKOTItems}
-            >
-              {isPrintingKOT ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Printer className="h-5 w-5 mr-2" />
-                  KOT
-                </>
-              )}
-            </Button>
-            <Button
-              className="flex-1 h-14 text-base"
-              onClick={() => setShowPaymentModal(true)}
-              disabled={cart.length === 0 || isProcessingPayment}
-            >
-              {isProcessingPayment ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Pay
-                </>
-              )}
-            </Button>
-          </div>
+          <button
+            onClick={() => setShowCustomerModal(true)}
+            className={cn(
+              "flex items-center gap-2 p-3 rounded-lg border transition-colors",
+              selectedCustomer
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border bg-card"
+            )}
+          >
+            <Users className="h-4 w-4" />
+          </button>
+
+          <button
+            onClick={() => setShowDiscountModal(true)}
+            className={cn(
+              "flex items-center gap-2 p-3 rounded-lg border transition-colors",
+              discountValue
+                ? "border-warning bg-warning/10 text-warning"
+                : "border-border bg-card"
+            )}
+          >
+            <Percent className="h-4 w-4" />
+            <div className="text-left flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                {discountValue
+                  ? discountType === 'percentage'
+                    ? `${discountValue}% off`
+                    : `${currencySymbol}${discountValue} off`
+                  : ''}
+              </p>
+            </div>
+          </button>
+
+          <Button
+            variant="outline"
+            className="flex-1 h-14 text-base"
+            onClick={handlePrintKOT}
+            disabled={isPrintingKOT || !hasKOTItems}
+          >
+            {isPrintingKOT ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Printer className="h-5 w-5 mr-2" />
+                KOT
+              </>
+            )}
+          </Button>
+          <Button
+            className="flex-1 h-14 text-base"
+            onClick={() => setShowPaymentModal(true)}
+            disabled={cart.length === 0 || isProcessingPayment}
+          >
+            {isProcessingPayment ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CreditCard className="h-5 w-5 mr-2" />
+                Pay
+              </>
+            )}
+          </Button>
         </div>
       </div>
 

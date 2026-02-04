@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Search, AlertCircle } from 'lucide-react';
+import { Search, AlertCircle, MessageSquare, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/redux/api/billingApi';
@@ -23,12 +23,19 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
   const [portionModal, setPortionModal] = useState<ProductWithPortions | null>(null);
   const [quantityModal, setQuantityModal] = useState<{ product: ProductWithPortions; portion: DbProductPortion } | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [noteValue, setNoteValue] = useState('');
+  const [showNoteInput, setShowNoteInput] = useState(false);
 
   const { data: products = [], isLoading: productsLoading } = useGetProductsQuery();
   const { data: categories = [], isLoading: categoriesLoading } = useGetCategoriesQuery();
   const { addToCart, selectedTable, isParcelMode } = useUIStore();
 
   const isTableSelected = selectedTable || isParcelMode;
+
+  // Check if current table/section is Parcel
+  const isParcel = useMemo(() => {
+    return selectedTable?.number?.match(/^P\d+$/i) || isParcelMode;
+  }, [selectedTable?.number, isParcelMode]);
 
   // Get section-based price
   const getSectionPrice = useCallback((portion: DbProductPortion): number => {
@@ -64,14 +71,26 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
 
     if (activePortions.length === 0) return;
 
-    if (activePortions.length === 1) {
-      // Single portion - add directly with qty 1
-      const portion = activePortions[0];
-      addToCart(product, portion.size, 1, getSectionPrice(portion));
-      onItemAdded?.();
+    if (isParcel) {
+      // For Parcel: Show portion selection first (if multiple portions)
+      if (activePortions.length === 1) {
+        // Single portion - go directly to quantity
+        setQuantityModal({ product, portion: activePortions[0] });
+        setQuantity(1);
+        setNoteValue('');
+        setShowNoteInput(false);
+      } else {
+        // Multiple portions - show portion selection
+        setPortionModal(product);
+      }
     } else {
-      // Multiple portions - show selection modal
-      setPortionModal(product);
+      // For non-Parcel sections: Use section-based pricing, skip portion selection
+      // Always use first active portion but apply section price
+      const portion = activePortions[0];
+      setQuantityModal({ product, portion });
+      setQuantity(1);
+      setNoteValue('');
+      setShowNoteInput(false);
     }
   };
 
@@ -80,16 +99,35 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
     setQuantityModal({ product: portionModal, portion });
     setPortionModal(null);
     setQuantity(1);
+    setNoteValue('');
+    setShowNoteInput(false);
   };
 
   const handleAddWithQuantity = () => {
     if (!quantityModal) return;
     const { product, portion } = quantityModal;
+
+    // Add to cart with notes (trimmed, undefined if empty)
+    const notes = noteValue.trim() || undefined;
     addToCart(product, portion.size, quantity, getSectionPrice(portion));
+
+    // Reset state
     setQuantityModal(null);
     setQuantity(1);
+    setNoteValue('');
+    setShowNoteInput(false);
     onItemAdded?.();
   };
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 0;
+    if (value >= 1) {
+      setQuantity(value);
+    }
+  };
+
+  const incrementQuantity = () => setQuantity(prev => prev + 1);
+  const decrementQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
 
   const isLoading = productsLoading || categoriesLoading;
 
@@ -190,9 +228,9 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-success font-semibold">
                         ₹{basePrice}
-                        {hasMultiplePortions && '+'}
+                        {hasMultiplePortions && isParcel && '+'}
                       </span>
-                      {hasMultiplePortions && (
+                      {hasMultiplePortions && isParcel && (
                         <span className="text-xs text-muted-foreground">
                           {product.portions.filter((p) => p.is_active !== false).length} sizes
                         </span>
@@ -206,7 +244,7 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
         )}
       </div>
 
-      {/* Portion Selection Modal */}
+      {/* Portion Selection Modal - Only for Parcel */}
       <Dialog open={!!portionModal} onOpenChange={() => setPortionModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -238,36 +276,106 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
             <DialogTitle>Add to Cart</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
+            {/* Product Info */}
             <div className="text-center">
               <p className="font-medium">{quantityModal?.product.name}</p>
               <p className="text-sm text-muted-foreground capitalize">
                 {quantityModal?.portion.size} - ₹{quantityModal?.portion && getSectionPrice(quantityModal.portion)}
               </p>
             </div>
-            <div className="flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-12 w-12 text-xl"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              >
-                -
-              </Button>
-              <span className="text-3xl font-bold w-16 text-center">{quantity}</span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-12 w-12 text-xl"
-                onClick={() => setQuantity(quantity + 1)}
-              >
-                +
-              </Button>
+
+            {/* Quantity Controls */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Quantity</label>
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 text-xl"
+                  onClick={decrementQuantity}
+                >
+                  -
+                </Button>
+                <Input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={handleQuantityChange}
+                  className="w-20 h-12 text-center text-2xl font-bold"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 text-xl"
+                  onClick={incrementQuantity}
+                >
+                  +
+                </Button>
+              </div>
             </div>
-            <div className="text-center">
+
+            {/* Note Section */}
+            <div className="space-y-2">
+              {!showNoteInput ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setShowNoteInput(true)}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Add notes (optional)
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Notes</label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => {
+                        setShowNoteInput(false);
+                        setNoteValue('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Input
+                    value={noteValue}
+                    onChange={(e) => setNoteValue(e.target.value)}
+                    placeholder="e.g., extra spicy, no onions"
+                    className="bg-secondary"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddWithQuantity();
+                      if (e.key === 'Escape') {
+                        setShowNoteInput(false);
+                        setNoteValue('');
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Show current note if exists */}
+            {noteValue && (
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-xs text-muted-foreground mb-1">Note:</p>
+                <p className="text-sm italic">"{noteValue}"</p>
+              </div>
+            )}
+
+            {/* Total */}
+            <div className="text-center pt-2 border-t">
               <p className="text-lg font-semibold text-success">
                 Total: ₹{quantityModal?.portion && getSectionPrice(quantityModal.portion) * quantity}
               </p>
             </div>
+
+            {/* Add Button */}
             <Button
               className="w-full h-12 text-base"
               onClick={handleAddWithQuantity}

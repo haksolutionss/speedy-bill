@@ -192,7 +192,7 @@ export function useBillingOperations() {
         await updateTable({
           id: selectedTable.id,
           updates: {
-            status: 'active',
+            status: 'occupied',
           },
         }).unwrap();
       }

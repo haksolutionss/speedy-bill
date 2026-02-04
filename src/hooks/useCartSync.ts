@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUIStore, type CartItem } from '@/store/uiStore';
 import type { DbTable } from '@/types/database';
 
-const SYNC_DELAY_MS = 1000; // 1 second debounce for syncing cart to Supabase
+const SYNC_DELAY_MS = 10;
 
 interface DbCartItem {
   id: string;

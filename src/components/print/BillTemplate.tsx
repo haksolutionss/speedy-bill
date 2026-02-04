@@ -297,7 +297,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             <div className="bill-item">
               <span>
                 {index + 1}. {item.productName}
-                {/* {item.portion !== 'single' && ` (${item.portion})`} */}
+                {isParcel && item.portion !== 'single' && ` (${item.portion})`}
               </span>
               <span>{item.quantity}</span>
               <span>{item.unitPrice.toFixed(2)}</span>
