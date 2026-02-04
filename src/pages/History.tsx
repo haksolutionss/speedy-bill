@@ -150,11 +150,11 @@ export default function History() {
   // Print bill from history
   const handlePrintBill = async (bill: typeof bills[0]) => {
     setPrintingBillId(bill.id);
-    
+
     try {
       const businessInfo = getBusinessInfo();
       const taxType = settings.tax.type;
-      
+
       // Calculate totals from bill items
       const items = (bill.items || []).map(item => ({
         id: item.id,
@@ -185,7 +185,7 @@ export default function History() {
         sgstAmount: taxType === 'gst' ? bill.sgst_amount : 0,
         totalAmount: bill.total_amount,
         finalAmount: bill.final_amount,
-        isParcel: bill.type === 'parcel',
+        isParcel: bill.table_number.startsWith("P"),
         restaurantName: businessInfo.name,
         address: businessInfo.address,
         phone: businessInfo.phone,
@@ -198,7 +198,7 @@ export default function History() {
       };
 
       const result = await printBill(billData);
-      
+
       if (result.success) {
         toast.success('Bill sent to printer');
       } else if (result.error) {

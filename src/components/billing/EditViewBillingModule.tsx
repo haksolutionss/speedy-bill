@@ -637,7 +637,6 @@ export function EditViewBillingModule({
           .update({ loyalty_points: newPoints })
           .eq('id', customerId);
 
-        console.log('[EditBill] Updated customer loyalty:', { customerId, usedPoints, earnedPoints, newPoints });
       }
     } catch (error) {
       console.error('[EditBill] Error updating loyalty points:', error);
@@ -805,7 +804,7 @@ export function EditViewBillingModule({
     }
   }, []);
 
-  const isParcel = bill.type === 'parcel';
+  const isParcel = bill.table_number.startsWith('P');
   const canSettle = bill.status !== 'settled';
 
   // Separate items by KOT status

@@ -92,10 +92,12 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
   // Build KOT data for printing
   const buildKOTData = (billId: string): KOTData & { billId: string } => {
     const kotNumber = getNextKOTNumber();
+    const tokenNumber = useUIStore.getState().getNextToken();
+
     return {
       billId,
       tableNumber: selectedTable?.number,
-      tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+      tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: kotItems,
       billNumber: billId.slice(0, 8),
       kotNumber: parseInt(kotNumber, 10),
@@ -107,11 +109,13 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
   // Build Bill data for printing
   const buildBillData = (billId: string): BillData => {
     const businessInfo = getBusinessInfo();
+    const tokenNumber = useUIStore.getState().getNextToken();
+
     return {
       billId,
       billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
       tableNumber: selectedTable?.number,
-      tokenNumber: isParcelMode ? Date.now() % 1000 : undefined,
+      tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: cart,
       subTotal: totals.subTotal,
       discountAmount: totals.discountAmount,

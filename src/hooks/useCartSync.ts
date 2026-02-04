@@ -63,8 +63,6 @@ export function useCartSync() {
         if (billError) {
           console.error('[CartSync] Error loading bill items:', billError);
         } else if (billItems && billItems.length > 0) {
-          console.log('[CartSync] Found', billItems.length, 'items in active bill');
-
           const mappedItems: CartItem[] = billItems.map((item) => ({
             id: item.id,
             productId: item.product_id,
@@ -101,7 +99,6 @@ export function useCartSync() {
       }
 
       if (cartItems && cartItems.length > 0) {
-        console.log('[CartSync] Found', cartItems.length, 'items in cart_items');
 
         const mappedItems: CartItem[] = cartItems.map((item: DbCartItem) => ({
           id: item.id,
@@ -135,12 +132,10 @@ export function useCartSync() {
 
     const cartJson = JSON.stringify(cartItems);
     if (cartJson === lastSyncedCartRef.current) {
-      console.log('[CartSync] Cart unchanged, skipping sync');
       return;
     }
 
     isSyncingRef.current = true;
-    console.log('[CartSync] Syncing', cartItems.length, 'items to Supabase for table:', tableId);
 
     try {
       // Delete existing cart items for this table
@@ -184,7 +179,6 @@ export function useCartSync() {
       }
 
       lastSyncedCartRef.current = cartJson;
-      console.log('[CartSync] Cart synced successfully');
     } catch (err) {
       console.error('[CartSync] Error syncing cart:', err);
     } finally {
@@ -196,7 +190,6 @@ export function useCartSync() {
   const clearCartFromSupabase = useCallback(async (tableId: string) => {
     if (!tableId) return;
 
-    console.log('[CartSync] Clearing cart from Supabase for table:', tableId);
 
     try {
       const { error } = await supabase
@@ -207,7 +200,6 @@ export function useCartSync() {
       if (error) {
         console.error('[CartSync] Error clearing cart:', error);
       } else {
-        console.log('[CartSync] Cart cleared successfully');
         lastSyncedCartRef.current = '';
       }
     } catch (err) {
