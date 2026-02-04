@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { Search, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useUIStore } from '@/store/uiStore';
@@ -30,8 +30,13 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   const quantityRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { addToCart, selectedTable } = useUIStore();
+  const { addToCart, selectedTable, isParcelMode } = useUIStore();
   const { data: products = [] } = useGetProductsQuery();
+
+  // Check if current table/section is Parcel (consistent with mobile component)
+  const isParcel = useMemo(() => {
+    return selectedTable?.number?.match(/^P\d+$/i) || isParcelMode;
+  }, [selectedTable?.number, isParcelMode]);
 
   // Expose focus method via ref
   useImperativeHandle(ref, () => ({
@@ -78,21 +83,32 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
       return;
     }
 
-    const portionsCount = product.portions.length;
+    const activePortions = product.portions.filter(p => p.is_active !== false);
 
-    if (portionsCount === 1) {
-      // Single portion - go directly to quantity
-      setSelectedPortion(product.portions[0]);
+    if (isParcel) {
+      // For Parcel: Show portion selection first (if multiple portions)
+      if (activePortions.length === 1) {
+        // Single portion - go directly to quantity
+        setSelectedPortion(activePortions[0]);
+        setStep('quantity');
+        setShowPortionSelect(false);
+        setTimeout(() => quantityRef.current?.focus(), 50);
+      } else {
+        // Multiple portions - show portion selection
+        setStep('portion');
+        setShowPortionSelect(true);
+        setSelectedIndex(0);
+      }
+    } else {
+      // For non-Parcel sections: Use section-based pricing, skip portion selection
+      // Always use first active portion but apply section price
+      const portion = activePortions[0];
+      setSelectedPortion(portion);
       setStep('quantity');
       setShowPortionSelect(false);
       setTimeout(() => quantityRef.current?.focus(), 50);
-    } else {
-      // Multiple portions - show selection with prices
-      setStep('portion');
-      setShowPortionSelect(true);
-      setSelectedIndex(0);
     }
-  }, []);
+  }, [isParcel]);
 
   const handleSelectPortion = useCallback((portion: DbProductPortion) => {
     setSelectedPortion(portion);
@@ -126,7 +142,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
     inputRef.current?.focus();
     onItemAdded?.();
-  }, [selectedProduct, selectedPortion, quantity, addToCart, onItemAdded]);
+  }, [selectedProduct, selectedPortion, quantity, addToCart, onItemAdded, getSectionPrice]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (step === 'search') {
@@ -149,15 +165,16 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
         setSuggestions([]);
       }
     } else if (step === 'portion' && selectedProduct) {
+      const activePortions = selectedProduct.portions.filter(p => p.is_active !== false);
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, selectedProduct.portions.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, activePortions.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        handleSelectPortion(selectedProduct.portions[selectedIndex]);
+        handleSelectPortion(activePortions[selectedIndex]);
       } else if (e.key === 'Escape') {
         setStep('search');
         setShowPortionSelect(false);
@@ -189,16 +206,18 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Skip if we're still transitioning from product selection
       if (isTransitioning) return;
-      
+
+      const activePortions = selectedProduct.portions.filter(p => p.is_active !== false);
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, selectedProduct.portions.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, activePortions.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        handleSelectPortion(selectedProduct.portions[selectedIndex]);
+        handleSelectPortion(activePortions[selectedIndex]);
       } else if (e.key === 'Escape') {
         setStep('search');
         setShowPortionSelect(false);
@@ -251,7 +270,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
               </div>
               <span className=" text-sm text-success">
                 ₹{product.portions[0] ? getSectionPrice(product.portions[0]) : 0}
-                {product.portions.length > 1 && '+'}
+                {product.portions.length > 1 && isParcel && '+'}
               </span>
             </div>
           ))}
@@ -263,8 +282,8 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
         </div>
       )}
 
-      {/* Portion Selection */}
-      {showPortionSelect && selectedProduct && (
+      {/* Portion Selection - Only show for Parcel mode */}
+      {isParcel && showPortionSelect && selectedProduct && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 animate-slide-up">
           <div className="px-3 py-2 border-b border-border bg-muted/50 flex items-center justify-between">
             <div>
@@ -272,7 +291,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
               <span className="text-xs text-muted-foreground ml-2">Select portion</span>
             </div>
           </div>
-          {selectedProduct.portions.map((portion, index) => (
+          {selectedProduct.portions.filter(p => p.is_active !== false).map((portion, index) => (
             <div
               key={portion.size}
               className={cn(
