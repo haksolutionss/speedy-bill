@@ -1,0 +1,5 @@
+1. when table status is active on mobile like the 1st KOT is printed than make the desktop table too sync with it real time... aslo what happens i.e when we tabel is selected at any side like from desktop or mobile and items are added into cart but no printed KOT so we need to make this status as occupied and must be sync with mobile and vice versa too so that no other can use that table to add any other items unfortunaltrey or mistakenly
+2. we need to show popup for adding customer or discount like same we have done for desktop mode billling time and aslo make sure the loyalty adjusted automatically like when any Points exist a button to use that points and aslo to add new points based on the bill amounts and make this as correct flow too
+3. in history page when we clicked on print bill that bill must be printed same as we print bill from billingModule
+4. and when we are in editing bill mode on save dont print the bill please just save that item correclty and properly
+5. and the edit billingModule needs to be responsive so please make that too

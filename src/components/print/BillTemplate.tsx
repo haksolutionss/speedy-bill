@@ -65,7 +65,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 
     // Group items by GST rate for tax breakdown (only if GST is enabled)
     const gstBreakdown: Record<number, { taxableAmount: number; cgst: number; sgst: number; igst: number }> = {};
-    
+
     if (showGST) {
       items.forEach(item => {
         const itemTotal = item.unitPrice * item.quantity;
@@ -297,7 +297,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             <div className="bill-item">
               <span>
                 {index + 1}. {item.productName}
-                {item.portion !== 'single' && ` (${item.portion})`}
+                {/* {item.portion !== 'single' && ` (${item.portion})`} */}
               </span>
               <span>{item.quantity}</span>
               <span>{item.unitPrice.toFixed(2)}</span>
