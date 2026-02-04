@@ -1,6 +1,3 @@
-/**
- * ESC/POS Print Templates for KOT and Bill
- */
 
 import { ESCPOSBuilder, Alignment, FontSize, PaperWidth } from './commands';
 import { useUIStore, type CartItem } from '@/store/uiStore';
@@ -45,6 +42,19 @@ export interface BillData {
   showGST?: boolean; // Whether to show GST in print
   isReprint?: boolean; // Whether this is a reprint
 }
+
+// Add this helper function at the top of the file, after the imports
+const breakTextIntoLines = (text: string, maxWordsPerLine: number = 3): string[] => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+
+  for (let i = 0; i < words.length; i += maxWordsPerLine) {
+    const lineWords = words.slice(i, i + maxWordsPerLine);
+    lines.push(lineWords.join(' '));
+  }
+
+  return lines;
+};
 
 // Format currency for printing
 const formatAmount = (amount: number, symbol: string = '₹'): string => {
@@ -214,23 +224,31 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .dashedLine();
 
   // Items
+  // Items
   data.items.forEach((item, index) => {
     const itemName = item.portion !== 'single' && data.isParcel
       ? `${index + 1}.${item.productName}(${item.portion})`
       : `${index + 1}.${item.productName}`;
 
+    const itemLines = breakTextIntoLines(itemName, 3);
+
+    // Print first line with quantity, rate, and amount
     builder.fourColumns(
-      itemName,
+      itemLines[0],
       item.quantity.toString(),
       item.unitPrice.toFixed(0),
       (item.unitPrice * item.quantity).toFixed(2)
     );
 
-    if (item.notes) {
-      builder.line(`  >> ${item.notes}`);
+    // Print remaining lines (if any) without quantity/rate/amount
+    for (let i = 1; i < itemLines.length; i++) {
+      builder.line(itemLines[i]);
     }
-  });
 
+    // if (item.notes) {
+    //   builder.line(`  >> ${item.notes}`);
+    // }
+  });
   builder.dashedLine();
 
   // Totals - Right aligned single column
