@@ -3,6 +3,7 @@ import { Users, Hash, Package } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useGetTableSectionsQuery, useGetProductsQuery } from '@/store/redux/api/billingApi';
 import { useCartSync } from '@/hooks/useCartSync';
+ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { TableGrid } from './TableGrid';
 import { ItemSearch, ItemSearchRef } from './ItemSearch';
 import { Cart } from './Cart';
@@ -10,6 +11,7 @@ import { BillActions } from './BillActions';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { QueryErrorHandler } from '@/components/common/QueryErrorHandler';
 import { TableGridSkeleton } from '@/components/common/skeletons';
+ import { OfflineIndicator } from '@/components/common/OfflineIndicator';
 
 export function BillingModule() {
   const {
@@ -22,6 +24,9 @@ export function BillingModule() {
 
   // Cart sync hook for Supabase persistence
   const { forceSync } = useCartSync();
+ 
+   // Offline sync hook for caching
+   const { cacheProducts, cacheSections } = useOfflineSync();
 
   // Refs for focus management
   const itemSearchRef = useRef<ItemSearchRef>(null);
@@ -41,6 +46,19 @@ export function BillingModule() {
     error: productsError,
     refetch: refetchProducts
   } = useGetProductsQuery();
+ 
+   // Cache data for offline use
+   useEffect(() => {
+     if (tableSections && tableSections.length > 0) {
+       cacheSections(tableSections);
+     }
+   }, [tableSections, cacheSections]);
+ 
+   useEffect(() => {
+     if (products && products.length > 0) {
+       cacheProducts(products);
+     }
+   }, [products, cacheProducts]);
 
   // Note: Active bills are now loaded via useCartSync
 
@@ -103,6 +121,9 @@ export function BillingModule() {
 
   return (
     <div className="h-screen flex bg-background overflow-hidden">
+       {/* Offline Status Indicator */}
+       <OfflineIndicator />
+ 
       {/* Left Panel - Table Selection / Current Table */}
       <div className="fixed w-[calc(100%_-_480px)] h-[calc(100vh_-_50px)] left-0 flex-1 flex flex-col border-r border-border min-w-0 overflow-hidden">
 
