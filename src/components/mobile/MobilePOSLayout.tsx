@@ -6,6 +6,7 @@ import { MobileTableTab } from './MobileTableTab';
 import { MobileProductsTab } from './MobileProductsTab';
 import { MobileCartTab } from './MobileCartTab';
 import { cn } from '@/lib/utils';
+ import { OfflineIndicator } from '@/components/common/OfflineIndicator';
 
 export function MobilePOSLayout() {
   const [activeTab, setActiveTab] = useState<MobileTab>('tables');
@@ -37,6 +38,9 @@ export function MobilePOSLayout() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
+       {/* Offline Status Indicator */}
+       <OfflineIndicator />
+ 
       {/* Header */}
       {/* <div className="h-12 border-b border-border flex items-center px-4 shrink-0 bg-card">
         <h1 className="text-lg font-semibold">

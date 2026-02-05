@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
-import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2, ArrowLeft, Users, Percent } from 'lucide-react';
+ import { useState, useMemo, useEffect } from 'react';
+ import { Minus, Plus, Trash2, Printer, CreditCard, ShoppingCart, ChefHat, Loader2, ArrowLeft, Users, Percent, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+ import { Input } from '@/components/ui/input';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBillingOperations } from '@/hooks/useBillingOperations';
@@ -14,6 +15,7 @@ import { DiscountModal } from '@/components/billing/DiscountModal';
 import { toast } from 'sonner';
 import { getNextKOTNumber } from '@/lib/kotNumberManager';
 import type { KOTData, BillData } from '@/lib/escpos/templates';
+ import { useTableCustomerSync } from '@/hooks/useTableCustomerSync';
 
 interface Customer {
   id: string;
@@ -35,7 +37,11 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
+   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+   const [noteValue, setNoteValue] = useState('');
 
+   const { getTableCustomer, setTableCustomer, clearTableCustomer } = useTableCustomerSync();
+  
   const {
     cart,
     selectedTable,
@@ -59,6 +65,26 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
   const taxType = settings.tax.type;
   const currencySymbol = settings.currency.symbol;
   const loyaltyEnabled = settings.loyalty?.enabled ?? false;
+ 
+   // Load customer from table-customer map when table changes
+   useEffect(() => {
+     if (selectedTable?.id) {
+       const savedCustomer = getTableCustomer(selectedTable.id);
+       if (savedCustomer?.customerId) {
+         setSelectedCustomer({
+           id: savedCustomer.customerId,
+           name: savedCustomer.customerName || '',
+           phone: savedCustomer.customerPhone || '',
+           email: null,
+           loyalty_points: savedCustomer.customerLoyaltyPoints,
+         });
+         setLoyaltyPointsToUse(savedCustomer.loyaltyPointsToUse);
+       } else {
+         setSelectedCustomer(null);
+         setLoyaltyPointsToUse(0);
+       }
+     }
+   }, [selectedTable?.id, getTableCustomer]);
 
   // Calculate loyalty discount
   const loyaltyDiscount = calculateRedemptionValue(loyaltyPointsToUse);
@@ -196,9 +222,14 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
         // Clear cart from Supabase cart_items table
         if (selectedTable?.id) {
           await clearCartFromSupabase(selectedTable.id);
+           // Clear customer/loyalty mapping after bill settlement
+           clearTableCustomer(selectedTable.id);
         }
 
         setShowPaymentModal(false);
+         // Reset local customer state
+         setSelectedCustomer(null);
+         setLoyaltyPointsToUse(0);
         toast.success('Payment completed successfully');
       } else if (printResult.error) {
         toast.error(`Print failed: ${printResult.error}`);
@@ -221,14 +252,52 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
     setSelectedCustomer(customer);
     if (!customer) {
       setLoyaltyPointsToUse(0);
+       // Clear table-customer mapping
+       if (selectedTable?.id) {
+         clearTableCustomer(selectedTable.id);
+       }
+     } else {
+       // Save to table-customer mapping
+       if (selectedTable?.id) {
+         setTableCustomer(selectedTable.id, {
+           customerId: customer.id,
+           customerName: customer.name,
+           customerPhone: customer.phone,
+           customerLoyaltyPoints: customer.loyalty_points,
+           loyaltyPointsToUse: 0,
+         });
+       }
     }
   };
 
   const handleUseLoyaltyPoints = (points: number) => {
     if (selectedCustomer && points <= selectedCustomer.loyalty_points) {
       setLoyaltyPointsToUse(points);
+       // Update table-customer mapping
+       if (selectedTable?.id) {
+         setTableCustomer(selectedTable.id, {
+           customerId: selectedCustomer.id,
+           customerName: selectedCustomer.name,
+           customerPhone: selectedCustomer.phone,
+           customerLoyaltyPoints: selectedCustomer.loyalty_points,
+           loyaltyPointsToUse: points,
+         });
+       }
     }
   };
+  
+   // Notes handlers
+   const handleStartEditNotes = (itemId: string, currentNotes?: string, isSent?: boolean) => {
+     if (isSent) return;
+     setEditingNotesId(itemId);
+     setNoteValue(currentNotes || '');
+   };
+ 
+   const handleSaveNotes = (itemId: string) => {
+     updateCartItem(itemId, { notes: noteValue });
+     setEditingNotesId(null);
+     setNoteValue('');
+   };
 
   // Discount modal handler
   const handleApplyDiscount = (
@@ -362,7 +431,17 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
               {sentItems.map((item) => (
                 <CartItemCard
                   key={item.id}
-                  item={item}
+                   item={{
+                     id: item.id,
+                     productName: item.productName,
+                     productCode: item.productCode,
+                     portion: item.portion,
+                     quantity: item.quantity,
+                     unitPrice: item.unitPrice,
+                     sentToKitchen: item.sentToKitchen,
+                     printedQuantity: item.printedQuantity,
+                     notes: item.notes,
+                   }}
                   currencySymbol={currencySymbol}
                   onQuantityChange={handleQuantityChange}
                   onRemove={removeFromCart}
@@ -382,10 +461,29 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
               {pendingItems.map((item) => (
                 <CartItemCard
                   key={item.id}
-                  item={item}
+                   item={{
+                     id: item.id,
+                     productName: item.productName,
+                     productCode: item.productCode,
+                     portion: item.portion,
+                     quantity: item.quantity,
+                     unitPrice: item.unitPrice,
+                     sentToKitchen: item.sentToKitchen,
+                     printedQuantity: item.printedQuantity,
+                     notes: item.notes,
+                   }}
                   currencySymbol={currencySymbol}
                   onQuantityChange={handleQuantityChange}
                   onRemove={removeFromCart}
+                   onEditNotes={handleStartEditNotes}
+                   editingNotesId={editingNotesId}
+                   noteValue={noteValue}
+                   onNoteChange={setNoteValue}
+                   onSaveNotes={handleSaveNotes}
+                    onCancelEdit={() => {
+                      setEditingNotesId(null);
+                      setNoteValue('');
+                    }}
                 />
               ))}
             </div>
@@ -529,15 +627,34 @@ interface CartItemCardProps {
     unitPrice: number;
     sentToKitchen: boolean;
     printedQuantity: number;
+     notes?: string;
   };
   currencySymbol: string;
   onQuantityChange: (id: string, qty: number, sent: boolean, printed: number) => void;
   onRemove: (id: string) => void;
+   onEditNotes?: (id: string, currentNotes?: string) => void;
+   editingNotesId?: string | null;
+   noteValue?: string;
+   onNoteChange?: (value: string) => void;
+   onSaveNotes?: (id: string) => void;
+   onCancelEdit?: () => void;
 }
 
-function CartItemCard({ item, currencySymbol, onQuantityChange, onRemove }: CartItemCardProps) {
+ function CartItemCard({ 
+   item, 
+   currencySymbol, 
+   onQuantityChange, 
+   onRemove,
+   onEditNotes,
+   editingNotesId,
+   noteValue,
+   onNoteChange,
+   onSaveNotes,
+    onCancelEdit,
+ }: CartItemCardProps) {
   const isSent = item.sentToKitchen;
   const canDecrease = !isSent || item.quantity > item.printedQuantity;
+   const isEditingThis = editingNotesId === item.id;
 
   return (
     <div className={cn(
@@ -555,11 +672,40 @@ function CartItemCard({ item, currencySymbol, onQuantityChange, onRemove }: Cart
             <span>×</span>
             <span>{currencySymbol}{item.unitPrice}</span>
           </div>
+           {item.notes && (
+             <p className="text-xs text-accent mt-1 italic">"{item.notes}"</p>
+           )}
         </div>
         <span className="text-success font-semibold shrink-0">
           {currencySymbol}{(item.unitPrice * item.quantity).toFixed(2)}
         </span>
       </div>
+ 
+       {/* Notes editing inline */}
+       {isEditingThis && !isSent && (
+         <div className="mt-2 flex items-center gap-2">
+           <input
+             type="text"
+             value={noteValue || ''}
+             onChange={(e) => onNoteChange?.(e.target.value)}
+             placeholder="Add notes (e.g., extra spicy)"
+             className="flex-1 text-sm h-9 px-3 rounded-lg border border-border bg-secondary"
+             autoFocus
+             onKeyDown={(e) => {
+               if (e.key === 'Enter') onSaveNotes?.(item.id);
+                if (e.key === 'Escape') onCancelEdit?.();
+             }}
+           />
+           <Button
+             size="sm"
+             variant="ghost"
+             className="h-9 px-3"
+             onClick={() => onSaveNotes?.(item.id)}
+           >
+             Save
+           </Button>
+         </div>
+       )}
 
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-1">
@@ -582,16 +728,28 @@ function CartItemCard({ item, currencySymbol, onQuantityChange, onRemove }: Cart
             <Plus className="h-4 w-4" />
           </Button>
         </div>
-        {!isSent && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-destructive hover:text-destructive"
-            onClick={() => onRemove(item.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
+         <div className="flex items-center gap-1">
+           {!isSent && onEditNotes && (
+             <Button
+               variant="ghost"
+               size="icon"
+               className="h-9 w-9 text-muted-foreground"
+               onClick={() => onEditNotes(item.id, item.notes)}
+             >
+               <MessageSquare className="h-4 w-4" />
+             </Button>
+           )}
+           {!isSent && (
+             <Button
+               variant="ghost"
+               size="icon"
+               className="h-9 w-9 text-destructive hover:text-destructive"
+               onClick={() => onRemove(item.id)}
+             >
+               <Trash2 className="h-4 w-4" />
+             </Button>
+           )}
+         </div>
       </div>
     </div>
   );

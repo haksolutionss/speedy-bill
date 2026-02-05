@@ -43,7 +43,7 @@ const ITEMS_PER_PAGE = 20;
 export default function History() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'settled' | 'unsettled' | 'active'>('all');
+   const [statusFilter, setStatusFilter] = useState<'all' | 'settled' | 'unsettled' | 'active'>('settled');
   const [typeFilter, setTypeFilter] = useState<'all' | 'table' | 'parcel'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [printingBillId, setPrintingBillId] = useState<string | null>(null);
@@ -72,7 +72,9 @@ export default function History() {
         bill.table_number?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || bill.status === statusFilter;
       const matchesType = typeFilter === 'all' || bill.type === typeFilter;
-      return matchesSearch && matchesStatus && matchesType;
+       // Exclude deleted bills
+       const isNotDeleted = bill.status !== 'deleted';
+       return matchesSearch && matchesStatus && matchesType && isNotDeleted;
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
