@@ -1457,6 +1457,14 @@ export function EditViewBillingModule({
               finalAmount={totals.finalAmount}
               isParcel={isParcel}
               coverCount={bill.cover_count || undefined}
+              restaurantName={settings.business.name}
+              address={settings.business.address}
+              phone={settings.business.phone}
+              gstin={settings.business.gstNumber}
+              fssaiNumber={settings.business.fssaiNumber}
+              currencySymbol={settings.currency.symbol}
+              gstMode={settings.tax.gstMode}
+              showGST={settings.tax.type === 'gst'}
             />
           </div>
         </DialogContent>

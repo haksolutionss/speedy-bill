@@ -4,6 +4,7 @@ export interface BusinessInfo {
   phone: string;
   email: string;
   gstNumber: string;
+  fssaiNumber: string;
   logoUrl: string | null;
 }
 
@@ -101,6 +102,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     phone: '',
     email: '',
     gstNumber: '',
+    fssaiNumber: '',
     logoUrl: null,
   },
   tax: {

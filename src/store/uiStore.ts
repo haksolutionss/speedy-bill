@@ -15,6 +15,8 @@ export interface CartItem {
   sentToKitchen: boolean;
   // Track printed quantity for incremental KOT printing
   printedQuantity: number;
+  // For changeable category items - indicates price was manually entered
+  isCustomPrice?: boolean;
 }
 
 // Re-export calculateBillTotals from centralized location for backward compatibility
@@ -46,7 +48,7 @@ interface UIState {
   setCart: (cart: CartItem[]) => void;
 
   // Cart actions
-  addToCart: (product: ProductWithPortions, portion: string, quantity: number, overridePrice?: number) => void;
+  addToCart: (product: ProductWithPortions, portion: string, quantity: number, overridePrice?: number, isCustomPrice?: boolean) => void;
   updateCartItem: (itemId: string, updates: Partial<CartItem>) => void;
   removeFromCart: (itemId: string) => void;
   clearCart: () => void;
@@ -140,17 +142,36 @@ export const useUIStore = create<UIState>()(
 
       setCart: (cart) => set({ cart }),
 
-      addToCart: (product, portion, quantity, overridePrice) => {
+      addToCart: (product, portion, quantity, overridePrice, isCustomPrice = false) => {
         // portion is the size name (string)
         const portionData = product.portions.find((p) => p.size === portion);
         if (!portionData) return;
 
-        // Use override price if provided (for section-based pricing), otherwise use base price
+        // Use override price if provided (for section-based pricing or custom price), otherwise use base price
         const unitPrice = overridePrice ?? portionData.price;
+
+        // For custom price items, always create new cart entry (don't merge)
+        if (isCustomPrice) {
+          const newItem: CartItem = {
+            id: generateId(),
+            productId: product.id,
+            productName: product.name,
+            productCode: product.code,
+            portion,
+            quantity,
+            unitPrice,
+            gstRate: product.gst_rate,
+            sentToKitchen: false,
+            printedQuantity: 0,
+            isCustomPrice: true,
+          };
+          set({ cart: [...get().cart, newItem] });
+          return;
+        }
 
         // Find existing item that hasn't been sent to kitchen yet
         const existingPendingItem = get().cart.find(
-          (item) => item.productId === product.id && item.portion === portion && !item.sentToKitchen
+          (item) => item.productId === product.id && item.portion === portion && !item.sentToKitchen && !item.isCustomPrice
         );
 
         if (existingPendingItem) {
@@ -165,7 +186,7 @@ export const useUIStore = create<UIState>()(
         } else {
           // Check if there's a sent item we should add to instead
           const existingSentItem = get().cart.find(
-            (item) => item.productId === product.id && item.portion === portion && item.sentToKitchen
+            (item) => item.productId === product.id && item.portion === portion && item.sentToKitchen && !item.isCustomPrice
           );
 
           if (existingSentItem) {

@@ -2,9 +2,13 @@ import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHand
 import { Search, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useUIStore } from '@/store/uiStore';
-import { useGetProductsQuery } from '@/store/redux/api/billingApi';
+import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/redux/api/billingApi';
 import type { ProductWithPortions, DbProductPortion } from '@/types/database';
 import { cn } from '@/lib/utils';
+import { PriceInputModal } from './PriceInputModal';
+
+// Category name that triggers price input flow
+const CHANGEABLE_CATEGORY_NAME = 'changeable';
 
 interface ItemSearchProps {
   onItemAdded?: () => void;
@@ -22,9 +26,11 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
   const [selectedProduct, setSelectedProduct] = useState<ProductWithPortions | null>(null);
   const [selectedPortion, setSelectedPortion] = useState<DbProductPortion | null>(null);
   const [quantity, setQuantity] = useState('1');
-  const [step, setStep] = useState<'search' | 'portion' | 'quantity'>('search');
+  const [step, setStep] = useState<'search' | 'price' | 'portion' | 'quantity'>('search');
   // Flag to prevent Enter key event from bubbling to portion selection
   const [isTransitioning, setIsTransitioning] = useState(false);
+  // Custom price for changeable items
+  const [customPrice, setCustomPrice] = useState<number | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
@@ -32,11 +38,18 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
   const { addToCart, selectedTable, isParcelMode } = useUIStore();
   const { data: products = [] } = useGetProductsQuery();
+  const { data: categories = [] } = useGetCategoriesQuery();
 
   // Check if current table/section is Parcel (consistent with mobile component)
   const isParcel = useMemo(() => {
     return selectedTable?.number?.match(/^P\d+$/i) || isParcelMode;
   }, [selectedTable?.number, isParcelMode]);
+
+  // Check if a product belongs to changeable category
+  const isChangeableProduct = useCallback((product: ProductWithPortions): boolean => {
+    const category = categories.find(c => c.id === product.category_id);
+    return category?.name.toLowerCase() === CHANGEABLE_CATEGORY_NAME;
+  }, [categories]);
 
   // Expose focus method via ref
   useImperativeHandle(ref, () => ({
@@ -78,12 +91,21 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
   const handleSelectProduct = useCallback((product: ProductWithPortions) => {
     setSelectedProduct(product);
+    setCustomPrice(null); // Reset custom price
 
     if (!product.portions || product.portions.length === 0) {
       return;
     }
 
     const activePortions = product.portions.filter(p => p.is_active !== false);
+
+    // Check if this is a changeable category product
+    if (isChangeableProduct(product)) {
+      // For changeable products: show price input first
+      setSelectedPortion(activePortions[0]);
+      setStep('price');
+      return;
+    }
 
     if (isParcel) {
       // For Parcel: Show portion selection first (if multiple portions)
@@ -108,7 +130,13 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
       setShowPortionSelect(false);
       setTimeout(() => quantityRef.current?.focus(), 50);
     }
-  }, [isParcel]);
+  }, [isParcel, isChangeableProduct]);
+
+  const handlePriceConfirm = useCallback((price: number) => {
+    setCustomPrice(price);
+    setStep('quantity');
+    setTimeout(() => quantityRef.current?.focus(), 50);
+  }, []);
 
   const handleSelectPortion = useCallback((portion: DbProductPortion) => {
     setSelectedPortion(portion);
@@ -127,9 +155,10 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     }
 
     const qty = parseInt(quantity) || 1;
-    const sectionPrice = getSectionPrice(selectedPortion);
+    const isCustomPriceItem = customPrice !== null && customPrice > 0;
+    const finalPrice = isCustomPriceItem ? customPrice : getSectionPrice(selectedPortion);
 
-    addToCart(selectedProduct, selectedPortion.size, qty, sectionPrice);
+    addToCart(selectedProduct, selectedPortion.size, qty, finalPrice, isCustomPriceItem);
 
     // Reset state
     setQuery('');
@@ -139,10 +168,11 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
     setQuantity('1');
     setStep('search');
     setShowPortionSelect(false);
+    setCustomPrice(null);
 
     inputRef.current?.focus();
     onItemAdded?.();
-  }, [selectedProduct, selectedPortion, quantity, addToCart, onItemAdded, getSectionPrice]);
+  }, [selectedProduct, selectedPortion, quantity, addToCart, onItemAdded, getSectionPrice, customPrice]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (step === 'search') {
@@ -321,7 +351,10 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
               <span className="font-medium">{selectedProduct.name}</span>
               <span className="text-muted-foreground ml-2 capitalize">({selectedPortion.size})</span>
             </div>
-            <span className=" text-success">₹{getSectionPrice(selectedPortion)}</span>
+            <span className="text-success">
+              ₹{customPrice ?? getSectionPrice(selectedPortion)}
+              {customPrice && <span className="text-xs text-muted-foreground ml-1">(custom)</span>}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex-1">
@@ -333,13 +366,13 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 onKeyDown={handleQuantityKeyDown}
-                className="bg-secondary  text-center"
+                className="bg-secondary text-center"
               />
             </div>
             <div className="flex-1">
               <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
-              <div className="h-10 flex items-center justify-center bg-muted rounded-md  text-success">
-                ₹{getSectionPrice(selectedPortion) * (parseInt(quantity) || 1)}
+              <div className="h-10 flex items-center justify-center bg-muted rounded-md text-success">
+                ₹{(customPrice ?? getSectionPrice(selectedPortion)) * (parseInt(quantity) || 1)}
               </div>
             </div>
           </div>
@@ -357,6 +390,22 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
           <p className="text-sm">No items found for "{query}"</p>
         </div>
       )}
+
+      {/* Price Input Modal for Changeable Category */}
+      <PriceInputModal
+        open={step === 'price' && !!selectedProduct}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStep('search');
+            setSelectedProduct(null);
+            setSelectedPortion(null);
+            setCustomPrice(null);
+          }
+        }}
+        productName={selectedProduct?.name || ''}
+        onPriceConfirm={handlePriceConfirm}
+        defaultPrice={selectedPortion ? getSectionPrice(selectedPortion) : 0}
+      />
     </div>
   );
 });

@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      ac_hall_prices: {
+        Row: {
+          ac_hall_price: number | null
+          product_id: string | null
+          product_name: string | null
+          size_id: string | null
+          size_name: string | null
+        }
+        Insert: {
+          ac_hall_price?: number | null
+          product_id?: string | null
+          product_name?: string | null
+          size_id?: string | null
+          size_name?: string | null
+        }
+        Update: {
+          ac_hall_price?: number | null
+          product_id?: string | null
+          product_name?: string | null
+          size_id?: string | null
+          size_name?: string | null
+        }
+        Relationships: []
+      }
       bill_items: {
         Row: {
           bill_id: string
@@ -522,42 +546,6 @@ export type Database = {
         ]
       }
       product_portions_backup_2026_02_03: {
-        Row: {
-          created_at: string | null
-          id: string | null
-          is_active: boolean | null
-          price: number | null
-          product_id: string | null
-          section_prices: Json | null
-          size_id: string | null
-          template_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          price?: number | null
-          product_id?: string | null
-          section_prices?: Json | null
-          size_id?: string | null
-          template_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          price?: number | null
-          product_id?: string | null
-          section_prices?: Json | null
-          size_id?: string | null
-          template_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      product_portions_backup_2026_02_03_v2: {
         Row: {
           created_at: string | null
           id: string | null

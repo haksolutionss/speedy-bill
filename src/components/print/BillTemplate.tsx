@@ -22,12 +22,14 @@ interface BillTemplateProps {
   address?: string;
   phone?: string;
   gstin?: string;
+  fssaiNumber?: string;
   currencySymbol?: string;
   gstMode?: 'cgst_sgst' | 'igst';
   customerName?: string;
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
   showGST?: boolean; // Whether to show GST rows (based on tax type)
+  isPureVeg?: boolean; // Show Pure Veg indicator
 }
 
 export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
@@ -52,12 +54,14 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     address = "Juhapura",
     phone = "",
     gstin = "27XXXXX1234X1ZX",
+    fssaiNumber = "",
     currencySymbol = "₹",
     gstMode = "cgst_sgst",
     customerName,
     loyaltyPointsUsed = 0,
     loyaltyPointsEarned = 0,
     showGST = true, // Default to showing GST
+    isPureVeg = true, // Default to showing Pure Veg
   }, ref) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -259,20 +263,65 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
           }
           .bill-footer {
             text-align: center;
-            margin-top: 12px;
+            margin-top: 16px;
+            padding-top: 12px;
             font-size: 10px;
+            border-top: 1px dashed #000;
           }
           .bill-thank-you {
             font-size: 12px;
             font-weight: bold;
+            margin: 12px 0;
+          }
+          .bill-regulatory {
+            font-size: 9px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #000;
+          }
+          .bill-regulatory-item {
+            padding: 2px 0;
+          }
+          .pure-veg-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 8px;
+            font-size: 10px;
+            font-weight: bold;
+          }
+          .pure-veg-dot {
+            width: 12px;
+            height: 12px;
+            border: 2px solid #228B22;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .pure-veg-dot-inner {
+            width: 6px;
+            height: 6px;
+            background-color: #228B22;
+            border-radius: 50%;
+          }
+          .bill-spacing {
+            height: 16px;
           }
         `}</style>
 
         <div className="bill-header">
+          {isPureVeg && (
+            <div className="pure-veg-badge">
+              <div className="pure-veg-dot">
+                <div className="pure-veg-dot-inner" />
+              </div>
+              <span style={{ color: '#228B22' }}>PURE VEG</span>
+            </div>
+          )}
           <div className="bill-restaurant-name">{restaurantName}</div>
           <div className="bill-address">{address}</div>
           {phone && <div className="bill-address">Tel: {phone}</div>}
-          {gstin && <div className="bill-gstin">GSTIN: {gstin}</div>}
         </div>
 
         <div className="bill-info">
@@ -394,7 +443,25 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         )} */}
 
         <div className="bill-footer">
+          <div className="bill-spacing" />
           <div className="bill-thank-you">Thank You! Visit Again!</div>
+          <div className="bill-spacing" />
+          
+          {/* Regulatory Information */}
+          <div className="bill-regulatory">
+            {gstin && (
+              <div className="bill-regulatory-item">
+                <strong>GSTIN:</strong> {gstin}
+              </div>
+            )}
+            {fssaiNumber && (
+              <div className="bill-regulatory-item">
+                <strong>FSSAI Lic. No:</strong> {fssaiNumber}
+              </div>
+            )}
+          </div>
+          
+          <div className="bill-spacing" />
         </div>
       </div>
     );

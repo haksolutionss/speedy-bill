@@ -29,6 +29,7 @@ interface BillPreviewDialogProps {
   address: string;
   phone: string;
   gstin?: string;
+  fssaiNumber?: string;
   currencySymbol: string;
   gstMode: 'cgst_sgst' | 'igst';
   customerName?: string;
@@ -57,6 +58,7 @@ export function BillPreviewDialog({
   address,
   phone,
   gstin,
+  fssaiNumber,
   currencySymbol,
   gstMode,
   customerName,
@@ -88,6 +90,7 @@ export function BillPreviewDialog({
             address={address}
             phone={phone}
             gstin={gstin}
+            fssaiNumber={fssaiNumber}
             currencySymbol={currencySymbol}
             gstMode={gstMode}
             customerName={customerName}
