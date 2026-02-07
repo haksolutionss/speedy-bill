@@ -12,6 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { PriceInputModal } from '@/components/billing/PriceInputModal';
+
+// Category name that triggers price input flow
+const CHANGEABLE_CATEGORY_NAME = 'changeable';
 
 interface MobileProductsTabProps {
   onItemAdded?: () => void;
@@ -21,10 +25,11 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [portionModal, setPortionModal] = useState<ProductWithPortions | null>(null);
-  const [quantityModal, setQuantityModal] = useState<{ product: ProductWithPortions; portion: DbProductPortion } | null>(null);
+  const [quantityModal, setQuantityModal] = useState<{ product: ProductWithPortions; portion: DbProductPortion; customPrice?: number } | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [noteValue, setNoteValue] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
+  const [priceInputModal, setPriceInputModal] = useState<{ product: ProductWithPortions; portion: DbProductPortion } | null>(null);
 
   const { data: products = [], isLoading: productsLoading } = useGetProductsQuery();
   const { data: categories = [], isLoading: categoriesLoading } = useGetCategoriesQuery();
@@ -36,6 +41,12 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
   const isParcel = useMemo(() => {
     return selectedTable?.number?.match(/^P\d+$/i) || isParcelMode;
   }, [selectedTable?.number, isParcelMode]);
+
+  // Check if a product belongs to changeable category
+  const isChangeableProduct = useCallback((product: ProductWithPortions): boolean => {
+    const category = categories.find(c => c.id === product.category_id);
+    return category?.name.toLowerCase() === CHANGEABLE_CATEGORY_NAME;
+  }, [categories]);
 
   // Get section-based price
   const getSectionPrice = useCallback((portion: DbProductPortion): number => {
@@ -71,6 +82,14 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
 
     if (activePortions.length === 0) return;
 
+    // Check if this is a changeable category product
+    if (isChangeableProduct(product)) {
+      // For changeable products: always show price input first
+      const portion = activePortions[0];
+      setPriceInputModal({ product, portion });
+      return;
+    }
+
     if (isParcel) {
       // For Parcel: Show portion selection first (if multiple portions)
       if (activePortions.length === 1) {
@@ -94,6 +113,18 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
     }
   };
 
+  const handlePriceConfirm = (price: number) => {
+    if (!priceInputModal) return;
+    const { product, portion } = priceInputModal;
+    
+    // After price is entered, go to quantity modal with custom price
+    setQuantityModal({ product, portion, customPrice: price });
+    setPriceInputModal(null);
+    setQuantity(1);
+    setNoteValue('');
+    setShowNoteInput(false);
+  };
+
   const handlePortionSelect = (portion: DbProductPortion) => {
     if (!portionModal) return;
     setQuantityModal({ product: portionModal, portion });
@@ -105,11 +136,14 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
 
   const handleAddWithQuantity = () => {
     if (!quantityModal) return;
-    const { product, portion } = quantityModal;
+    const { product, portion, customPrice } = quantityModal;
 
-    // Add to cart with notes (trimmed, undefined if empty)
-    const notes = noteValue.trim() || undefined;
-    addToCart(product, portion.size, quantity, getSectionPrice(portion));
+    // Determine the price to use
+    const isCustomPriceItem = customPrice !== undefined && customPrice > 0;
+    const finalPrice = isCustomPriceItem ? customPrice : getSectionPrice(portion);
+
+    // Add to cart - for custom price items, pass the flag
+    addToCart(product, portion.size, quantity, finalPrice, isCustomPriceItem);
 
     // Reset state
     setQuantityModal(null);
@@ -280,7 +314,8 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
             <div className="text-center">
               <p className="font-medium">{quantityModal?.product.name}</p>
               <p className="text-sm text-muted-foreground capitalize">
-                {quantityModal?.portion.size} - ₹{quantityModal?.portion && getSectionPrice(quantityModal.portion)}
+                {quantityModal?.portion.size} - ₹{quantityModal?.customPrice ?? (quantityModal?.portion && getSectionPrice(quantityModal.portion))}
+                {quantityModal?.customPrice && <span className="text-xs ml-1">(custom)</span>}
               </p>
             </div>
 
@@ -371,7 +406,7 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
             {/* Total */}
             <div className="text-center pt-2 border-t">
               <p className="text-lg font-semibold text-success">
-                Total: ₹{quantityModal?.portion && getSectionPrice(quantityModal.portion) * quantity}
+                Total: ₹{(quantityModal?.customPrice ?? (quantityModal?.portion && getSectionPrice(quantityModal.portion))) * quantity}
               </p>
             </div>
 
@@ -385,6 +420,15 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Price Input Modal for Changeable Category */}
+      <PriceInputModal
+        open={!!priceInputModal}
+        onOpenChange={(open) => !open && setPriceInputModal(null)}
+        productName={priceInputModal?.product.name || ''}
+        onPriceConfirm={handlePriceConfirm}
+        defaultPrice={priceInputModal?.portion ? getSectionPrice(priceInputModal.portion) : 0}
+      />
     </div>
   );
 }

@@ -137,6 +137,7 @@ export function BillActions() {
         address={businessInfo.address}
         phone={businessInfo.phone}
         gstin={taxType === 'gst' ? businessInfo.gstNumber : undefined}
+        fssaiNumber={businessInfo.fssaiNumber}
         currencySymbol={currencySymbol}
         gstMode={gstMode}
         customerName={selectedCustomer?.name}

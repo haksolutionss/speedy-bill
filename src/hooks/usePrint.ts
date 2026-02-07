@@ -138,6 +138,7 @@ export function usePrint() {
     address: settings.business.address || '',
     phone: settings.business.phone || '',
     gstNumber: settings.business.gstNumber || '',
+    fssaiNumber: settings.business.fssaiNumber || '',
   }), [settings.business]);
 
   // Tax settings helper

@@ -34,6 +34,7 @@ export interface BillData {
   address?: string;
   phone?: string;
   gstin?: string;
+  fssaiNumber?: string;
   currencySymbol?: string;
   gstMode?: 'cgst_sgst' | 'igst';
   customerName?: string;
@@ -41,6 +42,7 @@ export interface BillData {
   loyaltyPointsEarned?: number;
   showGST?: boolean; // Whether to show GST in print
   isReprint?: boolean; // Whether this is a reprint
+  isPureVeg?: boolean; // Pure Veg indicator
 }
 
 // Add this helper function at the top of the file, after the imports

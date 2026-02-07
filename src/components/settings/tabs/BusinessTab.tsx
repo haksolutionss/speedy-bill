@@ -45,6 +45,10 @@ export const BusinessTab = memo(({
         return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
     }, []);
 
+    const fssaiFilter = useMemo(() => (value: string) => {
+        return value.replace(/[^0-9]/g, '').slice(0, 14);
+    }, []);
+
     const getPhoneHelperText = useMemo(() => {
         if (!settings.business.phone) return undefined;
         const digitCount = settings.business.phone.replace(/\D/g, '').length;
@@ -56,6 +60,12 @@ export const BusinessTab = memo(({
         const length = settings.business.gstNumber.length;
         return `${length}/15 characters`;
     }, [settings.business.gstNumber]);
+
+    const getFssaiHelperText = useMemo(() => {
+        if (!settings.business.fssaiNumber) return undefined;
+        const length = settings.business.fssaiNumber.length;
+        return `${length}/14 digits`;
+    }, [settings.business.fssaiNumber]);
 
     return (
         <Card>
@@ -112,6 +122,18 @@ export const BusinessTab = memo(({
                         placeholder="22AAAAA0000A1Z5"
                         helperText={getGstHelperText}
                         inputFilter={gstFilter}
+                    />
+
+                    <FormField
+                        id="fssaiNumber"
+                        label="FSSAI License Number"
+                        value={settings.business.fssaiNumber || ''}
+                        onChange={(value) => handleFieldChange('fssaiNumber', value)}
+                        onBlur={() => handleFieldBlur('fssaiNumber', settings.business.fssaiNumber || '')}
+                        error={getError('fssaiNumber')}
+                        placeholder="10721026000597"
+                        helperText={getFssaiHelperText}
+                        inputFilter={fssaiFilter}
                     />
                 </div>
 
