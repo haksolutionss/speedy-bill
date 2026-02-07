@@ -1,3 +1,10 @@
-1. the loyalty added and and if i move to other table and comme back to that table again where loyalty was added it must not removed and must be peristent
-2. in history where we get bill_items, disabled or no active status tables must be showmn or bill must be shown .. we don't need to show this active table whos kot is not printed or bill is not printed must be shown in the history that means only settled bill will be shown in the history
-3. the notes added form mobile screens are not been seen in cart items list or in KOT
+1. the item like cold drink or ice cream, chocoalte , biscuit , namkeen wafers will have only one item and when user add that item and we have to show the quantity selection i want only for this items user can aslo edit the amount and here we have to handle for both mobile and dekstop screen where user selects this items we can create one category like changeable and when the category of item is this than show a price popup before any other popup and when user add that price and show portion selection if isParcel or qty selection and based on quantity multiply the total price and the price must be used in bill printing and aslo while saving in DB and in Edit bill too
+
+2. Add GSTIN no in bill at bottom and aslo add one this field in database in buisness settings FSSAI no -- 10721026000597 and aslo show that in the bill too at bottom aslo add some padding after the bill is completetd and we have this text Thank You! Visit Again! after this add some padding so that bill has good space from below so that it looked nice 
+
+3. aslo we need to add PURE VEG logo and icon like in indian have green rounded stuff that thing neeeds to be added in bill too
+
+
+MAKE SURE while editing this thing exstting fucntionlatiy don't break and u dont change any otehr stuff pleasee
+
+

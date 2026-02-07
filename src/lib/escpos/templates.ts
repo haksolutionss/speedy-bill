@@ -191,11 +191,9 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line(data.address);
   }
   if (data.phone) {
-    builder.line(`Tel: ${data.phone}`);
+    builder.line(`Mobile: ${data.phone}`);
   }
-  if (data.gstin) {
-    builder.line(`GSTIN: ${data.gstin}`);
-  }
+
 
   builder.dashedLine();
 
@@ -357,6 +355,9 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   //   }
   // }
 
+  if (data.gstin) {
+    builder.line(`GSTIN: ${data.gstin}`);
+  }
   // Footer
   builder
     .dashedLine()
