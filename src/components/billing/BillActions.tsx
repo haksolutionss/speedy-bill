@@ -1,8 +1,10 @@
 import { useBillActions } from '@/hooks/useBillActions';
+import { usePrint } from '@/hooks/usePrint';
 import { BillSummary } from './BillSummary';
 import { DiscountModal } from './DiscountModal';
 import { CustomerModal } from './CustomerModal';
 import { SplitPaymentModal } from './SplitPaymentModal';
+import { DevPrintPreviewModal } from './DevPrintPreviewModal';
 import {
   ActionButtons,
   PaymentDialog,
@@ -68,6 +70,9 @@ export function BillActions() {
     discountReason,
     settings,
   } = useBillActions();
+
+  // Dev preview modal controls from usePrint
+  const { showDevPreview, pendingBillData, confirmDevPrint, closeDevPreview } = usePrint();
 
   const { subTotal, discountAmount, cgstAmount, sgstAmount, totalAmount } = totals;
 
@@ -171,6 +176,47 @@ export function BillActions() {
         onConfirm={handleSplitPayment}
         finalAmount={finalAmount}
       />
+
+      {/* Development Print Preview Modal - Only shown in dev mode on desktop */}
+      {pendingBillData && (
+        <DevPrintPreviewModal
+          open={showDevPreview}
+          onOpenChange={(open) => {
+            if (!open) closeDevPreview();
+          }}
+          onConfirmPrint={confirmDevPrint}
+          billData={{
+            billNumber: pendingBillData.billNumber,
+            tableNumber: pendingBillData.tableNumber,
+            tokenNumber: pendingBillData.tokenNumber,
+            items: pendingBillData.items,
+            subTotal: pendingBillData.subTotal,
+            discountAmount: pendingBillData.discountAmount,
+            discountType: pendingBillData.discountType,
+            discountValue: pendingBillData.discountValue,
+            discountReason: pendingBillData.discountReason,
+            cgstAmount: pendingBillData.cgstAmount,
+            sgstAmount: pendingBillData.sgstAmount,
+            totalAmount: pendingBillData.totalAmount,
+            finalAmount: pendingBillData.finalAmount,
+            paymentMethod: pendingBillData.paymentMethod,
+            isParcel: pendingBillData.isParcel,
+            coverCount: pendingBillData.coverCount,
+            restaurantName: pendingBillData.restaurantName,
+            address: pendingBillData.address,
+            phone: pendingBillData.phone,
+            gstin: pendingBillData.gstin,
+            fssaiNumber: pendingBillData.fssaiNumber,
+            currencySymbol: pendingBillData.currencySymbol,
+            gstMode: pendingBillData.gstMode,
+            customerName: pendingBillData.customerName,
+            loyaltyPointsUsed: pendingBillData.loyaltyPointsUsed,
+            loyaltyPointsEarned: pendingBillData.loyaltyPointsEarned,
+            showGST: pendingBillData.showGST,
+            isPureVeg: pendingBillData.isPureVeg,
+          }}
+        />
+      )}
     </>
   );
 }

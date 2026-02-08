@@ -1,10 +1,11 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { usePosytudePrinter } from '@/hooks/usePosytudePrinter';
 import { printWithBrowser } from '@/lib/printService';
 import type { KOTData, BillData } from '@/lib/escpos/templates';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { shouldShowDevPrintPreview } from '@/lib/devMode';
 
 /**
  * Unified Print Hook
@@ -14,6 +15,10 @@ export function usePrint() {
   const printRef = useRef<HTMLDivElement>(null);
   const { settings } = useSettingsStore();
   const posytude = usePosytudePrinter();
+  
+  // State for development print preview
+  const [showDevPreview, setShowDevPreview] = useState(false);
+  const [pendingBillData, setPendingBillData] = useState<BillData | null>(null);
 
   // Print KOT
   const printKOT = useCallback(async (kotData: KOTData & { billId?: string }): Promise<{ success: boolean; method: string; error?: string }> => {
@@ -64,9 +69,8 @@ export function usePrint() {
     return { success: false, method: 'none', error: 'No print method available' };
   }, [posytude]);
 
-  // Print Bill
-  const printBill = useCallback(async (billData: BillData) => {
-
+  // Internal print bill function (actual printing)
+  const executePrintBill = useCallback(async (billData: BillData) => {
     // 🖨️ Electron → direct USB print
     if (posytude.isElectron && posytude.isConnected) {
       const result = await posytude.printBill(billData);
@@ -102,6 +106,34 @@ export function usePrint() {
       };
     }
   }, [posytude]);
+
+  // Print Bill - with optional dev preview
+  const printBill = useCallback(async (billData: BillData) => {
+    // Check if we should show dev preview (desktop + development mode + not Electron)
+    if (shouldShowDevPrintPreview()) {
+      setPendingBillData(billData);
+      setShowDevPreview(true);
+      return { success: true, method: 'dev-preview' };
+    }
+
+    // Direct print
+    return executePrintBill(billData);
+  }, [executePrintBill]);
+
+  // Confirm print from dev preview
+  const confirmDevPrint = useCallback(async () => {
+    if (pendingBillData) {
+      await executePrintBill(pendingBillData);
+      setPendingBillData(null);
+      setShowDevPreview(false);
+    }
+  }, [pendingBillData, executePrintBill]);
+
+  // Close dev preview without printing
+  const closeDevPreview = useCallback(() => {
+    setPendingBillData(null);
+    setShowDevPreview(false);
+  }, []);
 
   // Generic print function
   const print = useCallback(async (
@@ -173,6 +205,12 @@ export function usePrint() {
     printKOTDirect: printKOT,
     printBillDirect: printBill,
     openCashDrawer,
+    
+    // Dev preview controls
+    showDevPreview,
+    pendingBillData,
+    confirmDevPrint,
+    closeDevPreview,
 
     // Helpers
     getBusinessInfo,
