@@ -58,10 +58,6 @@ const breakTextIntoLines = (text: string, maxWordsPerLine: number = 3): string[]
   return lines;
 };
 
-// Format currency for printing
-const formatAmount = (amount: number, symbol: string = '₹'): string => {
-  return `${symbol}${amount.toFixed(2)}`.padStart(10);
-};
 
 // Format date for printing
 const formatDate = (): string => {
@@ -181,6 +177,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     store.incrementBillNumber();
   }
 
+  // Restaurant name and details - matching the image
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_WIDTH)
@@ -196,80 +193,83 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line(`Mobile: ${data.phone}`);
   }
 
+  builder.dashedLine();
+
+  // TAX INVOICE header with VEG label
+  builder
+    .align(Alignment.CENTER)
+    .bold(true)
+    .line('TAX INVOICE       PURE VEG')
+    .bold(false)
+    .line('');
+
+  // Bill info - matching image layout
+  builder
+    .align(Alignment.LEFT)
+    .twoColumns(`Bill No. ${currentBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || 0) : (data.tableNumber || '-')}`);
+
+  builder
+    .line(`Date: ${formatDate()}`)
+    .line('');
 
   builder.dashedLine();
 
-  // Bill info
-  builder
-    .align(Alignment.LEFT)
-    .twoColumns(`Bill No: ${currentBillNumber}`, `Date: ${formatDate()}`)
-    .twoColumns(
-      data.isParcel
-        ? `Parcel: ${data.tokenNumber || 0}`
-        : `Table: ${data.tableNumber || '-'}`,
-      `Time: ${formatTime()}`
-    );
-
-
-  builder
-    .bold(false)
-    .align(Alignment.LEFT)
-    .dashedLine();
-
-  // Items header
+  // Items header - matching the image exactly
   builder
     .bold(true)
-    .fourColumns('Item', 'Qty', 'Rate', 'Amt')
+    .threeColumns('Description', 'QTY', 'Rate Amount')
     .bold(false)
     .dashedLine();
 
-  // Items
-  // Items
-  data.items.forEach((item, index) => {
+  // Items - matching the image format
+  data.items.forEach((item) => {
     const itemName = item.portion !== 'single' && data.isParcel
-      ? `${index + 1}.${item.productName}(${item.portion})`
-      : `${index + 1}.${item.productName}`;
+      ? `${item.productName} (${item.portion})`
+      : item.productName;
 
     const itemLines = breakTextIntoLines(itemName, 3);
 
     // Print first line with quantity, rate, and amount
-    builder.fourColumns(
+    builder.threeColumns(
       itemLines[0],
       item.quantity.toString(),
-      item.unitPrice.toFixed(0),
-      (item.unitPrice * item.quantity).toFixed(2)
+      `${item.unitPrice.toFixed(2)}    ${(item.unitPrice * item.quantity).toFixed(2)}`
     );
 
     // Print remaining lines (if any) without quantity/rate/amount
     for (let i = 1; i < itemLines.length; i++) {
       builder.line(itemLines[i]);
     }
-
-    // if (item.notes) {
-    //   builder.line(`  >> ${item.notes}`);
-    // }
   });
-  builder.dashedLine();
 
-  // Totals - Right aligned single column
+  builder
+    .line('')
+    .dashedLine();
+
+  // Totals - Right aligned, matching image
   builder.align(Alignment.RIGHT);
 
-  builder.line(`Sub Total: ${formatAmount(data.subTotal, symbol)}`);
+  builder.line(`Total RS.: ${formatAmount(data.subTotal, '', true)}`);
+  builder.line('');
 
   if (data.discountAmount > 0) {
     const discountLabel = data.discountType === 'percentage'
       ? `Discount (${data.discountValue}%):`
       : 'Discount:';
     builder.line(`${discountLabel} -${formatAmount(data.discountAmount, symbol)}`);
+    builder.line('');
   }
 
   // Tax (only show if showGST is true or undefined for backward compatibility)
   if (data.showGST !== false) {
     if (data.gstMode === 'igst') {
-      builder.line(`IGST: ${formatAmount(data.cgstAmount + data.sgstAmount, symbol)}`);
+      const igstRate = data.items[0]?.gstRate || 5; // Get rate from first item or default to 5%
+      builder.line(`IGST @ ${igstRate}%: ${formatAmount(data.cgstAmount + data.sgstAmount, '', true)}`);
     } else {
-      builder.line(`CGST: ${formatAmount(data.cgstAmount, symbol)}`);
-      builder.line(`SGST: ${formatAmount(data.sgstAmount, symbol)}`);
+      const cgstRate = (data.items[0]?.gstRate || 5) / 2; // Half of total GST rate
+      const sgstRate = (data.items[0]?.gstRate || 5) / 2;
+      builder.line(`CGST @ ${cgstRate}%: ${formatAmount(data.cgstAmount, '', true)}`);
+      builder.line(`SGST @ ${sgstRate}%: ${formatAmount(data.sgstAmount, '', true)}`);
     }
   }
 
@@ -278,97 +278,44 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   const roundOff = data.finalAmount - calculatedTotal;
 
   if (Math.abs(roundOff) > 0.01) {
-    builder.line(`Round Off: ${roundOff >= 0 ? '+' : ''}${formatAmount(Math.abs(roundOff), symbol)}`);
+    builder.line(`Round Off: ${formatAmount(Math.abs(roundOff), '', true)}`);
   }
 
-  // Grand total
+  // Grand total - matching image exactly
   builder
-    .dashedLine()
     .bold(true)
-    .setFontSize(FontSize.DOUBLE_HEIGHT)
-    .line(`GRAND TOTAL: ${formatAmount(data.finalAmount, symbol)}`)
-    .setFontSize(FontSize.NORMAL)
+    .line(`Net Rs.: ${formatAmount(data.finalAmount, '', true)}`)
     .bold(false)
     .align(Alignment.LEFT);
 
-  // // GST Breakdown - Single column, right-aligned
-  // const gstBreakdown: Record<number, { taxable: number; cgst: number; sgst: number }> = {};
-  // data.items.forEach(item => {
-  //   const itemTotal = item.unitPrice * item.quantity;
-  //   const itemDiscount = data.discountAmount > 0 ? (itemTotal / data.subTotal) * data.discountAmount : 0;
-  //   const taxable = itemTotal - itemDiscount;
-  //   const gst = taxable * (item.gstRate / 100);
+  builder.dashedLine();
 
-  //   if (!gstBreakdown[item.gstRate]) {
-  //     gstBreakdown[item.gstRate] = { taxable: 0, cgst: 0, sgst: 0 };
-  //   }
-  //   gstBreakdown[item.gstRate].taxable += taxable;
-  //   gstBreakdown[item.gstRate].cgst += gst / 2;
-  //   gstBreakdown[item.gstRate].sgst += gst / 2;
-  // });
+  // Footer details - matching image
+  builder.align(Alignment.CENTER);
 
-  // if (Object.keys(gstBreakdown).length > 0) {
-  //   builder
-  //     .dashedLine()
-  //     .align(Alignment.CENTER)
-  //     .line('GST BREAKDOWN')
-  //     .align(Alignment.LEFT);
-
-  //   Object.entries(gstBreakdown).forEach(([rate, vals]) => {
-  //     if (data.gstMode === 'igst') {
-  //       builder.twoColumns(
-  //         `${rate}% IGST on ${vals.taxable.toFixed(0)}:`,
-  //         `${symbol}${(vals.cgst + vals.sgst).toFixed(2)}`
-  //       );
-  //     } else {
-  //       // Single column with right-aligned total GST amount
-  //       builder.twoColumns(
-  //         `${rate}% on ${vals.taxable.toFixed(0)}:`,
-  //         `${symbol}${(vals.cgst + vals.sgst).toFixed(2)}`
-  //       );
-  //     }
-  //   });
-  // }
-
-  // Payment method
-  // if (data.paymentMethod) {
-  //   builder
-  //     .dashedLine()
-  //     .align(Alignment.CENTER)
-  //     .inverse(true)
-  //     .line(` PAID BY: ${data.paymentMethod.toUpperCase()} `)
-  //     .inverse(false);
-  // }
-
-  // Customer & Loyalty
-  // if (data.customerName || data.loyaltyPointsUsed || data.loyaltyPointsEarned) {
-  //   builder
-  //     .dashedLine()
-  //     .align(Alignment.LEFT);
-
-  //   if (data.customerName) {
-  //     builder.line(`Customer: ${data.customerName}`);
-  //   }
-  //   if (data.loyaltyPointsUsed && data.loyaltyPointsUsed > 0) {
-  //     builder.line(`Points Redeemed: ${data.loyaltyPointsUsed}`);
-  //   }
-  //   if (data.loyaltyPointsEarned && data.loyaltyPointsEarned > 0) {
-  //     builder.line(`Points Earned: +${data.loyaltyPointsEarned}`);
-  //   }
-  // }
-
+  if (data.fssaiNumber) {
+    builder.line(`FASSAI LIC No: ${data.fssaiNumber}`);
+  }
   if (data.gstin) {
     builder.line(`GSTIN: ${data.gstin}`);
   }
-  // Footer
+  // if (data.hsnSacCode) {
+  //   builder.line(`HSN/SAC CODE: ${data.hsnSacCode}`);
+  // }
+
+  // Footer message
   builder
-    .dashedLine()
-    .align(Alignment.CENTER)
-    .bold(true)
-    .line('Thank You! Visit Again!')
-    .bold(false)
+    .line('.........THANKS FOR VISIT........')
     .feed(4)
     .partialCut();
 
   return builder.build();
+};
+
+// Helper function to format amount (updated to match image)
+const formatAmount = (amount: number, symbol: string = '', noSymbol: boolean = false): string => {
+  if (noSymbol) {
+    return amount.toFixed(2);
+  }
+  return symbol ? `${symbol}${amount.toFixed(2)}` : amount.toFixed(2);
 };

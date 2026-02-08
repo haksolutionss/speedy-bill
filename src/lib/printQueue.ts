@@ -25,6 +25,7 @@ export interface BillPrintData {
   businessName?: string;
   businessAddress?: string;
   businessPhone?: string;
+  fssaiNumber?: string;
   gstNumber?: string;
   items: Array<{
     name: string;
@@ -198,7 +199,7 @@ export const getLocalAgentStatus = async (): Promise<{
     });
 
     clearTimeout(timeout);
-    
+
     if (response.ok) {
       const data = await response.json();
       return {
@@ -207,7 +208,7 @@ export const getLocalAgentStatus = async (): Promise<{
         printers: data.printers,
       };
     }
-    
+
     return { available: false };
   } catch {
     return { available: false };

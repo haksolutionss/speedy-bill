@@ -105,6 +105,7 @@ export function useBillActions() {
       finalAmount,
       isParcel: isParcelMode,
       restaurantName: businessInfo.name,
+      fssaiNumber: businessInfo.fssaiNumber,
       address: businessInfo.address,
       phone: businessInfo.phone,
       gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,

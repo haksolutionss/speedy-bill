@@ -7,14 +7,14 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
-import { 
-  queueKOTPrint, 
-  queueBillPrint, 
+import {
+  queueKOTPrint,
+  queueBillPrint,
   queueTestPrint,
   checkLocalAgent,
   getLocalAgentStatus,
   type KOTPrintData,
-  type BillPrintData 
+  type BillPrintData
 } from '@/lib/printQueue';
 import { printWithBrowser } from '@/lib/printService';
 import { toast } from 'sonner';
@@ -60,7 +60,7 @@ export function usePrintQueue() {
   ): Promise<PrintResult> => {
     // Try cloud queue first
     const result = await queueKOTPrint(data, printerRole);
-    
+
     if (result.success) {
       return { success: true, method: 'queue', jobId: result.job_id };
     }
@@ -88,13 +88,15 @@ export function usePrintQueue() {
       businessName: data.businessName || settings.business.name,
       businessAddress: data.businessAddress || settings.business.address,
       businessPhone: data.businessPhone || settings.business.phone,
+      fssaiNumber: data.fssaiNumber || settings.business.fssaiNumber,
       gstNumber: data.gstNumber || settings.business.gstNumber,
+
       currency: data.currency || settings.currency.symbol,
     };
 
     // Try cloud queue first
     const result = await queueBillPrint(enrichedData, 'counter');
-    
+
     if (result.success) {
       return { success: true, method: 'queue', jobId: result.job_id };
     }
@@ -116,7 +118,7 @@ export function usePrintQueue() {
     printerRole: 'counter' | 'kitchen' | 'bar' = 'counter'
   ): Promise<PrintResult> => {
     const result = await queueTestPrint(printerRole);
-    
+
     if (result.success) {
       return { success: true, method: 'queue', jobId: result.job_id };
     }
