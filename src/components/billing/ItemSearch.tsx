@@ -134,6 +134,7 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
 
   const handlePriceConfirm = useCallback((price: number) => {
     setCustomPrice(price);
+    setShowPortionSelect(false); // Ensure portion select is closed
     setStep('quantity');
     setTimeout(() => quantityRef.current?.focus(), 50);
   }, []);
@@ -395,11 +396,13 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
       <PriceInputModal
         open={step === 'price' && !!selectedProduct}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && step === 'price') {
+            // Only reset if user cancelled (not if transitioning to quantity)
             setStep('search');
             setSelectedProduct(null);
             setSelectedPortion(null);
             setCustomPrice(null);
+            setShowPortionSelect(false);
           }
         }}
         productName={selectedProduct?.name || ''}

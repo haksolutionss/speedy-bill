@@ -28,9 +28,34 @@ interface BillTemplateProps {
   customerName?: string;
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
-  showGST?: boolean; // Whether to show GST rows (based on tax type)
-  isPureVeg?: boolean; // Show Pure Veg indicator
+  showGST?: boolean;
+  isPureVeg?: boolean;
 }
+
+// Helper function to break text into lines
+const breakTextIntoLines = (text: string, maxWordsPerLine: number = 3): string[] => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+
+  for (let i = 0; i < words.length; i += maxWordsPerLine) {
+    const lineWords = words.slice(i, i + maxWordsPerLine);
+    lines.push(lineWords.join(' '));
+  }
+
+  return lines;
+};
+
+// Format date for printing
+const formatDate = (): string => {
+  const now = new Date();
+  return now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+// Format time for printing
+const formatTime = (): string => {
+  const now = new Date();
+  return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+};
 
 export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
   ({
@@ -42,53 +67,24 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     discountAmount,
     discountType,
     discountValue,
-    discountReason,
     cgstAmount,
     sgstAmount,
-    totalAmount,
     finalAmount,
     paymentMethod,
     isParcel,
-    coverCount,
-    restaurantName = "Hotel Aqsa",
-    address = "Juhapura",
+    restaurantName = "Restaurant",
+    address = "",
     phone = "",
-    gstin = "27XXXXX1234X1ZX",
+    gstin = "",
     fssaiNumber = "",
-    currencySymbol = "₹",
     gstMode = "cgst_sgst",
-    customerName,
-    loyaltyPointsUsed = 0,
-    loyaltyPointsEarned = 0,
-    showGST = true, // Default to showing GST
-    isPureVeg = true, // Default to showing Pure Veg
+    showGST = true,
+    isPureVeg = true,
   }, ref) => {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    // Group items by GST rate for tax breakdown (only if GST is enabled)
-    const gstBreakdown: Record<number, { taxableAmount: number; cgst: number; sgst: number; igst: number }> = {};
-
-    if (showGST) {
-      items.forEach(item => {
-        const itemTotal = item.unitPrice * item.quantity;
-        const itemDiscount = discountAmount > 0 ? (itemTotal / subTotal) * discountAmount : 0;
-        const taxableAmount = itemTotal - itemDiscount;
-        const gst = taxableAmount * (item.gstRate / 100);
-
-        if (!gstBreakdown[item.gstRate]) {
-          gstBreakdown[item.gstRate] = { taxableAmount: 0, cgst: 0, sgst: 0, igst: 0 };
-        }
-        gstBreakdown[item.gstRate].taxableAmount += taxableAmount;
-        if (gstMode === 'igst') {
-          gstBreakdown[item.gstRate].igst += gst;
-        } else {
-          gstBreakdown[item.gstRate].cgst += gst / 2;
-          gstBreakdown[item.gstRate].sgst += gst / 2;
-        }
-      });
-    }
+    // Calculate round off
+    const calculatedTotal = subTotal - discountAmount + cgstAmount + sgstAmount;
+    const roundOff = finalAmount - calculatedTotal;
 
     return (
       <div ref={ref} className="bill-print-template">
@@ -112,10 +108,6 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
               width: 80mm;
               background: white !important;
               color: black !important;
-              font-family: 'Courier New', monospace;
-              font-size: 11px;
-              line-height: 1.3;
-              padding: 3mm;
             }
           }
           .bill-print-template {
@@ -124,344 +116,230 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             color: black;
             font-family: 'Courier New', monospace;
             font-size: 11px;
-            line-height: 1.3;
+            line-height: 1.4;
             padding: 3mm;
           }
           .bill-header {
             text-align: center;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 8px;
             margin-bottom: 8px;
           }
           .bill-restaurant-name {
             font-size: 16px;
             font-weight: bold;
+            letter-spacing: 0.5px;
           }
           .bill-address {
-            font-size: 9px;
-            margin: 4px 0;
-          }
-          .bill-gstin {
             font-size: 10px;
+            margin: 2px 0;
           }
-          .bill-title {
-            font-size: 14px;
+          .bill-divider {
+            border: none;
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .bill-tax-invoice {
+            text-align: center;
             font-weight: bold;
-            margin-top: 8px;
-            letter-spacing: 1px;
+            font-size: 12px;
+            margin: 8px 0;
           }
-          .bill-info {
+          .pure-veg-text {
+            color: #228B22;
+            margin-left: 16px;
+          }
+          .bill-info-row {
             display: flex;
             justify-content: space-between;
-            padding: 2px 0;
-          }
-          .bill-table-info {
-            font-weight: bold;
-            text-align: center;
-            padding: 8px 0;
-            margin-bottom: 8px;
+            font-size: 10px;
+            margin: 2px 0;
           }
           .bill-items-header {
             display: flex;
             justify-content: space-between;
             font-weight: bold;
+            font-size: 10px;
             padding: 4px 0;
           }
-          .bill-items-header span:first-child {
-            flex: 1;
-          }
-          .bill-items-header span:nth-child(2) {
-            width: 30px;
-            text-align: center;
-          }
-          .bill-items-header span:nth-child(3) {
-            width: 45px;
-            text-align: right;
-          }
-          .bill-items-header span:last-child {
-            width: 55px;
-            text-align: right;
-          }
-          .bill-item {
+          .bill-items-header .col-desc { flex: 2; }
+          .bill-items-header .col-qty { width: 30px; text-align: center; }
+          .bill-items-header .col-rate-amt { width: 80px; text-align: right; }
+          .bill-item-row {
             display: flex;
             justify-content: space-between;
-            padding: 3px 0;
-          }
-          .bill-item span:first-child {
-            flex: 1;
             font-size: 10px;
-          }
-          .bill-item span:nth-child(2) {
-            width: 30px;
-            text-align: center;
-          }
-          .bill-item span:nth-child(3) {
-            width: 45px;
-            text-align: right;
-          }
-          .bill-item span:last-child {
-            width: 55px;
-            text-align: right;
-          }
-          .bill-item-notes {
-            font-size: 9px;
-            font-style: italic;
-            padding-left: 8px;
-            color: #666;
-          }
-          .bill-divider {
-            border-top: 1px dashed #000;
-            margin: 8px 0;
-          }
-         
-        .bill-total-row {
-          display: flex;
-          justify-content: flex-end;
-          gap: 16px;
-        }
-
-        .bill-total-row span:first-child {
-          min-width: 160px;
-          text-align: right;
-        }
-
-        .bill-total-row span:last-child {
-          min-width: 80px;
-          text-align: right;
-        }
-
-        .bill-total-row.final {
-          font-weight: bold;
-          font-size: 14px;
-          border-top: 1px dashed #000;
-          padding-top: 4px;
-          margin-top: 4px;
-        }
-
-          .bill-gst-breakdown {
-            font-size: 9px;
-            padding-top: 8px;
-            border-top: 1px dashed #000;
-          }
-          .bill-gst-header {
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #000;
-          }
-          .bill-gst-row {
-            display: flex;
-            justify-content: space-between;
             padding: 2px 0;
           }
-          .bill-payment {
-            text-align: center;
+          .bill-item-row .col-desc { flex: 2; word-break: break-word; }
+          .bill-item-row .col-qty { width: 30px; text-align: center; }
+          .bill-item-row .col-rate-amt { width: 80px; text-align: right; }
+          .bill-totals {
             margin-top: 8px;
-            padding: 8px;
-            border: 1px solid #000;
+          }
+          .bill-total-row {
+            display: flex;
+            justify-content: flex-end;
+            font-size: 10px;
+            margin: 2px 0;
+          }
+          .bill-total-row span:first-child {
+            margin-right: 16px;
+          }
+          .bill-total-row.grand-total {
+            font-weight: bold;
+            font-size: 12px;
           }
           .bill-footer {
             text-align: center;
             margin-top: 16px;
-            padding-top: 12px;
             font-size: 10px;
-            border-top: 1px dashed #000;
           }
           .bill-thank-you {
-            font-size: 12px;
             font-weight: bold;
+            font-size: 11px;
             margin: 12px 0;
+            letter-spacing: 1px;
           }
           .bill-regulatory {
             font-size: 9px;
             margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px dashed #000;
-          }
-          .bill-regulatory-item {
-            padding: 2px 0;
-          }
-          .pure-veg-badge {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            margin-bottom: 8px;
-            font-size: 10px;
-            font-weight: bold;
-          }
-          .pure-veg-dot {
-            width: 12px;
-            height: 12px;
-            border: 2px solid #228B22;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .pure-veg-dot-inner {
-            width: 6px;
-            height: 6px;
-            background-color: #228B22;
-            border-radius: 50%;
-          }
-          .bill-spacing {
-            height: 16px;
           }
         `}</style>
 
+        {/* Header */}
         <div className="bill-header">
-          {isPureVeg && (
-            <div className="pure-veg-badge">
-              <div className="pure-veg-dot">
-                <div className="pure-veg-dot-inner" />
-              </div>
-              <span style={{ color: '#228B22' }}>PURE VEG</span>
-            </div>
-          )}
           <div className="bill-restaurant-name">{restaurantName}</div>
-          <div className="bill-address">{address}</div>
-          {phone && <div className="bill-address">Tel: {phone}</div>}
+          {address && <div className="bill-address">{address}</div>}
+          {phone && <div className="bill-address">Mobile: {phone}</div>}
         </div>
 
-        <div className="bill-info">
-          <span>Bill No: {billNumber}</span>
-          <span>Date: {dateStr}</span>
-        </div>
-        <div className="bill-info">
-          <span>Time: {timeStr}</span>
-          {coverCount && <span>Covers: {coverCount}</span>}
-          {isParcel ? `PARCEL - Token #${tokenNumber}` : `TABLE: ${tableNumber}`}
+        <hr className="bill-divider" />
+
+        {/* Tax Invoice Header with Pure Veg */}
+        <div className="bill-tax-invoice">
+          TAX INVOICE
+          {isPureVeg && <span className="pure-veg-text">PURE VEG</span>}
         </div>
 
+        {/* Bill Info */}
+        <div className="bill-info-row">
+          <span>Bill No. {billNumber}</span>
+          <span>T. No: {isParcel ? (tokenNumber || 0) : (tableNumber || '-')}</span>
+        </div>
+        <div className="bill-info-row">
+          <span>Date: {formatDate()}</span>
+          <span>Time: {formatTime()}</span>
+        </div>
+
+        <hr className="bill-divider" />
+
+        {/* Items Header */}
         <div className="bill-items-header">
-          <span>Item</span>
-          <span>Qty</span>
-          <span>Rate</span>
-          <span>Amount</span>
+          <span className="col-desc">Description</span>
+          <span className="col-qty">QTY</span>
+          <span className="col-rate-amt">Rate Amount</span>
         </div>
 
-        {items.map((item, index) => (
-          <div key={item.id}>
-            <div className="bill-item">
-              <span className='line-break' style={{
-                display: 'inline-block',
-                maxWidth: '150px',
-                wordWrap: 'break-word'
-              }}>
-                {index + 1}. {formatItemNameWithLineBreaks(
-                  item.productName + (isParcel && item.portion !== 'single' ? ` (${item.portion})` : '')
-                )}
-              </span>
-              <span>{item.quantity}</span>
-              <span>{item.unitPrice.toFixed(2)}</span>
-              <span>{(item.unitPrice * item.quantity).toFixed(2)}</span>
+        <hr className="bill-divider" />
+
+        {/* Items */}
+        {items.map((item) => {
+          const itemName = item.portion !== 'single' && isParcel
+            ? `${item.productName} (${item.portion})`
+            : item.productName;
+
+          const itemLines = breakTextIntoLines(itemName, 3);
+
+          return (
+            <div key={item.id}>
+              <div className="bill-item-row">
+                <span className="col-desc">{itemLines[0]}</span>
+                <span className="col-qty">{item.quantity}</span>
+                <span className="col-rate-amt">
+                  {item.unitPrice.toFixed(2)}    {(item.unitPrice * item.quantity).toFixed(2)}
+                </span>
+              </div>
+              {/* Remaining lines of item name */}
+              {itemLines.slice(1).map((line, idx) => (
+                <div key={idx} className="bill-item-row">
+                  <span className="col-desc">{line}</span>
+                  <span className="col-qty"></span>
+                  <span className="col-rate-amt"></span>
+                </div>
+              ))}
             </div>
-            {item.notes && (
-              <div className="bill-item-notes">» {item.notes}</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
-        <div className="bill-divider" />
+        <hr className="bill-divider" />
 
+        {/* Totals - Right aligned */}
         <div className="bill-totals">
           <div className="bill-total-row">
-            <span>Sub Total:</span>
-            <span>{currencySymbol}{subTotal.toFixed(2)}</span>
+            <span>Total RS.:</span>
+            <span>{subTotal.toFixed(2)}</span>
           </div>
+
           {discountAmount > 0 && (
             <div className="bill-total-row">
               <span>
-                Discount
-                {discountType === 'percentage' ? ` (${discountValue}%)` : ''}
-                {discountReason && ` - ${discountReason}`}:
+                Discount{discountType === 'percentage' ? ` (${discountValue}%)` : ''}:
               </span>
-              <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
+              <span>-{discountAmount.toFixed(2)}</span>
             </div>
           )}
-          {showGST && gstMode === 'igst' ? (
+
+          {/* Tax rows - only if showGST is true */}
+          {showGST && (
+            gstMode === 'igst' ? (
+              <div className="bill-total-row">
+                <span>IGST @ {items[0]?.gstRate || 5}%:</span>
+                <span>{(cgstAmount + sgstAmount).toFixed(2)}</span>
+              </div>
+            ) : (
+              <>
+                <div className="bill-total-row">
+                  <span>CGST @ {(items[0]?.gstRate || 5) / 2}%:</span>
+                  <span>{cgstAmount.toFixed(2)}</span>
+                </div>
+                <div className="bill-total-row">
+                  <span>SGST @ {(items[0]?.gstRate || 5) / 2}%:</span>
+                  <span>{sgstAmount.toFixed(2)}</span>
+                </div>
+              </>
+            )
+          )}
+
+          {/* Round off */}
+          {Math.abs(roundOff) > 0.01 && (
             <div className="bill-total-row">
-              <span>IGST:</span>
-              <span>{currencySymbol}{(cgstAmount + sgstAmount).toFixed(2)}</span>
+              <span>Round Off:</span>
+              <span>{Math.abs(roundOff).toFixed(2)}</span>
             </div>
-          ) : showGST ? (
-            <>
-              <div className="bill-total-row">
-                <span>CGST:</span>
-                <span>{currencySymbol}{cgstAmount.toFixed(2)}</span>
-              </div>
-              <div className="bill-total-row">
-                <span>SGST:</span>
-                <span>{currencySymbol}{sgstAmount.toFixed(2)}</span>
-              </div>
-            </>
-          ) : null}
-          <div className="bill-total-row final">
-            <span>GRAND TOTAL:</span>
-            <span>{currencySymbol}{finalAmount.toFixed(2)}</span>
+          )}
+
+          {/* Grand Total */}
+          <div className="bill-total-row grand-total">
+            <span>Net Rs.:</span>
+            <span>{finalAmount.toFixed(2)}</span>
           </div>
         </div>
 
-        {/* {Object.keys(gstBreakdown).length > 0 && (
-          <div className="bill-gst-breakdown">
-            <div className="bill-gst-header">
-              <span>GST%</span>
-              <span>Taxable</span>
-              {gstMode === 'igst' ? <span>IGST</span> : <><span>CGST</span><span>SGST</span></>}
-            </div>
-            {Object.entries(gstBreakdown).map(([rate, data]) => (
-              <div key={rate} className="bill-gst-row">
-                <span>{rate}%</span>
-                <span>{data.taxableAmount.toFixed(2)}</span>
-                {gstMode === 'igst' ? (
-                  <span>{data.igst.toFixed(2)}</span>
-                ) : (
-                  <>
-                    <span>{data.cgst.toFixed(2)}</span>
-                    <span>{data.sgst.toFixed(2)}</span>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )} */}
+        <hr className="bill-divider" />
 
-        {paymentMethod && (
-          <div className="bill-payment">
-            <strong>PAID BY: {paymentMethod.toUpperCase()}</strong>
-          </div>
-        )}
-
-        {/* Loyalty Info */}
-        {/* {(loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0 || customerName) && (
-          <div style={{ marginTop: '0px', padding: '4px 0', borderTop: '1px dashed #000', fontSize: '10px' }}>
-            {customerName && <div>Customer: {customerName}</div>}
-            {loyaltyPointsUsed > 0 && <div>Points Redeemed: {loyaltyPointsUsed}</div>}
-            {loyaltyPointsEarned > 0 && <div>Points Earned: +{loyaltyPointsEarned}</div>}
-          </div>
-        )} */}
-
+        {/* Footer */}
         <div className="bill-footer">
-          <div className="bill-spacing" />
-          <div className="bill-thank-you">Thank You! Visit Again!</div>
-          <div className="bill-spacing" />
-          
           {/* Regulatory Information */}
-          <div className="bill-regulatory">
-            {gstin && (
-              <div className="bill-regulatory-item">
-                <strong>GSTIN:</strong> {gstin}
-              </div>
-            )}
-            {fssaiNumber && (
-              <div className="bill-regulatory-item">
-                <strong>FSSAI Lic. No:</strong> {fssaiNumber}
-              </div>
-            )}
+          {fssaiNumber && (
+            <div className="bill-regulatory">FASSAI LIC No: {fssaiNumber}</div>
+          )}
+          {gstin && (
+            <div className="bill-regulatory">GSTIN: {gstin}</div>
+          )}
+
+          {/* Thank You Message */}
+          <div className="bill-thank-you">
+            .........THANKS FOR VISIT........
           </div>
-          
-          <div className="bill-spacing" />
         </div>
       </div>
     );
@@ -469,23 +347,3 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 );
 
 BillTemplate.displayName = 'BillTemplate';
-
-
-
-// Add this helper function before the component or inside it
-const formatItemNameWithLineBreaks = (name: string, maxWordsPerLine: number = 3): JSX.Element[] => {
-  const words = name.split(' ');
-  const lines: JSX.Element[] = [];
-
-  for (let i = 0; i < words.length; i += maxWordsPerLine) {
-    const lineWords = words.slice(i, i + maxWordsPerLine);
-    lines.push(
-      <span key={i}>
-        {lineWords.join(' ')}
-        {i + maxWordsPerLine < words.length && <br />}
-      </span>
-    );
-  }
-
-  return lines;
-};

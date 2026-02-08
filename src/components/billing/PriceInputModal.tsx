@@ -34,7 +34,7 @@ export function PriceInputModal({
     const numericPrice = parseFloat(price) || 0;
     if (numericPrice > 0) {
       onPriceConfirm(numericPrice);
-      onOpenChange(false);
+      // Don't call onOpenChange(false) here - parent manages step state
     }
   };
 
