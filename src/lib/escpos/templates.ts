@@ -59,12 +59,6 @@ const breakTextIntoLines = (text: string, maxWordsPerLine: number = 3): string[]
 };
 
 
-// Format date for printing
-const formatDate = (): string => {
-  const now = new Date();
-  return now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
 // Format time for printing
 const formatTime = (): string => {
   const now = new Date();
@@ -152,10 +146,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 
   return builder.build();
 };
-
-/**
- * Generate ESC/POS commands for clean Bill printing
- */
 export const generateBillCommands = (
   data: BillData,
   paperWidth: PaperWidth = '80mm'
@@ -170,126 +160,210 @@ export const generateBillCommands = (
     store.incrementBillNumber();
   }
 
+  const width = paperWidth === '80mm' ? 48 : 32;
 
-  builder
-    .align(Alignment.CENTER)
-    .bold(true)
-    .setFontSize(FontSize.DOUBLE_WIDTH)
-    .line(data.restaurantName || 'Restaurant')
-    .setFontSize(FontSize.NORMAL)
-    .bold(false);
+  // Draw top border
+  builder.line('┌' + '─'.repeat(width - 2) + '┐');
 
-  if (data.address) builder.line(data.address);
-  if (data.phone) builder.line(`Mobile: ${data.phone}`);
+  // Company name - centered, no bold in header
+  const companyName = data.restaurantName || 'RESTAURANT';
+  const companyPadding = Math.floor((width - companyName.length - 2) / 2);
+  builder.line('│' + ' '.repeat(companyPadding) + companyName + ' '.repeat(width - companyName.length - companyPadding - 2) + '│');
 
-  builder.line('');
-  builder.bold(true).line('TAX INVOICE').bold(false);
-  builder.line('PURE VEG');
-  builder.line('');
+  // Address lines - each on separate line, centered
+  if (data.address) {
+    const addressLines = data.address.split(',').map(line => line.trim());
+    addressLines.forEach(line => {
+      const linePadding = Math.floor((width - line.length - 2) / 2);
+      builder.line('│' + ' '.repeat(linePadding) + line + ' '.repeat(width - line.length - linePadding - 2) + '│');
+    });
+  }
 
+  // Phone
+  if (data.phone) {
+    const phoneLine = `Mobile: ${data.phone}`;
+    const phonePadding = Math.floor((width - phoneLine.length - 2) / 2);
+    builder.line('│' + ' '.repeat(phonePadding) + phoneLine + ' '.repeat(width - phoneLine.length - phonePadding - 2) + '│');
+  }
 
-  builder
-    .align(Alignment.LEFT)
-    .twoColumns(
-      `Bill No: ${currentBillNumber}`,
-      `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`
-    )
-    .line(`Date: ${formatDate()}`)
-    .line('');
+  // Separator before TAX INVOICE
+  builder.line('├' + '─'.repeat(width - 2) + '┤');
 
+  // TAX INVOICE box - with bold borders
+  const taxInvoice = 'TAX INVOICE';
+  const vegType = 'PURE VEG';
 
-  builder
-    .bold(true)
-    .threeColumns('Description', 'QTY', 'Amount')
-    .bold(false)
-    .line('');
+  // Create inner box for TAX INVOICE
+  const invoiceWidth = 20;
+  const vegWidth = 18;
+  const totalInnerWidth = invoiceWidth + vegWidth + 3;
+  const innerPadding = Math.floor((width - totalInnerWidth - 2) / 2);
 
+  builder.line('│' + ' '.repeat(innerPadding) + '┌' + '─'.repeat(invoiceWidth) + '┬' + '─'.repeat(vegWidth) + '┐' + ' '.repeat(width - totalInnerWidth - innerPadding - 2) + '│');
 
+  const taxPad = Math.floor((invoiceWidth - taxInvoice.length) / 2);
+  const vegPad = Math.floor((vegWidth - vegType.length) / 2);
+  builder.line('│' + ' '.repeat(innerPadding) + '│' + ' '.repeat(taxPad) + taxInvoice + ' '.repeat(invoiceWidth - taxInvoice.length - taxPad) + '│' + ' '.repeat(vegPad) + vegType + ' '.repeat(vegWidth - vegType.length - vegPad) + '│' + ' '.repeat(width - totalInnerWidth - innerPadding - 2) + '│');
+  builder.line('│' + ' '.repeat(innerPadding) + '└' + '─'.repeat(invoiceWidth) + '┴' + '─'.repeat(vegWidth) + '┘' + ' '.repeat(width - totalInnerWidth - innerPadding - 2) + '│');
+
+  // Separator
+  builder.line('├' + '─'.repeat(width - 2) + '┤');
+
+  // Bill No and T. No
+  const billNo = `Bill No. ${currentBillNumber}`;
+  const tableNo = `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`;
+  const billTableGap = width - billNo.length - tableNo.length - 2;
+  builder.line('│' + billNo + ' '.repeat(billTableGap) + tableNo + '│');
+
+  // Date
+  const dateLine = `Date: ${formatDate()}`;
+  builder.line('│' + dateLine + ' '.repeat(width - dateLine.length - 2) + '│');
+
+  // Separator before items
+  builder.line('├' + '─'.repeat(width - 2) + '┤');
+
+  // Table header
+  const desc = 'Description';
+  const qty = 'QTY';
+  const rate = 'Rate';
+  const amount = 'Amount';
+
+  // Column widths
+  const descCol = 22;
+  const qtyCol = 5;
+  const rateCol = 10;
+  const amtCol = 10;
+
+  const headerLine = '│' + desc + ' '.repeat(descCol - desc.length) +
+    qty + ' '.repeat(qtyCol - qty.length) +
+    rate + ' '.repeat(rateCol - rate.length) +
+    amount + ' '.repeat(width - descCol - qtyCol - rateCol - amount.length - 2) + '│';
+  builder.line(headerLine);
+
+  builder.line('├' + '─'.repeat(width - 2) + '┤');
+
+  // Items
   data.items.forEach(item => {
-    const name =
-      item.portion !== 'single' && data.isParcel
-        ? `${item.productName} (${item.portion})`
-        : item.productName;
+    const name = item.portion !== 'single' && data.isParcel
+      ? `${item.productName} (${item.portion})`
+      : item.productName;
 
-    const lines = breakTextIntoLines(name, 3);
-    const amount = (item.unitPrice * item.quantity).toFixed(2);
+    const itemQty = item.quantity.toString();
+    const itemRate = item.unitPrice.toFixed(2);
+    const itemAmount = (item.unitPrice * item.quantity).toFixed(2);
 
-    builder.threeColumns(
-      lines[0],
-      item.quantity.toString(),
-      amount
-    );
+    // Truncate name if needed
+    const displayName = name.length > descCol ? name.substring(0, descCol - 3) + '...' : name;
 
-    for (let i = 1; i < lines.length; i++) {
-      builder.line(lines[i]);
-    }
+    const itemLine = '│' + displayName + ' '.repeat(descCol - displayName.length) +
+      itemQty + ' '.repeat(qtyCol - itemQty.length) +
+      itemRate + ' '.repeat(rateCol - itemRate.length) +
+      itemAmount + ' '.repeat(width - descCol - qtyCol - rateCol - itemAmount.length - 2) + '│';
+    builder.line(itemLine);
   });
 
-  builder.line('');
-  builder.line('');
+  // Empty line
+  builder.line('│' + ' '.repeat(width - 2) + '│');
 
-  builder.align(Alignment.RIGHT);
-  builder.line(`Total Rs.: ${formatAmount(data.subTotal, '', true)}`);
-  builder.line('');
+  builder.line('│' + ' '.repeat(descCol + qtyCol) + '─'.repeat(width - descCol - qtyCol - 2) + '│');
 
-  if (data.discountAmount > 0) {
-    const label =
-      data.discountType === 'percentage'
-        ? `Discount (${data.discountValue}%)`
-        : 'Discount';
+  // Total
+  const totalLabel = 'Total Rs.:';
+  const totalAmt = formatAmount(data.subTotal);
+  const totalLine = '│' + ' '.repeat(descCol + qtyCol) + totalLabel + ' '.repeat(rateCol - totalLabel.length) + totalAmt + ' '.repeat(width - descCol - qtyCol - rateCol - totalAmt.length - 2) + '│';
+  builder.line(totalLine);
 
-    builder.line(`${label}: -${formatAmount(data.discountAmount, '', true)}`);
-    builder.line('');
-  }
+  // Empty line
+  builder.line('│' + ' '.repeat(width - 2) + '│');
 
+  // GST
   if (data.showGST !== false) {
+    const gstRate = data.items[0]?.gstRate || 5;
+
     if (data.gstMode === 'igst') {
-      const rate = data.items[0]?.gstRate || 5;
-      builder.line(`IGST @ ${rate}%: ${formatAmount(data.cgstAmount + data.sgstAmount, '', true)}`);
+      const igstLabel = `IGST @ ${gstRate}%:`;
+      const igstAmt = formatAmount(data.cgstAmount + data.sgstAmount);
+      builder.line('│' + ' '.repeat(descCol + qtyCol) + igstLabel + ' '.repeat(rateCol - igstLabel.length) + igstAmt + ' '.repeat(width - descCol - qtyCol - rateCol - igstAmt.length - 2) + '│');
     } else {
-      const rate = (data.items[0]?.gstRate || 5) / 2;
-      builder.line(`CGST @ ${rate}%: ${formatAmount(data.cgstAmount, '', true)}`);
-      builder.line(`SGST @ ${rate}%: ${formatAmount(data.sgstAmount, '', true)}`);
+      const halfRate = gstRate / 2;
+
+      const cgstLabel = `C GST @ ${halfRate}%:`;
+      const cgstAmt = formatAmount(data.cgstAmount);
+      builder.line('│' + ' '.repeat(descCol + qtyCol) + cgstLabel + ' '.repeat(rateCol - cgstLabel.length) + cgstAmt + ' '.repeat(width - descCol - qtyCol - rateCol - cgstAmt.length - 2) + '│');
+
+      const sgstLabel = `S GST @ ${halfRate}%:`;
+      const sgstAmt = formatAmount(data.sgstAmount);
+      builder.line('│' + ' '.repeat(descCol + qtyCol) + sgstLabel + ' '.repeat(rateCol - sgstLabel.length) + sgstAmt + ' '.repeat(width - descCol - qtyCol - rateCol - sgstAmt.length - 2) + '│');
     }
   }
 
-  const calculatedTotal =
-    data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
+  // Round off
+  const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calculatedTotal;
 
   if (Math.abs(roundOff) > 0.01) {
-    builder.line(`Round Off: ${formatAmount(roundOff, '', true)}`);
+    const roundLabel = 'Round Off:';
+    const roundAmt = formatAmount(roundOff);
+    builder.line('│' + ' '.repeat(descCol + qtyCol) + roundLabel + ' '.repeat(rateCol - roundLabel.length) + roundAmt + ' '.repeat(width - descCol - qtyCol - rateCol - roundAmt.length - 2) + '│');
   }
 
-  builder.line('');
+  // Dotted line before net total
+  builder.line('│' + ' '.repeat(descCol + qtyCol) + '─'.repeat(width - descCol - qtyCol - 2) + '│');
 
-  builder
-    .bold(true)
-    .line(`Net Rs.: ${formatAmount(data.finalAmount, '', true)}`)
-    .bold(false)
-    .align(Alignment.LEFT)
-    .line('');
+  // Net Total (bold)
+  builder.bold(true);
+  const netLabel = 'Net Rs.:';
+  const netAmt = formatAmount(data.finalAmount);
+  const netLine = '│' + ' '.repeat(descCol + qtyCol) + netLabel + ' '.repeat(rateCol - netLabel.length) + netAmt + ' '.repeat(width - descCol - qtyCol - rateCol - netAmt.length - 2) + '│';
+  builder.line(netLine);
+  builder.bold(false);
 
-  builder.align(Alignment.CENTER);
+  // Separator
+  builder.line('├' + '─'.repeat(width - 2) + '┤');
 
-  if (data.fssaiNumber) builder.line(`FSSAI LIC No: ${data.fssaiNumber}`);
-  if (data.gstin) builder.line(`GSTIN: ${data.gstin}`);
+  // Footer - centered
+  if (data.fssaiNumber) {
+    const fssai = `FASSAI LIC No: ${data.fssaiNumber}`;
+    const fssaiPad = Math.floor((width - fssai.length - 2) / 2);
+    builder.line('│' + ' '.repeat(fssaiPad) + fssai + ' '.repeat(width - fssai.length - fssaiPad - 2) + '│');
+  }
 
-  builder.line('');
-  builder.line('THANK YOU FOR YOUR VISIT');
+  if (data.gstin) {
+    const gstin = `GSTIN: ${data.gstin}`;
+    const gstinPad = Math.floor((width - gstin.length - 2) / 2);
+    builder.line('│' + ' '.repeat(gstinPad) + gstin + ' '.repeat(width - gstin.length - gstinPad - 2) + '│');
+  }
 
-  builder.feed(6); // clean bottom padding
+  // if (data.hsnSacCode) {
+  //   const hsn = `HSN/SAC CODE: ${data.hsnSacCode}`;
+  //   const hsnPad = Math.floor((width - hsn.length - 2) / 2);
+  //   builder.line('│' + ' '.repeat(hsnPad) + hsn + ' '.repeat(width - hsn.length - hsnPad - 2) + '│');
+  // }
+
+  // Thank you with dots
+  const thanks = 'THANKS FOR VISIT';
+  const thanksPad = Math.floor((width - thanks.length - 12) / 2);
+  builder.line('│' + ' '.repeat(thanksPad) + '·······' + thanks + '·······' + ' '.repeat(width - thanks.length - thanksPad - 12 - 2) + '│');
+
+  // Bottom border
+  builder.line('└' + '─'.repeat(width - 2) + '┘');
+
+  builder.feed(4);
   builder.partialCut();
 
   return builder.build();
 };
 
-const formatAmount = (
-  amount: number,
-  symbol: string = '',
-  noSymbol: boolean = false
-): string => {
-  if (noSymbol) return amount.toFixed(2);
-  return symbol ? `${symbol}${amount.toFixed(2)}` : amount.toFixed(2);
+const formatDate = (): string => {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  return `${day}/${month}/${year}`;
 };
+
+const formatAmount = (amount: number): string => {
+  return amount.toFixed(2);
+};
+
 
