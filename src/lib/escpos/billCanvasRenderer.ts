@@ -1,293 +1,452 @@
-/**
- * Bill Canvas Renderer
- * Renders a bill layout to a canvas for raster bitmap printing
- * Targets 80mm thermal paper @ 203 DPI = 576 dots width
- */
-
 import type { BillData } from './templates';
-import { useUIStore } from '@/store/uiStore';
 
-/** Print width in dots for 80mm @ 203 DPI */
-const PRINT_WIDTH = 576;
-const MARGIN = 16;
+// ═══════════════════════════════════════════════════════════════
+// POSYTUDE YHD-8330 THERMAL PRINTER SPECIFICATIONS
+// ═══════════════════════════════════════════════════════════════
+const PRINTER_DPI = 203;
+const PRINTABLE_MM = 72;  // 80mm paper, ~72mm printable
+const CANVAS_WIDTH = Math.floor((PRINTABLE_MM / 25.4) * PRINTER_DPI);  // ≈ 576 px
 
-/** Font definitions for canvas rendering */
-const FONTS = {
-  header: 'bold 28px "Courier New", monospace',
-  normalBold: 'bold 20px "Courier New", monospace',
-  normal: '20px "Courier New", monospace',
-  small: '16px "Courier New", monospace',
-  smallBold: 'bold 16px "Courier New", monospace',
-  netTotal: 'bold 24px "Courier New", monospace',
-} as const;
+// High-density rendering for sharp thermal output
+const SCALE = 2;
+const SCALED_WIDTH = CANVAS_WIDTH * SCALE;
 
-/** Drawing context that tracks current Y position */
-interface DrawContext {
-  ctx: CanvasRenderingContext2D;
-  y: number;
-  width: number;
-  margin: number;
-}
+// Thermal-safe typography (CRITICAL - do not reduce these values)
+const FONT_NORMAL = '20px';
+const FONT_BOLD = 'bold 22px';
+const FONT_HEADER = 'bold 24px';
+const FONT_TITLE = 'bold 28px';
 
-// ─── Drawing helpers ──────────────────────────────────────────────
-
-function centeredText(dc: DrawContext, text: string, font: string, lineH = 24): void {
-  dc.ctx.font = font;
-  dc.ctx.textAlign = 'center';
-  dc.ctx.fillText(text, dc.width / 2, dc.y);
-  dc.y += lineH;
-}
-
-function leftText(dc: DrawContext, text: string, font: string, lineH = 24): void {
-  dc.ctx.font = font;
-  dc.ctx.textAlign = 'left';
-  dc.ctx.fillText(text, dc.margin, dc.y);
-  dc.y += lineH;
-}
-
-function twoCol(dc: DrawContext, left: string, right: string, font: string, lineH = 24): void {
-  dc.ctx.font = font;
-  dc.ctx.textAlign = 'left';
-  dc.ctx.fillText(left, dc.margin, dc.y);
-  dc.ctx.textAlign = 'right';
-  dc.ctx.fillText(right, dc.width - dc.margin, dc.y);
-  dc.y += lineH;
-}
-
-function hLine(dc: DrawContext, thickness = 2, dash: number[] = []): void {
-  dc.ctx.lineWidth = thickness;
-  dc.ctx.setLineDash(dash);
-  dc.ctx.beginPath();
-  dc.ctx.moveTo(4, dc.y);
-  dc.ctx.lineTo(dc.width - 4, dc.y);
-  dc.ctx.stroke();
-  dc.ctx.setLineDash([]);
-  dc.y += thickness + 2;
-}
-
-function rightTotal(dc: DrawContext, label: string, value: string, font: string): void {
-  const amtX = dc.width - dc.margin;
-  const labelX = amtX - 110;
-  dc.ctx.font = font;
-  dc.ctx.textAlign = 'right';
-  dc.ctx.fillText(label, labelX, dc.y);
-  dc.ctx.fillText(value, amtX, dc.y);
-  dc.y += 24;
-}
-
-function partialHLine(dc: DrawContext, startFraction: number): void {
-  const startX = dc.width * startFraction;
-  dc.ctx.lineWidth = 1;
-  dc.ctx.beginPath();
-  dc.ctx.moveTo(startX, dc.y);
-  dc.ctx.lineTo(dc.width - dc.margin, dc.y);
-  dc.ctx.stroke();
-  dc.y += 4;
-}
-
-// ─── Date formatter ───────────────────────────────────────────────
-
-function formatDate(): string {
-  const now = new Date();
-  return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-}
-
-// ─── Main renderer ────────────────────────────────────────────────
+// Spacing optimized for thermal printer bleed prevention
+const LINE_HEIGHT = 20;
+const SECTION_GAP = 20;
+const BORDER_WIDTH = 2;
+const THIN_BORDER_WIDTH = 1;
+const PADDING = 15;
 
 /**
- * Renders a BillData object to a monochrome-ready HTMLCanvasElement.
- * The canvas is 576px wide (80mm @ 203 DPI) with white background and black drawing.
+ * Render bill to canvas with thermal printer optimization
+ * - Fixed 576px width (72mm @ 203 DPI)
+ * - 2× scale rendering for sharp text
+ * - Bold fonts and thick borders
+ * - Proper spacing to prevent thermal bleed
  */
 export function renderBillToCanvas(data: BillData): HTMLCanvasElement {
-  const store = useUIStore.getState();
-  const currentBillNumber = store.currentBillNumber;
-
-  // Generous initial height — trimmed at the end
-  const estimatedH = 900 + data.items.length * 28;
-
   const canvas = document.createElement('canvas');
-  canvas.width = PRINT_WIDTH;
-  canvas.height = estimatedH;
-
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'black';
-  ctx.strokeStyle = 'black';
 
-  const dc: DrawContext = { ctx, y: 24, width: PRINT_WIDTH, margin: MARGIN };
+  // Set physical canvas size (2× for crisp rendering)
+  canvas.width = SCALED_WIDTH;
 
-  const outerBorderX = 4;
-  const outerBorderTop = dc.y - 12;
+  // Calculate height based on content
+  const estimatedHeight = calculateBillHeight(data);
+  canvas.height = estimatedHeight * SCALE;
 
-  // ═══ HEADER ═══
-  dc.y += 4;
-  centeredText(dc, (data.restaurantName || 'RESTAURANT').toUpperCase(), FONTS.header, 34);
+  // Apply scaling transform
+  ctx.scale(SCALE, SCALE);
 
+  // White background
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, CANVAS_WIDTH, estimatedHeight);
+
+  // Black text/lines
+  ctx.fillStyle = '#000000';
+  ctx.strokeStyle = '#000000';
+
+  let y = PADDING;
+
+  // ═══ HEADER SECTION ═══
+  y = drawHeader(ctx, data, y);
+  y += SECTION_GAP;
+
+  // ═══ TAX INVOICE BOX ═══
+  y = drawTaxInvoiceBox(ctx, data, y);
+  y += SECTION_GAP;
+
+  // ═══ BILL INFO ═══
+  y = drawBillInfo(ctx, data, y);
+  y += SECTION_GAP;
+
+  // ═══ ITEMS TABLE ═══
+  y = drawItemsTable(ctx, data, y);
+  y += SECTION_GAP;
+
+  // ═══ TOTALS ═══
+  y = drawTotals(ctx, data, y);
+  y += SECTION_GAP;
+
+  // ═══ FOOTER ═══
+  y = drawFooter(ctx, data, y);
+  y += PADDING;
+
+  // Trim canvas to actual content height
+  const finalCanvas = document.createElement('canvas');
+  finalCanvas.width = SCALED_WIDTH;
+  finalCanvas.height = y * SCALE;
+  const finalCtx = finalCanvas.getContext('2d')!;
+  finalCtx.drawImage(canvas, 0, 0);
+
+  return finalCanvas;
+}
+
+/**
+ * Calculate estimated bill height for canvas allocation
+ */
+function calculateBillHeight(data: BillData): number {
+  let height = PADDING * 2;
+
+  // Header
+  height += 100;
+
+  // Tax invoice box
+  height += 100;
+
+  // Bill info
+  height += 120;
+
+  // Items header
+  height += 60;
+
+  // Items (estimate 2 lines per item for wrapping)
+  height += data.items.length * LINE_HEIGHT * 2;
+
+  // Totals section
+  height += 200;
+
+  // Footer
+  height += 50;
+
+  return height;
+}
+
+/**
+ * Draw restaurant header with name, address, phone
+ */
+function drawHeader(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
+  let y = startY;
+
+  // Top border
+  drawThickLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
+
+  // Restaurant name
+  ctx.font = FONT_TITLE;
+  ctx.textAlign = 'center';
+  ctx.fillText(
+    (data.restaurantName || 'RESTAURANT').toUpperCase(),
+    CANVAS_WIDTH / 2,
+    y
+  );
+  y += LINE_HEIGHT;
+
+  // Address lines
+  ctx.font = FONT_NORMAL;
   if (data.address) {
-    data.address.split(',').map(l => l.trim()).forEach(line => {
-      centeredText(dc, line, FONTS.small, 20);
+    const addressLines = data.address.split(',').map(l => l.trim());
+    addressLines.forEach(line => {
+      ctx.fillText(line, CANVAS_WIDTH / 2, y);
+      y += LINE_HEIGHT;
     });
   }
 
+  // Phone number
   if (data.phone) {
-    dc.y += 2;
-    centeredText(dc, `Mobile : ${data.phone}`, FONTS.normalBold, 26);
+    ctx.font = FONT_BOLD;
+    ctx.fillText(`Mobile : ${data.phone}`, CANVAS_WIDTH / 2, y);
+    y += LINE_HEIGHT;
   }
 
-  dc.y += 6;
-  hLine(dc, 2);
-  dc.y += 4;
+  // Bottom border
+  drawThickLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT / 2;
 
-  // ═══ TAX INVOICE | PURE VEG boxes ═══
-  const taxLabel = 'TAX INVOICE';
-  const vegLabel = data.isPureVeg !== false ? 'PURE VEG' : 'NON VEG./VEG';
+  return y;
+}
 
-  ctx.font = FONTS.normalBold;
-  const taxW = ctx.measureText(taxLabel).width + 24;
-  const vegW = ctx.measureText(vegLabel).width + 24;
-  const totalBoxW = taxW + vegW;
-  const boxX = (PRINT_WIDTH - totalBoxW) / 2;
-  const boxH = 30;
+/**
+ * Draw TAX INVOICE and VEG type boxes
+ */
+function drawTaxInvoiceBox(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
+  let y = startY;
 
-  ctx.lineWidth = 2;
-  ctx.strokeRect(boxX, dc.y - 2, taxW, boxH);
-  ctx.strokeRect(boxX + taxW, dc.y - 2, vegW, boxH);
+  const boxHeight = 70;
+  const boxY = y;
 
+  // Outer border
+  ctx.lineWidth = BORDER_WIDTH;
+  ctx.strokeRect(PADDING, boxY, CANVAS_WIDTH - PADDING * 2, boxHeight);
+
+  // Center divider
+  ctx.lineWidth = THIN_BORDER_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(CANVAS_WIDTH / 2, boxY);
+  ctx.lineTo(CANVAS_WIDTH / 2, boxY + boxHeight);
+  ctx.stroke();
+
+  // TAX INVOICE text
+  ctx.font = FONT_HEADER;
   ctx.textAlign = 'center';
-  ctx.fillText(taxLabel, boxX + taxW / 2, dc.y + 19);
-  ctx.fillText(vegLabel, boxX + taxW + vegW / 2, dc.y + 19);
+  ctx.fillText('TAX INVOICE', CANVAS_WIDTH / 4, boxY + 45);
 
-  dc.y += boxH + 8;
-  hLine(dc, 2);
-  dc.y += 4;
+  // VEG type text
+  const vegText = 'PURE VEG';
+  ctx.fillText(vegText, (CANVAS_WIDTH / 4) * 3, boxY + 45);
 
-  // ═══ BILL INFO ═══
-  const tNoLabel = data.isParcel
-    ? `T. No: ${data.tokenNumber || '-'}`
-    : `T. No: ${data.tableNumber || '-'}`;
-  twoCol(dc, `Bill No. ${currentBillNumber}`, tNoLabel, FONTS.normalBold, 24);
+  y += boxHeight + SECTION_GAP;
 
-  hLine(dc, 1);
-  dc.y += 2;
-  leftText(dc, `Date:   ${formatDate()}`, FONTS.normalBold, 24);
-  dc.y += 2;
-  hLine(dc, 2);
-  dc.y += 4;
+  return y;
+}
 
-  // ═══ ITEMS TABLE HEADER ═══
-  const descX = dc.margin;
-  const qtyX = PRINT_WIDTH * 0.48;
-  const rateX = PRINT_WIDTH * 0.68;
-  const amtX = PRINT_WIDTH - dc.margin;
+/**
+ * Draw bill number, table number, date
+ */
+function drawBillInfo(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
+  let y = startY;
 
-  ctx.font = FONTS.normalBold;
+  // Top border
+  drawThickLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
+
+  // Bill number and table number
+  ctx.font = FONT_BOLD;
   ctx.textAlign = 'left';
-  ctx.fillText('Description', descX, dc.y);
-  ctx.textAlign = 'center';
-  ctx.fillText('QTY', qtyX, dc.y);
+  const tableNo = data.isParcel
+    ? `Token: ${data.tokenNumber || '-'}`
+    : `T. No: ${data.tableNumber || '-'}`;
+
+  ctx.fillText(`Bill No. ${data.billNumber}`, PADDING, y);
   ctx.textAlign = 'right';
-  ctx.fillText('Rate', rateX, dc.y);
-  ctx.fillText('Amount', amtX, dc.y);
-  dc.y += 24;
+  ctx.fillText(tableNo, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
 
-  hLine(dc, 1, [2, 3]); // dotted
-  dc.y += 2;
+  // Separator
+  drawThinLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
 
-  // ═══ ITEM ROWS ═══
-  ctx.font = FONTS.normal;
+  // Date
+  ctx.textAlign = 'left';
+  const dateStr = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  ctx.fillText(`Date:   ${dateStr}`, PADDING, y);
+  y += LINE_HEIGHT;
+
+  // Bottom border
+  drawThickLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT / 2;
+
+  return y;
+}
+
+/**
+ * Draw items table with proper column alignment
+ */
+function drawItemsTable(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
+  let y = startY;
+
+  // Column widths
+  const descWidth = 260;
+  const qtyWidth = 80;
+  const rateWidth = 110;
+  const amtWidth = CANVAS_WIDTH - PADDING * 2 - descWidth - qtyWidth - rateWidth;
+
+  // Table header
+  ctx.font = FONT_BOLD;
+  ctx.textAlign = 'left';
+  ctx.fillText('Description', PADDING, y);
+  ctx.textAlign = 'right';
+  ctx.fillText('QTY', PADDING + descWidth + qtyWidth, y);
+  ctx.fillText('Rate', PADDING + descWidth + qtyWidth + rateWidth, y);
+  ctx.fillText('Amount', CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
+
+  // Dotted separator
+  drawDottedLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
+
+  // Items
+  ctx.font = FONT_NORMAL;
   data.items.forEach(item => {
-    const raw = item.portion !== 'single' && data.isParcel
+    const itemName = item.portion !== 'single' && data.isParcel
       ? `${item.productName} (${item.portion})`
       : item.productName;
-    const name = raw.length > 22 ? raw.substring(0, 21) + '.' : raw;
-    const amt = (item.unitPrice * item.quantity).toFixed(2);
+
+    const amount = (item.unitPrice * item.quantity).toFixed(2);
 
     ctx.textAlign = 'left';
-    ctx.fillText(name, descX, dc.y);
-    ctx.textAlign = 'center';
-    ctx.fillText(item.quantity.toString(), qtyX, dc.y);
+    ctx.fillText(itemName, PADDING, y);
     ctx.textAlign = 'right';
-    ctx.fillText(item.unitPrice.toFixed(2), rateX, dc.y);
-    ctx.fillText(amt, amtX, dc.y);
-    dc.y += 24;
+    ctx.fillText(item.quantity.toString(), PADDING + descWidth + qtyWidth, y);
+    ctx.fillText(item.unitPrice.toFixed(2), PADDING + descWidth + qtyWidth + rateWidth, y);
+    ctx.fillText(amount, CANVAS_WIDTH - PADDING, y);
+    y += LINE_HEIGHT;
+
+    // Item notes
+    if (item.notes) {
+      ctx.font = FONT_NORMAL;
+      ctx.textAlign = 'left';
+      ctx.fillText(`>> ${item.notes}`, PADDING + 20, y);
+      y += LINE_HEIGHT;
+      ctx.font = FONT_NORMAL;
+    }
   });
 
-  dc.y += 8;
+  y += LINE_HEIGHT / 2;
 
-  // ═══ TOTALS ═══
-  partialHLine(dc, 0.44);
-  dc.y += 4;
+  return y;
+}
 
-  rightTotal(dc, 'Total RS. :', data.subTotal.toFixed(2), FONTS.normal);
+/**
+ * Draw totals section with GST breakdown
+ */
+function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
+  let y = startY;
 
+  const labelX = CANVAS_WIDTH / 2;
+  const valueX = CANVAS_WIDTH - PADDING;
+
+  // Separator
+  drawThinLine(ctx, labelX, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
+
+  // Subtotal
+  ctx.font = FONT_NORMAL;
+  ctx.textAlign = 'left';
+  ctx.fillText('Total RS. :', labelX, y);
+  ctx.textAlign = 'right';
+  ctx.fillText(data.subTotal.toFixed(2), valueX, y);
+  y += LINE_HEIGHT;
+
+  // Discount
   if (data.discountAmount > 0) {
     const discLabel = data.discountType === 'percentage'
       ? `Discount (${data.discountValue}%) :`
       : 'Discount :';
-    rightTotal(dc, discLabel, '-' + data.discountAmount.toFixed(2), FONTS.normal);
+    ctx.textAlign = 'left';
+    ctx.fillText(discLabel, labelX, y);
+    ctx.textAlign = 'right';
+    ctx.fillText(`-${data.discountAmount.toFixed(2)}`, valueX, y);
+    y += LINE_HEIGHT;
   }
 
-  dc.y += 4;
+  y += LINE_HEIGHT / 2;
 
+  // GST
   if (data.showGST !== false) {
     const gstRate = data.items[0]?.gstRate || 5;
+
     if (data.gstMode === 'igst') {
-      rightTotal(dc, `IGST @ ${gstRate}% :`, (data.cgstAmount + data.sgstAmount).toFixed(2), FONTS.normal);
+      ctx.textAlign = 'left';
+      ctx.fillText(`IGST @ ${gstRate}% :`, labelX, y);
+      ctx.textAlign = 'right';
+      ctx.fillText((data.cgstAmount + data.sgstAmount).toFixed(2), valueX, y);
+      y += LINE_HEIGHT;
     } else {
-      const half = gstRate / 2;
-      rightTotal(dc, `C GST @ ${half}% :`, data.cgstAmount.toFixed(2), FONTS.normal);
-      rightTotal(dc, `S GST @ ${half}% :`, data.sgstAmount.toFixed(2), FONTS.normal);
+      const halfRate = gstRate / 2;
+
+      ctx.textAlign = 'left';
+      ctx.fillText(`C GST @ ${halfRate}% :`, labelX, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(data.cgstAmount.toFixed(2), valueX, y);
+      y += LINE_HEIGHT;
+
+      ctx.textAlign = 'left';
+      ctx.fillText(`S GST @ ${halfRate}% :`, labelX, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(data.sgstAmount.toFixed(2), valueX, y);
+      y += LINE_HEIGHT;
     }
   }
 
   // Round off
-  const calc = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
-  const roundOff = data.finalAmount - calc;
+  const calculated = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
+  const roundOff = data.finalAmount - calculated;
   if (Math.abs(roundOff) > 0.01) {
     const sign = roundOff < 0 ? '-' : '';
-    rightTotal(dc, 'Round Off :', sign + Math.abs(roundOff).toFixed(2), FONTS.normal);
+    ctx.textAlign = 'left';
+    ctx.fillText('Round Off :', labelX, y);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${sign}${Math.abs(roundOff).toFixed(2)}`, valueX, y);
+    y += LINE_HEIGHT;
   }
 
-  partialHLine(dc, 0.44);
-  dc.y += 4;
+  // Final separator
+  drawThinLine(ctx, labelX, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT;
 
   // Net total
-  rightTotal(dc, 'Net Rs. :', data.finalAmount.toFixed(2), FONTS.netTotal);
-  dc.y += 4;
+  ctx.font = FONT_BOLD;
+  ctx.textAlign = 'left';
+  ctx.fillText('Net Rs. :', labelX, y);
+  ctx.textAlign = 'right';
+  ctx.fillText(data.finalAmount.toFixed(2), valueX, y);
+  y += LINE_HEIGHT;
 
-  // ═══ FOOTER ═══
-  hLine(dc, 2);
-  dc.y += 4;
+  // Bottom border
+  drawThickLine(ctx, PADDING, y, CANVAS_WIDTH - PADDING, y);
+  y += LINE_HEIGHT / 2;
+
+  return y;
+}
+
+/**
+ * Draw footer with FSSAI, GSTIN, thank you message
+ */
+function drawFooter(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
+  let y = startY;
+
+  ctx.font = FONT_NORMAL;
+  ctx.textAlign = 'center';
 
   if (data.fssaiNumber) {
-    centeredText(dc, `FASSAI LIC No : ${data.fssaiNumber}`, FONTS.small, 20);
+    ctx.fillText(`FSSAI LIC No : ${data.fssaiNumber}`, CANVAS_WIDTH / 2, y);
+    y += LINE_HEIGHT;
   }
+
   if (data.gstin) {
-    centeredText(dc, `GSTIN : ${data.gstin}`, FONTS.small, 20);
+    ctx.fillText(`GSTIN : ${data.gstin}`, CANVAS_WIDTH / 2, y);
+    y += LINE_HEIGHT;
   }
-  dc.y += 4;
-  centeredText(dc, '.........THANKS FOR VISIT.........', FONTS.normalBold, 24);
-  dc.y += 10;
 
-  // ═══ OUTER BORDER ═══
-  const outerBorderBottom = dc.y;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(
-    outerBorderX,
-    outerBorderTop,
-    PRINT_WIDTH - outerBorderX * 2,
-    outerBorderBottom - outerBorderTop
-  );
+  y += LINE_HEIGHT / 2;
 
-  // Trim canvas to actual used height
-  const trimmed = document.createElement('canvas');
-  trimmed.width = PRINT_WIDTH;
-  trimmed.height = dc.y + 20;
-  const tCtx = trimmed.getContext('2d')!;
-  tCtx.fillStyle = 'white';
-  tCtx.fillRect(0, 0, trimmed.width, trimmed.height);
-  tCtx.drawImage(canvas, 0, 0);
+  // Thank you message
+  ctx.font = FONT_BOLD;
+  ctx.fillText('.........THANKS FOR VISIT.........', CANVAS_WIDTH / 2, y);
+  y += LINE_HEIGHT;
 
-  return trimmed;
+  return y;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAWING UTILITIES
+// ═══════════════════════════════════════════════════════════════
+
+function drawThickLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
+  ctx.lineWidth = BORDER_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function drawThinLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
+  ctx.lineWidth = THIN_BORDER_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function drawDottedLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
 }
