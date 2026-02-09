@@ -80,12 +80,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
   const { tableNumber, tokenNumber, items, billNumber, kotNumber = 1, kotNumberFormatted, isParcel } = data;
   const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
 
-  const printTotalLine = (label: string, amount: number, symbol: string) => {
-    const left = label.padEnd(16);   // label width
-    const right = `${symbol}${amount.toFixed(2)}`.padStart(14); // amount width
-    builder.line(left + right);
-  };
-
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
@@ -160,162 +154,142 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 };
 
 /**
- * Generate ESC/POS commands for Bill printing
+ * Generate ESC/POS commands for clean Bill printing
  */
-export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
+export const generateBillCommands = (
+  data: BillData,
+  paperWidth: PaperWidth = '80mm'
+): Uint8Array => {
 
   const builder = new ESCPOSBuilder(paperWidth);
-  const symbol = 'Rs.'; // Changed from ₹ to Rs. for better printer compatibility
   const store = useUIStore.getState();
 
-  // Get current + increment for next time
   const currentBillNumber = store.currentBillNumber;
 
-  console.log("IsParceMode", data.isParcel)
-  // Increase for next bill
   if (!data.isReprint) {
     store.incrementBillNumber();
   }
 
-  // Restaurant name and details - matching the image
+
   builder
     .align(Alignment.CENTER)
-    .setFontSize(FontSize.DOUBLE_WIDTH)
     .bold(true)
+    .setFontSize(FontSize.DOUBLE_WIDTH)
     .line(data.restaurantName || 'Restaurant')
     .setFontSize(FontSize.NORMAL)
     .bold(false);
 
-  if (data.address) {
-    builder.line(data.address);
-  }
-  if (data.phone) {
-    builder.line(`Mobile: ${data.phone}`);
-  }
+  if (data.address) builder.line(data.address);
+  if (data.phone) builder.line(`Mobile: ${data.phone}`);
 
-  builder.dashedLine();
+  builder.line('');
+  builder.bold(true).line('TAX INVOICE').bold(false);
+  builder.line('PURE VEG');
+  builder.line('');
 
-  // TAX INVOICE header with VEG label
-  builder
-    .align(Alignment.CENTER)
-    .bold(true)
-    .line('TAX INVOICE       PURE VEG')
-    .bold(false)
-    .line('');
 
-  // Bill info - matching image layout
   builder
     .align(Alignment.LEFT)
-    .twoColumns(`Bill No. ${currentBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || 0) : (data.tableNumber || '-')}`);
-
-  builder
+    .twoColumns(
+      `Bill No: ${currentBillNumber}`,
+      `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`
+    )
     .line(`Date: ${formatDate()}`)
     .line('');
 
-  builder.dashedLine();
 
-  // Items header - matching the image exactly
   builder
     .bold(true)
-    .threeColumns('Description', 'QTY', 'Rate Amount')
+    .threeColumns('Description', 'QTY', 'Amount')
     .bold(false)
-    .dashedLine();
+    .line('');
 
-  // Items - matching the image format
-  data.items.forEach((item) => {
-    const itemName = item.portion !== 'single' && data.isParcel
-      ? `${item.productName} (${item.portion})`
-      : item.productName;
 
-    const itemLines = breakTextIntoLines(itemName, 3);
+  data.items.forEach(item => {
+    const name =
+      item.portion !== 'single' && data.isParcel
+        ? `${item.productName} (${item.portion})`
+        : item.productName;
 
-    // Print first line with quantity, rate, and amount
+    const lines = breakTextIntoLines(name, 3);
+    const amount = (item.unitPrice * item.quantity).toFixed(2);
+
     builder.threeColumns(
-      itemLines[0],
+      lines[0],
       item.quantity.toString(),
-      `${item.unitPrice.toFixed(2)}    ${(item.unitPrice * item.quantity).toFixed(2)}`
+      amount
     );
 
-    // Print remaining lines (if any) without quantity/rate/amount
-    for (let i = 1; i < itemLines.length; i++) {
-      builder.line(itemLines[i]);
+    for (let i = 1; i < lines.length; i++) {
+      builder.line(lines[i]);
     }
   });
 
-  builder
-    .line('')
-    .dashedLine();
+  builder.line('');
+  builder.line('');
 
-  // Totals - Right aligned, matching image
   builder.align(Alignment.RIGHT);
-
-  builder.line(`Total RS.: ${formatAmount(data.subTotal, '', true)}`);
+  builder.line(`Total Rs.: ${formatAmount(data.subTotal, '', true)}`);
   builder.line('');
 
   if (data.discountAmount > 0) {
-    const discountLabel = data.discountType === 'percentage'
-      ? `Discount (${data.discountValue}%):`
-      : 'Discount:';
-    builder.line(`${discountLabel} -${formatAmount(data.discountAmount, symbol)}`);
+    const label =
+      data.discountType === 'percentage'
+        ? `Discount (${data.discountValue}%)`
+        : 'Discount';
+
+    builder.line(`${label}: -${formatAmount(data.discountAmount, '', true)}`);
     builder.line('');
   }
 
-  // Tax (only show if showGST is true or undefined for backward compatibility)
   if (data.showGST !== false) {
     if (data.gstMode === 'igst') {
-      const igstRate = data.items[0]?.gstRate || 5; // Get rate from first item or default to 5%
-      builder.line(`IGST @ ${igstRate}%: ${formatAmount(data.cgstAmount + data.sgstAmount, '', true)}`);
+      const rate = data.items[0]?.gstRate || 5;
+      builder.line(`IGST @ ${rate}%: ${formatAmount(data.cgstAmount + data.sgstAmount, '', true)}`);
     } else {
-      const cgstRate = (data.items[0]?.gstRate || 5) / 2; // Half of total GST rate
-      const sgstRate = (data.items[0]?.gstRate || 5) / 2;
-      builder.line(`CGST @ ${cgstRate}%: ${formatAmount(data.cgstAmount, '', true)}`);
-      builder.line(`SGST @ ${sgstRate}%: ${formatAmount(data.sgstAmount, '', true)}`);
+      const rate = (data.items[0]?.gstRate || 5) / 2;
+      builder.line(`CGST @ ${rate}%: ${formatAmount(data.cgstAmount, '', true)}`);
+      builder.line(`SGST @ ${rate}%: ${formatAmount(data.sgstAmount, '', true)}`);
     }
   }
 
-  // Round off calculation
-  const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
+  const calculatedTotal =
+    data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calculatedTotal;
 
   if (Math.abs(roundOff) > 0.01) {
-    builder.line(`Round Off: ${formatAmount(Math.abs(roundOff), '', true)}`);
+    builder.line(`Round Off: ${formatAmount(roundOff, '', true)}`);
   }
 
-  // Grand total - matching image exactly
+  builder.line('');
+
   builder
     .bold(true)
     .line(`Net Rs.: ${formatAmount(data.finalAmount, '', true)}`)
     .bold(false)
-    .align(Alignment.LEFT);
+    .align(Alignment.LEFT)
+    .line('');
 
-  builder.dashedLine();
-
-  // Footer details - matching image
   builder.align(Alignment.CENTER);
 
-  if (data.fssaiNumber) {
-    builder.line(`FASSAI LIC No: ${data.fssaiNumber}`);
-  }
-  if (data.gstin) {
-    builder.line(`GSTIN: ${data.gstin}`);
-  }
-  // if (data.hsnSacCode) {
-  //   builder.line(`HSN/SAC CODE: ${data.hsnSacCode}`);
-  // }
+  if (data.fssaiNumber) builder.line(`FSSAI LIC No: ${data.fssaiNumber}`);
+  if (data.gstin) builder.line(`GSTIN: ${data.gstin}`);
 
-  // Footer message
-  builder
-    .line('.........THANKS FOR VISIT........')
-    .feed(4)
-    .partialCut();
+  builder.line('');
+  builder.line('THANK YOU FOR YOUR VISIT');
+
+  builder.feed(6); // clean bottom padding
+  builder.partialCut();
 
   return builder.build();
 };
 
-// Helper function to format amount (updated to match image)
-const formatAmount = (amount: number, symbol: string = '', noSymbol: boolean = false): string => {
-  if (noSymbol) {
-    return amount.toFixed(2);
-  }
+const formatAmount = (
+  amount: number,
+  symbol: string = '',
+  noSymbol: boolean = false
+): string => {
+  if (noSymbol) return amount.toFixed(2);
   return symbol ? `${symbol}${amount.toFixed(2)}` : amount.toFixed(2);
 };
+

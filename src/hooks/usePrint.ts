@@ -15,7 +15,7 @@ export function usePrint() {
   const printRef = useRef<HTMLDivElement>(null);
   const { settings } = useSettingsStore();
   const posytude = usePosytudePrinter();
-  
+
   // State for development print preview
   const [showDevPreview, setShowDevPreview] = useState(false);
   const [pendingBillData, setPendingBillData] = useState<BillData | null>(null);
@@ -73,6 +73,7 @@ export function usePrint() {
   const executePrintBill = useCallback(async (billData: BillData) => {
     // 🖨️ Electron → direct USB print
     if (posytude.isElectron && posytude.isConnected) {
+      console.log("Data", billData)
       const result = await posytude.printBill(billData);
       return {
         success: result.success,
@@ -205,7 +206,7 @@ export function usePrint() {
     printKOTDirect: printKOT,
     printBillDirect: printBill,
     openCashDrawer,
-    
+
     // Dev preview controls
     showDevPreview,
     pendingBillData,
