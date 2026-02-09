@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { generateKOTCommands, generateBillCommands, KOTData, BillData } from '@/lib/escpos/templates';
+import { generateKOTCommands, generateBillCommands, type KOTData, type BillData } from '@/lib/escpos/templates';
+import { renderBillToCanvas } from '@/lib/escpos/billCanvasRenderer';
+import { canvasToRasterCommands } from '@/lib/escpos/rasterPrint';
 import { formatToPaperWidth } from '@/lib/escpos/commands';
-import { toast } from 'sonner';
 import type { PosytudePrinter, PrintResult, PrinterStatus } from '@/types/printer';
 
 declare global {
@@ -24,7 +25,9 @@ declare global {
 
 /**
  * Hook for POSYTUDE YHD-8330 USB Printer
- * Handles both KOT and Bill printing
+ * Implements two-level printing:
+ *   1. PRIMARY — Bitmap raster image (pixel-perfect borders)
+ *   2. FALLBACK — ASCII-safe text ESC/POS (if bitmap fails)
  */
 export function usePosytudePrinter() {
   const [isElectron, setIsElectron] = useState(false);
@@ -32,14 +35,12 @@ export function usePosytudePrinter() {
   const [status, setStatus] = useState<PrinterStatus>({ status: 'disconnected' });
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Initialize and listen for printer discovery
+  // ── Initialise & listen for printer discovery ──
   useEffect(() => {
     if (window.isElectronApp && window.electronAPI) {
       setIsElectron(true);
 
-      // Listen for auto-discovery on startup
       const unsubscribe = window.electronAPI.onPrinterDiscovered((data) => {
-
         if (data.printer) {
           const p: PosytudePrinter = {
             vendorId: data.printer.vendorId,
@@ -56,17 +57,12 @@ export function usePosytudePrinter() {
           setStatus({
             status: 'disconnected',
             message: 'No printer found',
-            troubleshooting: [
-              'Connect POSYTUDE printer via USB',
-              'Ensure printer is powered ON',
-              'Restart the application'
-            ]
+            troubleshooting: ['Connect POSYTUDE printer via USB', 'Ensure printer is powered ON', 'Restart the application'],
           });
         }
       });
 
-      // Active check to ensure state is synced
-      window.electronAPI.discoverPrinter().catch(e => console.error("Init check failed", e));
+      window.electronAPI.discoverPrinter().catch(e => console.error('Init check failed', e));
 
       return () => unsubscribe?.();
     } else {
@@ -75,38 +71,23 @@ export function usePosytudePrinter() {
     }
   }, []);
 
-  // Refresh printer status
+  // ── Refresh printer status ──
   const refreshStatus = useCallback(async () => {
-    if (!isElectron || !window.electronAPI || !printer) {
-      return;
-    }
-
+    if (!isElectron || !window.electronAPI || !printer) return;
     try {
-      const result = await window.electronAPI.getPrinterStatus(
-        printer.vendorId,
-        printer.productId
-      );
+      const result = await window.electronAPI.getPrinterStatus(printer.vendorId, printer.productId);
       setStatus(result);
-
-      if (result.status === 'connected') {
-        setPrinter(prev => prev ? { ...prev, status: 'connected' } : null);
-      } else {
-        setPrinter(prev => prev ? { ...prev, status: 'disconnected' } : null);
-      }
-    } catch (error) {
+      setPrinter(prev => prev ? { ...prev, status: result.status === 'connected' ? 'connected' : 'disconnected' } : null);
+    } catch {
       setStatus({ status: 'error', message: 'Failed to check status' });
     }
   }, [isElectron, printer]);
 
-  // Discover printer manually
+  // ── Discover printer manually ──
   const discoverPrinter = useCallback(async () => {
-    if (!isElectron || !window.electronAPI) {
-      return null;
-    }
-
+    if (!isElectron || !window.electronAPI) return null;
     try {
       const result = await window.electronAPI.discoverPrinter();
-
       if (result.printer) {
         const p: PosytudePrinter = {
           vendorId: result.printer.vendorId,
@@ -119,123 +100,105 @@ export function usePosytudePrinter() {
         setPrinter(p);
         setStatus({ status: 'connected', message: 'Printer found' });
         return p;
-      } else {
-        setPrinter(null);
-        setStatus({
-          status: 'disconnected',
-          message: 'Printer not found',
-          troubleshooting: ['Check USB connection', 'Power cycle the printer']
-        });
-        return null;
       }
-    } catch (error) {
+      setPrinter(null);
+      setStatus({ status: 'disconnected', message: 'Printer not found', troubleshooting: ['Check USB connection', 'Power cycle the printer'] });
+      return null;
+    } catch {
       setStatus({ status: 'error', message: 'Discovery failed' });
       return null;
     }
   }, [isElectron]);
 
-  // Print raw ESC/POS data
+  // ── Send raw bytes to printer ──
   const printRaw = useCallback(async (data: Uint8Array): Promise<PrintResult> => {
     if (!isElectron || !window.electronAPI) {
-      return {
-        success: false,
-        error: 'Desktop app required for printing',
-        troubleshooting: ['Run SpeedyBill POS desktop application']
-      };
+      return { success: false, error: 'Desktop app required for printing', troubleshooting: ['Run SpeedyBill POS desktop application'] };
     }
-
     if (!printer) {
-      return {
-        success: false,
-        error: 'No printer connected',
-        troubleshooting: [
-          'Connect POSYTUDE printer via USB',
-          'Check if printer is powered ON',
-          'Click refresh to detect printer'
-        ]
-      };
+      return { success: false, error: 'No printer connected', troubleshooting: ['Connect POSYTUDE printer via USB', 'Check if printer is powered ON', 'Click refresh to detect printer'] };
     }
 
     setIsPrinting(true);
     setPrinter(prev => prev ? { ...prev, status: 'printing' } : null);
 
     try {
-      const result = await window.electronAPI.printToUSB(
-        printer.vendorId,
-        printer.productId,
-        data
-      );
-
-      if (result.success) {
-        setPrinter(prev => prev ? { ...prev, status: 'connected' } : null);
-        return { success: true };
-      } else {
-        setPrinter(prev => prev ? { ...prev, status: 'error' } : null);
-        return {
-          success: false,
-          error: result.error || 'Print failed',
-          troubleshooting: result.troubleshooting || [
-            'Check paper roll',
-            'Reconnect USB cable',
-            'Restart printer'
-          ]
-        };
-      }
+      const result = await window.electronAPI.printToUSB(printer.vendorId, printer.productId, data);
+      setPrinter(prev => prev ? { ...prev, status: result.success ? 'connected' : 'error' } : null);
+      return result.success
+        ? { success: true }
+        : { success: false, error: result.error || 'Print failed', troubleshooting: result.troubleshooting || ['Check paper roll', 'Reconnect USB cable', 'Restart printer'] };
     } catch (error) {
       setPrinter(prev => prev ? { ...prev, status: 'error' } : null);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       setIsPrinting(false);
     }
   }, [isElectron, printer]);
 
-  // Print KOT
+  // ── Print KOT (text only — no borders needed) ──
   const printKOT = useCallback(async (kotData: KOTData): Promise<PrintResult> => {
     const paperWidth = formatToPaperWidth(printer?.format || '80mm');
     const commands = generateKOTCommands(kotData, paperWidth);
     return printRaw(commands);
   }, [printer, printRaw]);
 
-  // Print Bill
+  // ── Print Bill — TWO-LEVEL STRATEGY ──
+  // 1. Try bitmap raster (pixel-perfect borders)
+  // 2. Fallback to ASCII-safe text commands
   const printBill = useCallback(async (billData: BillData): Promise<PrintResult> => {
-    const paperWidth = formatToPaperWidth(printer?.format || '80mm');
-    const commands = generateBillCommands(billData, paperWidth);
-    return printRaw(commands);
+    // ── LEVEL 1: Bitmap raster image ──
+    try {
+      console.log('[Print] Attempting bitmap raster mode…');
+      const canvas = renderBillToCanvas(billData);
+      const rasterBytes = canvasToRasterCommands(canvas);
+      const result = await printRaw(rasterBytes);
+
+      if (result.success) {
+        console.log('[Print] ✓ Bitmap print succeeded');
+        return result;
+      }
+
+      // Raster sent but printer reported failure — fall through
+      console.warn('[Print] Bitmap print returned error, falling back to text mode:', result.error);
+    } catch (err) {
+      console.warn('[Print] Bitmap rendering failed, falling back to text mode:', err);
+    }
+
+    // ── LEVEL 2: ASCII-safe text fallback ──
+    try {
+      console.log('[Print] Using ASCII-safe text fallback…');
+      const paperWidth = formatToPaperWidth(printer?.format || '80mm');
+      const commands = generateBillCommands(billData, paperWidth);
+      return printRaw(commands);
+    } catch (err) {
+      console.error('[Print] Text fallback also failed:', err);
+      return { success: false, error: 'Both bitmap and text printing failed' };
+    }
   }, [printer, printRaw]);
 
-  // Test print
+  // ── Test print ──
   const testPrint = useCallback(async (): Promise<PrintResult> => {
     if (!isElectron || !window.electronAPI || !printer) {
       return { success: false, error: 'Printer not available' };
     }
-
     try {
       return await window.electronAPI.testPrinter(printer.vendorId, printer.productId);
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Test print failed' };
     }
   }, [isElectron, printer]);
 
-  // Open cash drawer
+  // ── Open cash drawer ──
   const openCashDrawer = useCallback(async (): Promise<boolean> => {
-    if (!isElectron || !window.electronAPI || !printer) {
-      return false;
-    }
-
+    if (!isElectron || !window.electronAPI || !printer) return false;
     try {
-      const result = await window.electronAPI.openCashDrawer(
-        printer.vendorId,
-        printer.productId
-      );
+      const result = await window.electronAPI.openCashDrawer(printer.vendorId, printer.productId);
       return result.success;
-    } catch (error) {
+    } catch {
       return false;
     }
   }, [isElectron, printer]);
-
 
   return useMemo(() => ({
     isElectron,
@@ -250,11 +213,5 @@ export function usePosytudePrinter() {
     printRaw,
     testPrint,
     openCashDrawer,
-  }), [
-    isElectron,
-    printer,
-    status,
-    isPrinting,
-    // Include function dependencies if they change
-  ]);
+  }), [isElectron, printer, status, isPrinting, discoverPrinter, refreshStatus, printKOT, printBill, printRaw, testPrint, openCashDrawer]);
 }
