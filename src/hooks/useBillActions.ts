@@ -108,7 +108,7 @@ export function useBillActions() {
       fssaiNumber: businessInfo.fssaiNumber,
       address: businessInfo.address,
       phone: businessInfo.phone,
-      gstin: taxType === 'gst' ? businessInfo.gstNumber : undefined,
+      gstin: businessInfo.gstNumber,
       currencySymbol,
       gstMode,
       customerName: selectedCustomer?.name,
@@ -170,6 +170,7 @@ export function useBillActions() {
 
       const defaultMethod = settings.billing.defaultPaymentMethod;
       const billData = { ...buildBillData(), billId, paymentMethod: defaultMethod };
+      console.log("billData", billData)
       const result = await printBillDirect(billData);
 
       if (defaultMethod === 'cash' && isElectron) {
