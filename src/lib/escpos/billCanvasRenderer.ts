@@ -11,18 +11,23 @@ const CANVAS_WIDTH = Math.floor((PRINTABLE_MM / 25.4) * PRINTER_DPI);  // ≈ 57
 const SCALE = 2;
 const SCALED_WIDTH = CANVAS_WIDTH * SCALE;
 
-// Thermal-safe typography (CRITICAL - do not reduce these values)
-const FONT_NORMAL = '20px';
-const FONT_BOLD = 'bold 22px';
-const FONT_HEADER = 'bold 24px';
-const FONT_TITLE = 'bold 28px';
+// Thermal-safe typography
+const OUTER_BORDER_WIDTH = 4; // looks good on 80mm thermal
+
+const FONT_FAMILY = '"Courier New", Courier, monospace';
+
+const FONT_NORMAL = `28px ${FONT_FAMILY}`;
+const FONT_BOLD = `bold 30px ${FONT_FAMILY}`;
+const FONT_HEADER = `bold 32px ${FONT_FAMILY}`;
+const FONT_TITLE = `bold 36px ${FONT_FAMILY}`;
+
 
 // Spacing optimized for thermal printer bleed prevention
-const LINE_HEIGHT = 20;
+const LINE_HEIGHT = 25;
 const SECTION_GAP = 20;
-const BORDER_WIDTH = 2;
-const THIN_BORDER_WIDTH = 1;
-const PADDING = 15;
+const BORDER_WIDTH = 3;
+const THIN_BORDER_WIDTH = 2;
+const PADDING = 20;
 
 /**
  * Render bill to canvas with thermal printer optimization
@@ -44,6 +49,8 @@ export function renderBillToCanvas(data: BillData): HTMLCanvasElement {
 
   // Apply scaling transform
   ctx.scale(SCALE, SCALE);
+
+  ctx.imageSmoothingEnabled = false;
 
   // White background
   ctx.fillStyle = '#FFFFFF';
@@ -79,14 +86,42 @@ export function renderBillToCanvas(data: BillData): HTMLCanvasElement {
   y = drawFooter(ctx, data, y);
   y += PADDING;
 
-  // Trim canvas to actual content height
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = SCALED_WIDTH;
   finalCanvas.height = y * SCALE;
+
   const finalCtx = finalCanvas.getContext('2d')!;
+
+  // draw content
   finalCtx.drawImage(canvas, 0, 0);
 
+  // IMPORTANT: scale again for drawing border
+  finalCtx.scale(SCALE, SCALE);
+
+  // draw outer border
+  drawOuterBorder(finalCtx, y);
+
   return finalCanvas;
+
+}
+
+
+function drawOuterBorder(ctx: CanvasRenderingContext2D, height: number) {
+  ctx.save();
+
+  ctx.lineWidth = OUTER_BORDER_WIDTH;
+  ctx.strokeStyle = '#000';
+
+  const half = OUTER_BORDER_WIDTH / 2;
+
+  ctx.strokeRect(
+    half,
+    half,
+    CANVAS_WIDTH - OUTER_BORDER_WIDTH,
+    height - OUTER_BORDER_WIDTH
+  );
+
+  ctx.restore();
 }
 
 /**
