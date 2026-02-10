@@ -7,12 +7,11 @@ const CANVAS_WIDTH = Math.floor((PRINTABLE_MM / 25.4) * PRINTER_DPI);
 const FONT_FAMILY = '"Courier New", monospace';
 
 const FONT_SMALL = `22px ${FONT_FAMILY}`;
-const FONT_NORMAL = `22px ${FONT_FAMILY}`;  // Remove 'bold'
-const FONT_BOLD = `600 26px ${FONT_FAMILY}`; // Use font-weight 600 instead of 'bold'
-const FONT_BOLD_TABLE = `500 24px ${FONT_FAMILY}`; // Use font-weight 600 instead of 'bold'
+const FONT_NORMAL = `22px ${FONT_FAMILY}`;
+const FONT_BOLD = `600 26px ${FONT_FAMILY}`;
+const FONT_BOLD_TABLE = `500 24px ${FONT_FAMILY}`;
 const FONT_BOLD_MEDIUM = `600 28px ${FONT_FAMILY}`;
 const FONT_HEADER = `700 32px ${FONT_FAMILY}`;
-
 
 const LINE_HEIGHT = 25;
 const PADDING = 16;
@@ -27,7 +26,6 @@ export function renderBillToCanvas(data: BillData): HTMLCanvasElement {
   canvas.width = CANVAS_WIDTH;
   canvas.height = estimatedHeight;
 
-  // ctx.imageSmoothingEnabled = false;
   ctx.imageSmoothingEnabled = true;
 
   ctx.fillStyle = '#FFFFFF';
@@ -52,13 +50,13 @@ export function renderBillToCanvas(data: BillData): HTMLCanvasElement {
 
 function calculateBillHeight(data: BillData): number {
   let height = PADDING * 2;
-  height += 130;
-  height += 45;
-  height += 90;
-  height += 40;
+  height += 130; // header
+  height += 45;  // tax invoice box
+  height += 90;  // bill info
+  height += 40;  // items header
   height += data.items.length * LINE_HEIGHT;
-  height += 180;
-  height += 100;
+  height += 220; // totals (extra for composition footer)
+  height += 120; // footer
   return height;
 }
 
@@ -123,7 +121,7 @@ function drawTaxInvoiceBox(ctx: CanvasRenderingContext2D, data: BillData, startY
   ctx.textAlign = 'center';
   ctx.fillText('TAX INVOICE', CANVAS_WIDTH / 4, boxY + 22);
 
-  const vegText = 'PURE VEG';
+  const vegText = data.isPureVeg !== false ? 'PURE VEG.' : 'NON VEG./VEG';
   ctx.fillText(vegText, (CANVAS_WIDTH / 4) * 3, boxY + 22);
 
   y += boxHeight + 12;
@@ -143,8 +141,7 @@ function drawBillInfo(ctx: CanvasRenderingContext2D, data: BillData, startY: num
 
   ctx.font = FONT_BOLD;
   ctx.textAlign = 'left';
-  const cleaned = data.billNumber.split("-").pop();
-  // "0000"
+  const cleaned = data.billNumber.split('-').pop();
 
   ctx.fillText(`Bill No. ${cleaned}`, PADDING, y);
 
@@ -185,8 +182,8 @@ function drawItemsTable(ctx: CanvasRenderingContext2D, data: BillData, startY: n
   let y = startY;
 
   const descX = PADDING;
-  const qtyX = CANVAS_WIDTH - 220;  // ← Increased spacing
-  const rateX = CANVAS_WIDTH - 140; // ← Increased spacing
+  const qtyX = CANVAS_WIDTH - 220;
+  const rateX = CANVAS_WIDTH - 140;
   const amtX = CANVAS_WIDTH - PADDING;
 
   ctx.font = FONT_BOLD_TABLE;
@@ -247,6 +244,7 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
   const labelX = CANVAS_WIDTH - 230;
   const valueX = CANVAS_WIDTH - PADDING;
 
+  // Dotted separator
   ctx.save();
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 3]);
@@ -259,12 +257,14 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
 
   ctx.font = FONT_NORMAL;
 
+  // Sub total
   ctx.textAlign = 'left';
   ctx.fillText('Total RS. :', labelX, y);
   ctx.textAlign = 'right';
   ctx.fillText(data.subTotal.toFixed(2), valueX, y);
   y += LINE_HEIGHT;
 
+  // Discount
   if (data.discountAmount > 0) {
     const label = data.discountType === 'percentage'
       ? `Discount (${data.discountValue}%) :`
@@ -277,6 +277,7 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
     y += LINE_HEIGHT;
   }
 
+  // GST — always show labels
   if (data.showGST !== false) {
     const gstRate = data.items[0]?.gstRate ?? 5;
     const half = gstRate / 2;
@@ -302,6 +303,7 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
     }
   }
 
+  // Round off
   const calc = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calc;
 
@@ -313,6 +315,7 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
     y += LINE_HEIGHT;
   }
 
+  // Dotted separator before net
   ctx.save();
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 3]);
@@ -323,6 +326,7 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
   ctx.restore();
   y += LINE_HEIGHT;
 
+  // Net total
   ctx.font = FONT_BOLD_MEDIUM;
   ctx.textAlign = 'left';
   ctx.fillText('Net Rs. :', labelX, y);
@@ -330,6 +334,7 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
   ctx.fillText(data.finalAmount.toFixed(2), valueX, y);
   y += LINE_HEIGHT + 4;
 
+  // Solid line
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(PADDING, y);
@@ -340,21 +345,27 @@ function drawTotals(ctx: CanvasRenderingContext2D, data: BillData, startY: numbe
 }
 
 function drawFooter(ctx: CanvasRenderingContext2D, data: BillData, startY: number): number {
-  let y = startY + 15; // ← Add initial spacing
+  let y = startY + 15;
 
   ctx.font = FONT_SMALL;
   ctx.textAlign = 'center';
+
+  // Composition taxable person
+  ctx.fillText('Composition taxable person.', CANVAS_WIDTH / 2, y);
+  y += LINE_HEIGHT;
+
+  if (data.gstin) {
+    ctx.fillText(`GSTIN : ${data.gstin}`, CANVAS_WIDTH / 2, y);
+    y += LINE_HEIGHT;
+  }
+
+  ctx.fillText('HSN/SAC COde : 9963', CANVAS_WIDTH / 2, y);
+  y += LINE_HEIGHT;
 
   if (data.fssaiNumber) {
     ctx.fillText(`FSSAI LIC No : ${data.fssaiNumber}`, CANVAS_WIDTH / 2, y);
     y += LINE_HEIGHT;
   }
-
-  if (data.gstin) {
-    ctx.fillText(`GSTIN : ${data.gstin}`, CANVAS_WIDTH / 2, y);
-    y += LINE_HEIGHT + 5;
-  }
-
 
   ctx.font = FONT_SMALL;
   ctx.fillText('.........THANKS FOR VISIT.........', CANVAS_WIDTH / 2, y);
