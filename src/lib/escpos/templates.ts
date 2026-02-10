@@ -1,4 +1,3 @@
-
 import { ESCPOSBuilder, Alignment, FontSize, PaperWidth } from './commands';
 import { useUIStore, type CartItem } from '@/store/uiStore';
 
@@ -181,8 +180,6 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     store.incrementBillNumber();
   }
 
-  builder.feed(2);
-
   builder.solidLine();
 
   builder
@@ -239,7 +236,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder
     .bold(true)
-    .fourColumns('Description', 'QTY', 'Rate', 'Amount')
+    .fourColumns('Desc', 'QTY', 'Rate', 'Amount')
     .bold(false);
 
   builder.dottedLine();
@@ -265,6 +262,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder.line('');
 
+  builder.align(Alignment.RIGHT);
   builder.dottedLine();
 
   builder
@@ -326,3 +324,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   return builder.build();
 };
+
+
+
+

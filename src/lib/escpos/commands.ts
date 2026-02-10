@@ -101,7 +101,7 @@ export class ESCPOSBuilder {
   }
 
   solidLine(): this {
-    return this.horizontalLine('=');
+    return this.horizontalLine('_');
   }
 
   twoColumns(left: string, right: string): this {
@@ -208,3 +208,7 @@ export const formatToPaperWidth = (format: string): PaperWidth => {
       return '80mm';
   }
 };
+
+
+
+
