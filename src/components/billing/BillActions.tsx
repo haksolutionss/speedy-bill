@@ -30,7 +30,7 @@ export function BillActions() {
     selectedCustomer,
     loyaltyPointsToUse,
     isPrinting,
-    
+
     // Computed
     hasPendingItems,
     hasItems,
@@ -43,12 +43,12 @@ export function BillActions() {
     currencySymbol,
     gstMode,
     taxType,
-    
+
     // Refs
     printRef,
     kotRef,
     billRef,
-    
+
     // Handlers
     handlePrintKOT,
     handlePrintBill,
@@ -59,7 +59,7 @@ export function BillActions() {
     handleSelectCustomer,
     handleUseLoyaltyPoints,
     print,
-    
+
     // Store state
     cart,
     currentBillId,
@@ -68,6 +68,8 @@ export function BillActions() {
     discountType,
     discountValue,
     discountReason,
+    currentBillNumber,
+    incrementBillNumber,
     settings,
   } = useBillActions();
 
@@ -128,7 +130,7 @@ export function BillActions() {
         onOpenChange={setShowBillPreview}
         printRef={printRef}
         billRef={billRef}
-        billNumber={currentBillId?.slice(0, 8) || 'BILL-0000'}
+        billNumber={currentBillNumber || 'BILL-0000'}
         tableNumber={selectedTable?.number}
         items={cart}
         subTotal={subTotal}

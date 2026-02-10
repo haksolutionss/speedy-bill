@@ -25,6 +25,8 @@ export function useBillActions() {
     getKOTItems,
     discountType,
     discountValue,
+    currentBillNumber,
+    incrementBillNumber,
     discountReason,
     setDiscount,
   } = useUIStore();
@@ -77,12 +79,12 @@ export function useBillActions() {
       tableNumber: selectedTable?.number,
       tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: kotItems,
-      billNumber: currentBillId?.slice(0, 8),
+      billNumber: currentBillNumber,
       kotNumber: parseInt(kotNumber, 10),
       kotNumberFormatted: kotNumber,
       isParcel: isParcelMode,
     };
-  }, [selectedTable, isParcelMode, kotItems, currentBillId]);
+  }, [selectedTable, isParcelMode, kotItems, currentBillNumber]);
 
   const buildBillData = useCallback((overrideBillId?: string): BillData => {
     const tokenNumber = useUIStore.getState().getNextToken();
@@ -90,7 +92,7 @@ export function useBillActions() {
     return {
 
       billId: overrideBillId || currentBillId || '',
-      billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
+      billNumber: currentBillNumber,
       tableNumber: selectedTable?.number,
       tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: cart,
@@ -117,7 +119,7 @@ export function useBillActions() {
       showGST: taxType === 'gst',
     }
   }, [
-    currentBillId, selectedTable, isParcelMode, cart, subTotal, discountAmount,
+    currentBillNumber, selectedTable, isParcelMode, cart, subTotal, discountAmount,
     loyaltyDiscount, discountType, discountValue, discountReason, taxType,
     cgstAmount, sgstAmount, totalAmount, finalAmount, businessInfo, currencySymbol,
     gstMode, selectedCustomer, loyaltyPointsToUse, pointsToEarn
@@ -407,6 +409,8 @@ export function useBillActions() {
     // Store state
     cart,
     currentBillId,
+    currentBillNumber,
+    incrementBillNumber,
     selectedTable,
     isParcelMode,
     discountType,

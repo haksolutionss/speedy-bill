@@ -201,9 +201,9 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder.setLineSpacing(24);
 
-  builder.drawBoxLine();
+  builder.solidLine();
   builder.drawBoxRow('TAX INVOICE', '', 'PURE VEG');
-  builder.drawBoxLine();
+  builder.solidLine();
 
   builder.resetLineSpacing();
 
@@ -225,7 +225,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder
     .bold(true)
-    .fourColumns('Desc', 'QTY', 'Rate', 'Amount')
+    .fourColumns('Description', 'QTY', 'Rate', 'Amount')
     .bold(false);
 
   builder.dottedLine();

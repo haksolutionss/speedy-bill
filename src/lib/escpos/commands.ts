@@ -127,11 +127,11 @@ export class ESCPOSBuilder {
     const leftText = centerText(left, half);
     const rightText = centerText(right, contentWidth - half);
 
-    return this.line(`|${leftText}${rightText}|`);
+    return this.line(`|${leftText} | ${rightText}|`);
   }
 
   drawBoxLine(): this {
-    return this.line('+' + '-'.repeat(this.charsPerLine - 2) + '+');
+    return this.line('+' + '_'.repeat(this.charsPerLine - 2) + '+');
   }
 
   twoColumns(left: string, right: string): this {
@@ -158,7 +158,7 @@ export class ESCPOSBuilder {
       ? [16, 4, 5, 7]
       : this.paperWidth === '76mm'
         ? [24, 5, 6, 7]
-        : [20, 4, 10, 12];
+        : [18, 4, 10, 12];
 
 
     const formatted = [
