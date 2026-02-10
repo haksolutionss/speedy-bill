@@ -1,5 +1,4 @@
-
-import { ESCPOSBuilder, Alignment, FontSize, PaperWidth } from './commands';
+import { ESCPOSBuilder, Alignment, FontSize, PaperWidth, BOX_CHARS } from './commands';
 import { useUIStore, type CartItem } from '@/store/uiStore';
 
 export interface KOTData {
@@ -174,37 +173,42 @@ const formatAmount = (amount: number): string => {
 export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
   const store = useUIStore.getState();
-  // const currentBillNumber = store.currentBillNumber;
   const cleanedBillNumber = data.billNumber.split("-").pop();
 
   if (!data.isReprint) {
     store.incrementBillNumber();
   }
 
-  builder.feed(2);
+  // ┌───────────────────────────────────────────┐
+  // │         Top border of entire bill         │
+  // └───────────────────────────────────────────┘
+  builder.topBorder();
 
-  builder.solidLine();
+  // Restaurant name - centered with borders
+  builder.align(Alignment.CENTER).bold(true);
+  builder.borderedLine(data.restaurantName?.toUpperCase() || 'RESTAURANT');
+  builder.bold(false);
 
-  builder
-    .align(Alignment.CENTER)
-    .bold(true)
-    .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
-    .bold(false);
-
+  // Address lines - centered with borders
   if (data.address) {
     const addressLines = data.address.split(',').map(l => l.trim());
     addressLines.forEach(line => {
-      builder.line(line);
+      builder.borderedLine(line);
     });
   }
 
+  // Phone - centered with borders
   if (data.phone) {
-    builder.line(`Mobile : ${data.phone}`);
+    builder.borderedLine(`Mobile : ${data.phone}`);
   }
 
-  builder.solidLine();
+  // ├───────────────────────────────────────────┤
+  builder.middleDivider();
 
-  const halfWidth = Math.floor(builder.getCharsPerLine() / 2);
+  // TAX INVOICE | PURE VEG section with inner box borders
+  const maxContentWidth = builder.getCharsPerLine() - 2; // Account for outer borders
+  const halfWidth = Math.floor(maxContentWidth / 2);
+
   const taxInvoiceText = 'TAX INVOICE';
   const vegText = 'PURE VEG';
 
@@ -214,36 +218,61 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   const leftSide = ' '.repeat(leftPadding) + taxInvoiceText + ' '.repeat(halfWidth - leftPadding - taxInvoiceText.length);
   const rightSide = ' '.repeat(rightPadding) + vegText + ' '.repeat(halfWidth - rightPadding - vegText.length);
 
-  builder
-    .align(Alignment.LEFT)
-    .bold(true)
-    .line(leftSide + '|' + rightSide)
-    .bold(false);
+  // Inner box: ┌────────┬────────┐
+  const innerTopBorder = BOX_CHARS.TOP_LEFT +
+    BOX_CHARS.HORIZONTAL.repeat(halfWidth) +
+    BOX_CHARS.T_DOWN +
+    BOX_CHARS.HORIZONTAL.repeat(halfWidth - 1) +
+    BOX_CHARS.TOP_RIGHT;
+  builder.align(Alignment.LEFT);
+  builder.borderedLine(innerTopBorder);
 
-  builder.solidLine();
+  // Content: │ TAX INVOICE │ PURE VEG │
+  const innerContent = BOX_CHARS.VERTICAL + leftSide + BOX_CHARS.VERTICAL + rightSide + BOX_CHARS.VERTICAL;
+  builder.bold(true);
+  builder.borderedLine(innerContent);
+  builder.bold(false);
 
-  builder
-    .align(Alignment.LEFT)
-    .bold(true)
-    .twoColumns(`Bill No: ${cleanedBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`)
-    .bold(false);
+  // Inner box: └────────┴────────┘
+  const innerBottomBorder = BOX_CHARS.BOTTOM_LEFT +
+    BOX_CHARS.HORIZONTAL.repeat(halfWidth) +
+    BOX_CHARS.T_UP +
+    BOX_CHARS.HORIZONTAL.repeat(halfWidth - 1) +
+    BOX_CHARS.BOTTOM_RIGHT;
+  builder.borderedLine(innerBottomBorder);
 
-  builder.solidLine();
+  // ├───────────────────────────────────────────┤
+  builder.middleDivider();
 
-  builder
-    .bold(true)
-    .line(`Date : ${formatDate()}`)
-    .bold(false);
+  // Bill details - left aligned with borders
+  builder.align(Alignment.LEFT).bold(true);
+  builder.borderedTwoColumns(
+    `Bill No: ${cleanedBillNumber}`,
+    `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`
+  );
+  builder.bold(false);
 
-  builder.solidLine();
+  // ├───────────────────────────────────────────┤
+  builder.middleDivider();
 
-  builder
-    .bold(true)
-    .fourColumns('Description', 'QTY', 'Rate', 'Amount')
-    .bold(false);
+  // Date - with borders
+  builder.bold(true);
+  builder.borderedLine(`Date : ${formatDate()}`);
+  builder.bold(false);
 
-  builder.dottedLine();
+  // ├───────────────────────────────────────────┤
+  builder.middleDivider();
 
+  // Items header - with borders
+  builder.bold(true);
+  builder.borderedFourColumns('Description', 'QTY', 'Rate', 'Amount');
+  builder.bold(false);
+
+  // Dotted separator inside borders
+  const dottedSeparator = '.'.repeat(maxContentWidth);
+  builder.borderedLine(dottedSeparator);
+
+  // Items - each line with borders
   data.items.forEach((item) => {
     const itemName = item.portion !== 'single' && data.isParcel
       ? `${item.productName} (${item.portion})`
@@ -251,7 +280,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
     const amount = (item.unitPrice * item.quantity).toFixed(2);
 
-    builder.fourColumns(
+    builder.borderedFourColumns(
       itemName.toUpperCase(),
       item.quantity.toString(),
       item.unitPrice.toFixed(2),
@@ -259,69 +288,78 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     );
 
     if (item.notes) {
-      builder.line(`  ${item.notes}`);
+      builder.borderedLine(`  ${item.notes}`);
     }
   });
 
-  builder.line('');
+  // Empty line with borders
+  builder.borderedLine();
 
-  builder.dottedLine();
+  // Dotted separator inside borders
+  builder.borderedLine(dottedSeparator);
 
-  builder
-    .align(Alignment.RIGHT)
-    .line(`Total RS. : ${formatAmount(data.subTotal)}`)
-    .line('');
+  // Totals section - right aligned with borders
+  builder.align(Alignment.RIGHT);
+  builder.borderedLine(`Total RS. : ${formatAmount(data.subTotal)}`);
+  builder.borderedLine();
 
+  // Discount - if applicable
   if (data.discountAmount > 0) {
     const discountLabel = data.discountType === 'percentage'
       ? `Discount (${data.discountValue}%):`
       : 'Discount:';
-    builder.line(`${discountLabel} -${formatAmount(data.discountAmount)}`);
-    builder.line('');
+    builder.borderedLine(`${discountLabel} -${formatAmount(data.discountAmount)}`);
+    builder.borderedLine();
   }
 
+  // GST - if enabled
   if (data.showGST !== false) {
     const gstRate = data.items[0]?.gstRate || 5;
     const halfRate = gstRate / 2;
 
     if (data.gstMode === 'igst') {
-      builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
+      builder.borderedLine(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
     } else {
-      builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount)}`);
-      builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount)}`);
+      builder.borderedLine(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount)}`);
+      builder.borderedLine(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount)}`);
     }
   }
 
+  // Round off calculation
   const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calculatedTotal;
 
   if (Math.abs(roundOff) >= 0.01) {
-    builder.line(`Round Off : ${formatAmount(Math.abs(roundOff))}`);
+    builder.borderedLine(`Round Off : ${formatAmount(Math.abs(roundOff))}`);
   }
 
-  builder
-    .bold(true)
-    .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
-    .bold(false);
+  // Final amount - bold, with borders
+  builder.bold(true);
+  builder.borderedLine(`Net Rs. : ${formatAmount(data.finalAmount)}`);
+  builder.bold(false);
 
-  builder.solidLine();
+  // ├───────────────────────────────────────────┤
+  builder.middleDivider();
 
+  // Footer section - centered with borders
   builder.align(Alignment.CENTER);
 
   if (data.fssaiNumber) {
-    builder.line(`FASSAI LIC No : ${data.fssaiNumber}`);
+    builder.borderedLine(`FASSAI LIC No : ${data.fssaiNumber}`);
   }
 
   if (data.gstin) {
-    builder.line(`GSTIN : ${data.gstin}`);
+    builder.borderedLine(`GSTIN : ${data.gstin}`);
   }
 
-  builder.line('.........THANKS FOR VISIT.........');
+  builder.borderedLine('.........THANKS FOR VISIT.........');
 
-  builder.solidLine();
+  // └───────────────────────────────────────────┘
+  // Bottom border of entire bill
+  builder.bottomBorder();
 
+  // Feed and cut
   builder.feed(4);
-
   builder.partialCut();
 
   return builder.build();

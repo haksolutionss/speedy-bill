@@ -12,6 +12,21 @@ export const PAPER_WIDTHS = {
 
 export type PaperWidth = keyof typeof PAPER_WIDTHS;
 
+// Box drawing characters for solid lines (ASCII extended - most compatible with thermal printers)
+export const BOX_CHARS = {
+  HORIZONTAL: '\xC4',       // ─ solid horizontal line
+  VERTICAL: '\xB3',         // │ solid vertical line
+  TOP_LEFT: '\xDA',         // ┌ top-left corner
+  TOP_RIGHT: '\xBF',        // ┐ top-right corner
+  BOTTOM_LEFT: '\xC0',      // └ bottom-left corner
+  BOTTOM_RIGHT: '\xD9',     // ┘ bottom-right corner
+  T_DOWN: '\xC2',           // ┬ T junction pointing down
+  T_UP: '\xC1',             // ┴ T junction pointing up
+  T_RIGHT: '\xC3',          // ├ T junction pointing right
+  T_LEFT: '\xB4',           // ┤ T junction pointing left
+  CROSS: '\xC5',            // ┼ cross junction
+} as const;
+
 export enum Alignment {
   LEFT = 0,
   CENTER = 1,
@@ -100,10 +115,55 @@ export class ESCPOSBuilder {
     return this.horizontalLine('=');
   }
 
+  // Solid line using box drawing character - no gaps!
   solidLine(): this {
-    return this.horizontalLine('=');
+    return this.line(BOX_CHARS.HORIZONTAL.repeat(this.charsPerLine));
   }
 
+  // Top border of box: ┌────────┐
+  topBorder(): this {
+    const line = BOX_CHARS.TOP_LEFT +
+      BOX_CHARS.HORIZONTAL.repeat(this.charsPerLine - 2) +
+      BOX_CHARS.TOP_RIGHT;
+    return this.line(line);
+  }
+
+  // Bottom border of box: └────────┘
+  bottomBorder(): this {
+    const line = BOX_CHARS.BOTTOM_LEFT +
+      BOX_CHARS.HORIZONTAL.repeat(this.charsPerLine - 2) +
+      BOX_CHARS.BOTTOM_RIGHT;
+    return this.line(line);
+  }
+
+  // Middle divider line: ├────────┤
+  middleDivider(): this {
+    const line = BOX_CHARS.T_RIGHT +
+      BOX_CHARS.HORIZONTAL.repeat(this.charsPerLine - 2) +
+      BOX_CHARS.T_LEFT;
+    return this.line(line);
+  }
+
+  // Line with side borders: │ content │
+  borderedLine(content: string = ''): this {
+    const maxContent = this.charsPerLine - 2; // Account for side borders (│ on each side)
+    const trimmedContent = content.substring(0, maxContent);
+    const padding = maxContent - trimmedContent.length;
+    const line = BOX_CHARS.VERTICAL + trimmedContent + ' '.repeat(padding) + BOX_CHARS.VERTICAL;
+    return this.line(line);
+  }
+
+  // Two columns with side borders
+  borderedTwoColumns(left: string, right: string): this {
+    const maxWidth = this.charsPerLine - 2; // Account for side borders
+    const maxLeftWidth = maxWidth - right.length - 1;
+    const leftTrimmed = left.substring(0, maxLeftWidth);
+    const spaces = maxWidth - leftTrimmed.length - right.length;
+    const content = leftTrimmed + ' '.repeat(Math.max(1, spaces)) + right;
+    return this.borderedLine(content);
+  }
+
+  // Original two columns (without borders) - keep for KOT
   twoColumns(left: string, right: string): this {
     const maxLeftWidth = this.charsPerLine - right.length - 1;
     const leftTrimmed = left.substring(0, maxLeftWidth);
@@ -123,6 +183,25 @@ export class ESCPOSBuilder {
     return this.line(leftTrimmed + ' '.repeat(leftSpaces) + center + ' '.repeat(rightSpaces) + right);
   }
 
+  // Four columns with side borders
+  borderedFourColumns(col1: string, col2: string, col3: string, col4: string): this {
+    const widths = this.paperWidth === '58mm'
+      ? [16, 4, 5, 5]  // Total: 30 (32 - 2 for borders)
+      : this.paperWidth === '76mm'
+        ? [24, 5, 5, 6]  // Total: 40 (42 - 2 for borders)
+        : [20, 3, 10, 11]; // Total: 44 (48 - 4 for borders and spacing)
+
+    const formatted = [
+      col1.substring(0, widths[0]).padEnd(widths[0]),
+      col2.substring(0, widths[1]).padStart(widths[1]),
+      col3.substring(0, widths[2]).padStart(widths[2]),
+      col4.substring(0, widths[3]).padStart(widths[3]),
+    ].join(' ');
+
+    return this.borderedLine(formatted);
+  }
+
+  // Original four columns (without borders) - keep for KOT
   fourColumns(col1: string, col2: string, col3: string, col4: string): this {
     const widths = this.paperWidth === '58mm'
       ? [18, 4, 5, 5]
