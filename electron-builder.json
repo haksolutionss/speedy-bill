@@ -33,11 +33,15 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
         "target": "portable",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "icon": "electron/assets/icon.ico",
@@ -58,12 +62,18 @@
     "artifactName": "${productName}-Portable-${version}.${ext}"
   },
   "mac": {
-    "target": ["dmg", "zip"],
+    "target": [
+      "dmg",
+      "zip"
+    ],
     "icon": "electron/assets/icon.ico",
     "category": "public.app-category.business"
   },
   "linux": {
-    "target": ["AppImage", "deb"],
+    "target": [
+      "AppImage",
+      "deb"
+    ],
     "icon": "electron/assets/icon.ico",
     "category": "Office"
   },

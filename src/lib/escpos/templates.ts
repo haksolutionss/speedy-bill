@@ -8,7 +8,7 @@ export interface KOTData {
   items: CartItem[];
   billNumber?: string;
   kotNumber?: number;
-  kotNumberFormatted?: string;
+  kotNumberFormatted?: string; // Formatted KOT number like "01", "02"
   isParcel?: boolean;
 }
 
@@ -40,239 +40,282 @@ export interface BillData {
   customerName?: string;
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
-  showGST?: boolean;
-  isReprint?: boolean;
-  isPureVeg?: boolean;
+  showGST?: boolean; // Whether to show GST in print
+  isReprint?: boolean; // Whether this is a reprint
+  isPureVeg?: boolean; // Pure Veg indicator
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────
+// Add this helper function at the top of the file, after the imports
+const breakTextIntoLines = (text: string, maxWordsPerLine: number = 3): string[] => {
+  const words = text.split(' ');
+  const lines: string[] = [];
 
-const formatDate = (): string => {
-  const now = new Date();
-  return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  for (let i = 0; i < words.length; i += maxWordsPerLine) {
+    const lineWords = words.slice(i, i + maxWordsPerLine);
+    lines.push(lineWords.join(' '));
+  }
+
+  return lines;
 };
 
+
+// Format date for printing
+const formatDate = (): string => {
+  const now = new Date();
+  return now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+// Format time for printing
 const formatTime = (): string => {
   const now = new Date();
   return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
-const formatAmount = (amount: number): string => amount.toFixed(2);
 
-// ─── KOT Commands ─────────────────────────────────────────────────
-
+/**
+ * Generate ESC/POS commands for KOT printing
+ */
 export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
-  const { tableNumber, tokenNumber, items, kotNumber = 1, kotNumberFormatted, isParcel } = data;
+  const { tableNumber, tokenNumber, items, billNumber, kotNumber = 1, kotNumberFormatted, isParcel } = data;
   const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
+
+  const printTotalLine = (label: string, amount: number, symbol: string) => {
+    const left = label.padEnd(16);   // label width
+    const right = `${symbol}${amount.toFixed(2)}`.padStart(14); // amount width
+    builder.line(left + right);
+  };
 
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
+    // .line('** KOT **')
     .setFontSize(FontSize.NORMAL)
     .bold(false)
     .newline();
 
-  builder.setFontSize(FontSize.DOUBLE_BOTH).bold(true);
+
+  // Table/Token number prominently
+  builder
+    .setFontSize(FontSize.DOUBLE_BOTH)
+    .bold(true);
+
   if (isParcel) {
     builder.line(`PARCEL: #${tokenNumber || 0}`);
   } else {
     builder.line(`TABLE: ${tableNumber || '-'}`);
   }
 
-  builder.setFontSize(FontSize.NORMAL).bold(false).align(Alignment.LEFT).dashedLine();
+  builder
+    .setFontSize(FontSize.NORMAL)
+    .bold(false)
+    .align(Alignment.LEFT)
+    .dashedLine();
 
+  // KOT info - use formatted number
   builder
     .twoColumns(`KOT #: ${displayKotNumber}`, '')
     .twoColumns(`Date: ${formatDate()}`, `Time: ${formatTime()}`)
     .dashedLine();
 
-  builder.bold(true).twoColumns('ITEM', 'QTY').bold(false).dashedLine();
+  // Items header
+  builder
+    .bold(true)
+    .twoColumns('ITEM', 'QTY')
+    .bold(false)
+    .dashedLine();
 
+  // Items
   items.forEach((item, index) => {
     const itemName = item.portion !== 'single'
       ? `${index + 1}. ${item.productName} (${item.portion})`
       : `${index + 1}. ${item.productName}`;
+
     builder.twoColumns(itemName, `x${item.quantity}`);
-    if (item.notes) builder.line(`   >> ${item.notes}`);
+
+    // Notes for item
+    if (item.notes) {
+      builder.line(`   >> ${item.notes}`);
+    }
   });
 
   builder.dashedLine();
 
+  // Total items count
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-  builder.bold(true).align(Alignment.CENTER).line(`TOTAL ITEMS: ${totalQty}`).bold(false);
-  builder.newline().feed(3).partialCut();
+  builder
+    .bold(true)
+    .align(Alignment.CENTER)
+    .line(`TOTAL ITEMS: ${totalQty}`)
+    .bold(false);
+
+  // Footer
+  builder
+    .newline()
+    .feed(3)
+    .partialCut();
 
   return builder.build();
 };
 
-// ─── Bill Commands (ASCII-Safe Text Fallback) ─────────────────────
-//
-// ⚠ This function uses ONLY ASCII-safe characters (=, -, spaces).
-// No Unicode box-drawing glyphs — they fail on POSYTUDE YHD-8330.
-// This is the FALLBACK mode; bitmap printing is preferred.
+/**
+ * Generate ESC/POS commands for Bill printing
+ */
+export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
 
-export const generateBillCommands = (
-  data: BillData,
-  paperWidth: PaperWidth = '80mm'
-): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
+  const symbol = 'Rs.'; // Changed from ₹ to Rs. for better printer compatibility
   const store = useUIStore.getState();
-  const currentBillNumber = store.currentBillNumber;
-  const w = builder.getCharsPerLine(); // 48 for 80mm
 
+  // Get current + increment for next time
+  const currentBillNumber = store.currentBillNumber;
+
+  console.log("IsParceMode", data.isParcel)
+  // Increase for next bill
   if (!data.isReprint) {
     store.incrementBillNumber();
   }
 
-  const sep = '='.repeat(w);
-  const thinSep = '-'.repeat(w);
-  const center = (text: string) => {
-    const pad = Math.max(0, Math.floor((w - text.length) / 2));
-    return ' '.repeat(pad) + text;
-  };
-  const lr = (left: string, right: string) => {
-    const gap = Math.max(1, w - left.length - right.length);
-    return left + ' '.repeat(gap) + right;
-  };
-
-  // ═══ HEADER ═══
-  builder.line(sep);
-  builder.align(Alignment.CENTER).bold(true);
-  builder.line(data.restaurantName?.toUpperCase() || 'RESTAURANT');
-  builder.bold(false);
+  // Restaurant name and details - matching the image
+  builder
+    .align(Alignment.CENTER)
+    .setFontSize(FontSize.DOUBLE_WIDTH)
+    .bold(true)
+    .line(data.restaurantName || 'Restaurant')
+    .setFontSize(FontSize.NORMAL)
+    .bold(false);
 
   if (data.address) {
-    data.address.split(',').map(l => l.trim()).forEach(line => {
-      builder.line(center(line));
-    });
+    builder.line(data.address);
   }
-
   if (data.phone) {
-    builder.bold(true);
-    builder.line(center(`Mobile : ${data.phone}`));
-    builder.bold(false);
+    builder.line(`Mobile: ${data.phone}`);
   }
 
-  builder.line(sep);
+  builder.dashedLine();
 
-  // ═══ TAX INVOICE / VEG ═══
-  const taxLabel = 'TAX INVOICE';
-  const vegLabel = data.isPureVeg !== false ? 'PURE VEG' : 'NON VEG./VEG';
-  builder.bold(true).align(Alignment.CENTER);
-  builder.line(center(taxLabel));
-  builder.line(center(vegLabel));
-  builder.bold(false);
-  builder.line(sep);
+  // TAX INVOICE header with VEG label
+  builder
+    .align(Alignment.CENTER)
+    .bold(true)
+    .line('TAX INVOICE       PURE VEG')
+    .bold(false)
+    .line('');
 
-  // ═══ BILL INFO ═══
-  builder.align(Alignment.LEFT).bold(true);
-  const tNo = data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-');
-  builder.line(lr(`Bill No. ${currentBillNumber}`, `T. No: ${tNo}`));
-  builder.line(thinSep);
-  builder.line(`Date:   ${formatDate()}`);
-  builder.bold(false);
-  builder.line(sep);
+  // Bill info - matching image layout
+  builder
+    .align(Alignment.LEFT)
+    .twoColumns(`Bill No. ${currentBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || 0) : (data.tableNumber || '-')}`);
 
-  // ═══ ITEMS HEADER ═══
-  const descW = paperWidth === '58mm' ? 16 : 22;
-  const qtyW = 5;
-  const rateW = paperWidth === '58mm' ? 5 : 10;
-  const amtW = w - descW - qtyW - rateW;
+  builder
+    .line(`Date: ${formatDate()}`)
+    .line('');
 
-  const pad = (s: string, len: number, align: 'l' | 'r' = 'l') =>
-    align === 'r' ? s.substring(0, len).padStart(len) : s.substring(0, len).padEnd(len);
+  builder.dashedLine();
 
-  builder.bold(true);
-  builder.line(
-    pad('Description', descW) +
-    pad('QTY', qtyW, 'r') +
-    pad('Rate', rateW, 'r') +
-    pad('Amount', amtW, 'r')
-  );
-  builder.bold(false);
-  builder.line('.'.repeat(w));
+  // Items header - matching the image exactly
+  builder
+    .bold(true)
+    .threeColumns('Description', 'QTY', 'Rate Amount')
+    .bold(false)
+    .dashedLine();
 
-  // ═══ ITEMS ═══
-  data.items.forEach(item => {
-    const raw = item.portion !== 'single' && data.isParcel
+  // Items - matching the image format
+  data.items.forEach((item) => {
+    const itemName = item.portion !== 'single' && data.isParcel
       ? `${item.productName} (${item.portion})`
       : item.productName;
-    const name = raw.length > descW ? raw.substring(0, descW - 1) + '.' : raw;
-    const amt = (item.unitPrice * item.quantity).toFixed(2);
 
-    builder.line(
-      pad(name, descW) +
-      pad(item.quantity.toString(), qtyW, 'r') +
-      pad(item.unitPrice.toFixed(2), rateW, 'r') +
-      pad(amt, amtW, 'r')
+    const itemLines = breakTextIntoLines(itemName, 3);
+
+    // Print first line with quantity, rate, and amount
+    builder.threeColumns(
+      itemLines[0],
+      item.quantity.toString(),
+      `${item.unitPrice.toFixed(2)}    ${(item.unitPrice * item.quantity).toFixed(2)}`
     );
+
+    // Print remaining lines (if any) without quantity/rate/amount
+    for (let i = 1; i < itemLines.length; i++) {
+      builder.line(itemLines[i]);
+    }
   });
 
-  builder.newline();
+  builder
+    .line('')
+    .dashedLine();
 
-  // ═══ TOTALS ═══
-  const totalIndent = descW + qtyW;
-  const totalWidth = w - totalIndent;
-  const rightRow = (label: string, value: string) => {
-    const gap = Math.max(1, totalWidth - label.length - value.length);
-    builder.line(' '.repeat(totalIndent) + label + ' '.repeat(gap) + value);
-  };
+  // Totals - Right aligned, matching image
+  builder.align(Alignment.RIGHT);
 
-  builder.line(' '.repeat(totalIndent) + '-'.repeat(totalWidth));
-
-  rightRow('Total RS. :', formatAmount(data.subTotal));
+  builder.line(`Total RS.: ${formatAmount(data.subTotal, '', true)}`);
+  builder.line('');
 
   if (data.discountAmount > 0) {
-    const discLabel = data.discountType === 'percentage'
-      ? `Discount (${data.discountValue}%) :`
-      : 'Discount :';
-    rightRow(discLabel, '-' + formatAmount(data.discountAmount));
+    const discountLabel = data.discountType === 'percentage'
+      ? `Discount (${data.discountValue}%):`
+      : 'Discount:';
+    builder.line(`${discountLabel} -${formatAmount(data.discountAmount, symbol)}`);
+    builder.line('');
   }
 
-  builder.newline();
-
-  // GST
+  // Tax (only show if showGST is true or undefined for backward compatibility)
   if (data.showGST !== false) {
-    const gstRate = data.items[0]?.gstRate || 5;
     if (data.gstMode === 'igst') {
-      rightRow(`IGST @ ${gstRate}% :`, formatAmount(data.cgstAmount + data.sgstAmount));
+      const igstRate = data.items[0]?.gstRate || 5; // Get rate from first item or default to 5%
+      builder.line(`IGST @ ${igstRate}%: ${formatAmount(data.cgstAmount + data.sgstAmount, '', true)}`);
     } else {
-      const half = gstRate / 2;
-      rightRow(`C GST @ ${half}% :`, formatAmount(data.cgstAmount));
-      rightRow(`S GST @ ${half}% :`, formatAmount(data.sgstAmount));
+      const cgstRate = (data.items[0]?.gstRate || 5) / 2; // Half of total GST rate
+      const sgstRate = (data.items[0]?.gstRate || 5) / 2;
+      builder.line(`CGST @ ${cgstRate}%: ${formatAmount(data.cgstAmount, '', true)}`);
+      builder.line(`SGST @ ${sgstRate}%: ${formatAmount(data.sgstAmount, '', true)}`);
     }
   }
 
-  // Round off
-  const calc = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
-  const roundOff = data.finalAmount - calc;
+  // Round off calculation
+  const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
+  const roundOff = data.finalAmount - calculatedTotal;
+
   if (Math.abs(roundOff) > 0.01) {
-    const sign = roundOff < 0 ? '-' : '';
-    rightRow('Round Off :', sign + formatAmount(Math.abs(roundOff)));
+    builder.line(`Round Off: ${formatAmount(Math.abs(roundOff), '', true)}`);
   }
 
-  builder.line(' '.repeat(totalIndent) + '-'.repeat(totalWidth));
+  // Grand total - matching image exactly
+  builder
+    .bold(true)
+    .line(`Net Rs.: ${formatAmount(data.finalAmount, '', true)}`)
+    .bold(false)
+    .align(Alignment.LEFT);
 
-  // Net total
-  builder.bold(true);
-  rightRow('Net Rs. :', formatAmount(data.finalAmount));
-  builder.bold(false);
+  builder.dashedLine();
 
-  builder.line(sep);
-
-  // ═══ FOOTER ═══
+  // Footer details - matching image
   builder.align(Alignment.CENTER);
-  if (data.fssaiNumber) builder.line(center(`FASSAI LIC No : ${data.fssaiNumber}`));
-  if (data.gstin) builder.line(center(`GSTIN : ${data.gstin}`));
-  builder.newline();
-  builder.bold(true);
-  builder.line(center('.........THANKS FOR VISIT.........'));
-  builder.bold(false);
-  builder.line(sep);
 
-  builder.feed(4).partialCut();
+  if (data.fssaiNumber) {
+    builder.line(`FASSAI LIC No: ${data.fssaiNumber}`);
+  }
+  if (data.gstin) {
+    builder.line(`GSTIN: ${data.gstin}`);
+  }
+  // if (data.hsnSacCode) {
+  //   builder.line(`HSN/SAC CODE: ${data.hsnSacCode}`);
+  // }
+
+  // Footer message
+  builder
+    .line('.........THANKS FOR VISIT........')
+    .feed(4)
+    .partialCut();
 
   return builder.build();
+};
+
+// Helper function to format amount (updated to match image)
+const formatAmount = (amount: number, symbol: string = '', noSymbol: boolean = false): string => {
+  if (noSymbol) {
+    return amount.toFixed(2);
+  }
+  return symbol ? `${symbol}${amount.toFixed(2)}` : amount.toFixed(2);
 };

@@ -1,83 +1,145 @@
-/**
- * Raster Bitmap Converter for ESC/POS Thermal Printers
- * Converts a canvas to monochrome bitmap and wraps in GS v 0 raster command
- *
- * Target: POSYTUDE YHD-8330 (80mm, 203 DPI, 576 dots width)
- */
+const PRINTER_DPI = 203;
+const PRINTABLE_MM = 72;
+const DOT_WIDTH = Math.floor((PRINTABLE_MM / 25.4) * PRINTER_DPI);
 
-const ESC = 0x1b;
-const GS = 0x1d;
-
-/**
- * Convert an HTMLCanvasElement to ESC/POS raster image bytes.
- *
- * Uses the GS v 0 command:
- *   GS v 0 m xL xH yL yH d1…dk
- * where each row is packed 1-bit-per-pixel, MSB-first, 1 = black.
- */
 export function canvasToRasterCommands(canvas: HTMLCanvasElement): Uint8Array {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('Cannot get 2D context from canvas');
+  const ctx = canvas.getContext('2d')!;
+
+  const scaledCanvas = document.createElement('canvas');
+  const scaledCtx = scaledCanvas.getContext('2d')!;
+
+  const targetWidth = DOT_WIDTH;
+  const targetHeight = Math.floor((canvas.height / canvas.width) * targetWidth);
+
+  scaledCanvas.width = targetWidth;
+  scaledCanvas.height = targetHeight;
+
+  scaledCtx.fillStyle = '#FFFFFF';
+  scaledCtx.fillRect(0, 0, targetWidth, targetHeight);
+  scaledCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight);
+
+  const imageData = scaledCtx.getImageData(0, 0, targetWidth, targetHeight);
+  const pixels = imageData.data;
+
+  const bwBitmap = convertToBlackWhite(pixels, targetWidth, targetHeight);
+  const rasterData = packBitmap(bwBitmap, targetWidth, targetHeight);
+
+  return buildRasterCommand(rasterData, targetWidth, targetHeight);
+}
+
+function convertToBlackWhite(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number
+): Uint8Array {
+  const bitmap = new Uint8Array(width * height);
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+
+    const gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+
+    const pixelIndex = i / 4;
+    bitmap[pixelIndex] = gray < 128 ? 1 : 0;
   }
 
-  const { width, height } = canvas;
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const pixels = imageData.data; // RGBA flat array
+  return bitmap;
+}
 
-  // Width in bytes (8 pixels per byte, padded to next byte)
-  const byteWidth = Math.ceil(width / 8);
+function packBitmap(bitmap: Uint8Array, width: number, height: number): Uint8Array {
+  const bytesPerLine = Math.ceil(width / 8);
+  const totalBytes = bytesPerLine * height;
 
-  // Convert to 1-bit monochrome
-  const bitmapData = new Uint8Array(byteWidth * height);
+  const packed = new Uint8Array(totalBytes);
 
-  for (let row = 0; row < height; row++) {
-    for (let col = 0; col < byteWidth; col++) {
-      let byte = 0;
-      for (let bit = 0; bit < 8; bit++) {
-        const x = col * 8 + bit;
-        if (x < width) {
-          const idx = (row * width + x) * 4;
-          const r = pixels[idx];
-          const g = pixels[idx + 1];
-          const b = pixels[idx + 2];
-          // ITU-R BT.601 luminance; threshold 128
-          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-          if (lum < 128) {
-            byte |= 0x80 >> bit; // MSB-first, 1 = black dot
-          }
-        }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = y * width + x;
+      const pixel = bitmap[pixelIndex];
+
+      if (pixel === 1) {
+        const byteIndex = y * bytesPerLine + Math.floor(x / 8);
+        const bitPosition = 7 - (x % 8);
+        packed[byteIndex] |= (1 << bitPosition);
       }
-      bitmapData[row * byteWidth + col] = byte;
     }
   }
 
-  // ── Build command buffer ──
-  // ESC @ — initialise printer
-  const init = new Uint8Array([ESC, 0x40]);
+  return packed;
+}
 
-  // GS v 0 — raster bit image
-  const xL = byteWidth & 0xff;
-  const xH = (byteWidth >> 8) & 0xff;
-  const yL = height & 0xff;
-  const yH = (height >> 8) & 0xff;
-  const header = new Uint8Array([GS, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
+function buildRasterCommand(
+  rasterData: Uint8Array,
+  width: number,
+  height: number
+): Uint8Array {
+  const bytesPerLine = Math.ceil(width / 8);
 
-  // Feed + partial cut
-  const footer = new Uint8Array([
-    ESC, 0x64, 0x04, // ESC d 4 — feed 4 lines
-    GS, 0x56, 0x01,  // GS V 1  — partial cut
-  ]);
+  const commands: number[] = [];
 
-  // Concatenate
-  const total = new Uint8Array(
-    init.length + header.length + bitmapData.length + footer.length
-  );
-  let offset = 0;
-  total.set(init, offset); offset += init.length;
-  total.set(header, offset); offset += header.length;
-  total.set(bitmapData, offset); offset += bitmapData.length;
-  total.set(footer, offset);
+  commands.push(0x1B, 0x40);
 
-  return total;
+  commands.push(0x1B, 0x33, 0x00);
+
+  commands.push(0x1D, 0x76, 0x30, 0x00);
+
+  commands.push(bytesPerLine & 0xFF);
+  commands.push((bytesPerLine >> 8) & 0xFF);
+
+  commands.push(height & 0xFF);
+  commands.push((height >> 8) & 0xFF);
+
+  for (let i = 0; i < rasterData.length; i++) {
+    commands.push(rasterData[i]);
+  }
+
+  commands.push(0x1B, 0x64, 0x04);
+
+  commands.push(0x1D, 0x56, 0x01);
+
+  return new Uint8Array(commands);
+}
+
+export function canvasToBase64(canvas: HTMLCanvasElement): string {
+  return canvas.toDataURL('image/png');
+}
+
+export function getBitmapStats(canvas: HTMLCanvasElement): {
+  width: number;
+  height: number;
+  blackPixels: number;
+  whitePixels: number;
+  blackPercentage: number;
+} {
+  const ctx = canvas.getContext('2d')!;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+
+  let blackCount = 0;
+  let whiteCount = 0;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+    const gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+
+    if (gray < 128) {
+      blackCount++;
+    } else {
+      whiteCount++;
+    }
+  }
+
+  const total = blackCount + whiteCount;
+
+  return {
+    width: canvas.width,
+    height: canvas.height,
+    blackPixels: blackCount,
+    whitePixels: whiteCount,
+    blackPercentage: (blackCount / total) * 100,
+  };
 }

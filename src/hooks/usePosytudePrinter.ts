@@ -136,45 +136,38 @@ export function usePosytudePrinter() {
     }
   }, [isElectron, printer]);
 
-  // ── Print KOT (text only — no borders needed) ──
   const printKOT = useCallback(async (kotData: KOTData): Promise<PrintResult> => {
     const paperWidth = formatToPaperWidth(printer?.format || '80mm');
     const commands = generateKOTCommands(kotData, paperWidth);
     return printRaw(commands);
   }, [printer, printRaw]);
 
-  // ── Print Bill — TWO-LEVEL STRATEGY ──
-  // 1. Try bitmap raster (pixel-perfect borders)
-  // 2. Fallback to ASCII-safe text commands
   const printBill = useCallback(async (billData: BillData): Promise<PrintResult> => {
-    // ── LEVEL 1: Bitmap raster image ──
     try {
-      console.log('[Print] Attempting bitmap raster mode…');
-      const canvas = renderBillToCanvas(billData);
-      const rasterBytes = canvasToRasterCommands(canvas);
-      const result = await printRaw(rasterBytes);
-
-      if (result.success) {
-        console.log('[Print] ✓ Bitmap print succeeded');
-        return result;
-      }
-
-      // Raster sent but printer reported failure — fall through
-      console.warn('[Print] Bitmap print returned error, falling back to text mode:', result.error);
-    } catch (err) {
-      console.warn('[Print] Bitmap rendering failed, falling back to text mode:', err);
-    }
-
-    // ── LEVEL 2: ASCII-safe text fallback ──
-    try {
-      console.log('[Print] Using ASCII-safe text fallback…');
       const paperWidth = formatToPaperWidth(printer?.format || '80mm');
       const commands = generateBillCommands(billData, paperWidth);
       return printRaw(commands);
     } catch (err) {
-      console.error('[Print] Text fallback also failed:', err);
+      console.error(' Text Pirntng failed:', err);
       return { success: false, error: 'Both bitmap and text printing failed' };
     }
+
+    // try {
+    //   console.log('[Print] Attempting bitmap raster mode…');
+    //   const canvas = renderBillToCanvas(billData);
+    //   const rasterBytes = canvasToRasterCommands(canvas);
+    //   const result = await printRaw(rasterBytes);
+
+    //   if (result.success) {
+    //     console.log('[Print] ✓ Bitmap print succeeded');
+    //     return result;
+    //   }
+
+    //   // Raster sent but printer reported failure — fall through
+    //   console.warn('[Print] Bitmap print returned error, falling back to text mode:', result.error);
+    // } catch (err) {
+    //   console.warn('[Print] Bitmap rendering failed, falling back to text mode:', err);
+    // }
   }, [printer, printRaw]);
 
   // ── Test print ──
