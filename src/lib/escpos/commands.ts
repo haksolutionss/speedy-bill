@@ -127,7 +127,7 @@ export class ESCPOSBuilder {
     const leftText = centerText(left, half);
     const rightText = centerText(right, contentWidth - half);
 
-    return this.line(`|${leftText} | ${rightText}|`);
+    return this.line(`|${leftText}${rightText}|`);
   }
 
   drawBoxLine(): this {

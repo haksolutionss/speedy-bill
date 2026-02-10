@@ -146,7 +146,7 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     }
   });
 
-  builder.dashedLine();
+  builder.solidLine();
 
   // Total items count
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -184,15 +184,19 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder
     .align(Alignment.CENTER)
+    .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
     .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
-    .bold(false);
+    .bold(false)
+    .setFontSize(FontSize.NORMAL);
+
+  builder.resetLineSpacing();
 
   if (data.address) {
+    builder.setLineSpacing(20);
     const addressLines = data.address.split(',').map(l => l.trim());
-    addressLines.forEach(line => {
-      builder.line(line);
-    });
+    addressLines.forEach(line => builder.line(line));
+    builder.resetLineSpacing();
   }
 
   if (data.phone) {
@@ -238,7 +242,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     const amount = (item.unitPrice * item.quantity).toFixed(2);
 
     builder.fourColumns(
-      itemName.toUpperCase(),
+      itemName,
       item.quantity.toString(),
       item.unitPrice.toFixed(2),
       amount
@@ -249,7 +253,6 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     }
   });
 
-  builder.line('');
 
   builder.align(Alignment.RIGHT);
   builder.rightDottedLine(16);
@@ -267,17 +270,28 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line('');
   }
 
-  if (data.showGST !== false) {
-    const gstRate = data.items[0]?.gstRate || 5;
-    const halfRate = gstRate / 2;
+  // if (data.showGST !== false) {
+  //   const gstRate = data.items[0]?.gstRate || 5;
+  //   const halfRate = gstRate / 2;
 
-    if (data.gstMode === 'igst') {
-      builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
-    } else {
-      builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount)}`);
-      builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount)}`);
-    }
+  //   if (data.gstMode === 'igst') {
+  //     builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
+  //   } else {
+  //     builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount)}`);
+  //     builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount)}`);
+  //   }
+  // }
+
+  const gstRate = data.items[0]?.gstRate || 5;
+  const halfRate = gstRate / 2;
+
+  if (data.gstMode === 'igst') {
+    builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
+  } else {
+    builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount || 0)}`);
+    builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount || 0)}`);
   }
+
 
   const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calculatedTotal;
@@ -287,23 +301,27 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   }
 
   builder
+    .setFontSize(FontSize.DOUBLE_WIDTH)
     .bold(true)
     .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
-    .bold(false);
+    .bold(false)
+    .setFontSize(FontSize.NORMAL);
 
   builder.solidLine();
 
   builder.align(Alignment.CENTER);
 
-  if (data.fssaiNumber) {
-    builder.line(`FASSAI LIC No : ${data.fssaiNumber}`);
-  }
+  builder.line('Composition taxable person.');
 
   if (data.gstin) {
     builder.line(`GSTIN : ${data.gstin}`);
   }
+  if (data.fssaiNumber) {
+    builder.line(`FASSAI LIC No : ${data.fssaiNumber}`);
+  }
 
-  builder.line('.........THANKS FOR VISIT.........');
+
+  builder.line('-----THANKS FOR VISIT-----');
 
   builder.solidLine();
 
