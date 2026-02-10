@@ -155,6 +155,84 @@ async function discoverPrinterOnStartup() {
   }
 }
 
+// ============================================
+// HTML Bill Printing — Hidden BrowserWindow
+// ============================================
+
+/**
+ * Print an HTML bill string using a hidden BrowserWindow.
+ * Silent print, zero margins, printBackground enabled.
+ * The paperWidth (e.g. '80mm') controls page size.
+ */
+async function printHtmlBill(htmlContent, paperWidthMm) {
+  return new Promise((resolve) => {
+    const printWindow = new BrowserWindow({
+      show: false,
+      width: 576,
+      height: 800,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+
+    printWindow.webContents.on('did-finish-load', () => {
+      // Small delay to ensure CSS is fully rendered
+      setTimeout(() => {
+        printWindow.webContents.print(
+          {
+            silent: true,
+            printBackground: true,
+            margins: { marginType: 'none' },
+            pageSize: {
+              width: parsePaperWidth(paperWidthMm),
+              height: 300000, // auto-height (large enough for any receipt)
+            },
+          },
+          (success, failureReason) => {
+            printWindow.close();
+            if (success) {
+              resolve({ success: true });
+            } else {
+              console.error('[HTML Print] Failed:', failureReason);
+              resolve({ success: false, error: failureReason || 'HTML print failed' });
+            }
+          }
+        );
+      }, 200);
+    });
+
+    printWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
+      console.error('[HTML Print] Load failed:', errorDesc);
+      printWindow.close();
+      resolve({ success: false, error: `Load failed: ${errorDesc}` });
+    });
+
+    // Safety timeout — don't hang forever
+    setTimeout(() => {
+      if (!printWindow.isDestroyed()) {
+        printWindow.close();
+        resolve({ success: false, error: 'Print timed out' });
+      }
+    }, 15000);
+  });
+}
+
+/**
+ * Convert paper width string to microns for Electron's pageSize
+ * Electron expects width in microns (1mm = 1000 microns)
+ */
+function parsePaperWidth(paperWidthMm) {
+  const map = {
+    '58mm': 58000,
+    '76mm': 76000,
+    '80mm': 80000,
+  };
+  return map[paperWidthMm] || 80000;
+}
+
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
@@ -178,7 +256,7 @@ app.on('window-all-closed', () => {
 });
 
 // ============================================
-// IPC Handlers - Simplified for POSYTUDE only
+// IPC Handlers
 // ============================================
 
 // Discover printer
@@ -195,11 +273,26 @@ ipcMain.handle('printer:list', async () => {
   }
 });
 
-// Print to USB
+// Print to USB (raw ESC/POS bytes — used for KOT + text fallback)
 ipcMain.handle('printer:print-usb', async (event, { vendorId, productId, data }) => {
   try {
     return await printerService.printToUSB(vendorId, productId, data);
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Print HTML bill via hidden BrowserWindow (PRIMARY bill print path)
+ipcMain.handle('printer:print-html', async (event, { htmlContent, paperWidth }) => {
+  try {
+    console.log(`[HTML Print] Printing bill (${paperWidth})…`);
+    const result = await printHtmlBill(htmlContent, paperWidth);
+    if (result.success) {
+      console.log('[HTML Print] ✓ Bill printed successfully');
+    }
+    return result;
+  } catch (error) {
+    console.error('[HTML Print] ✗ Error:', error.message);
     return { success: false, error: error.message };
   }
 });

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { generateKOTCommands, generateBillCommands, type KOTData, type BillData } from '@/lib/escpos/templates';
-import { renderBillToCanvas } from '@/lib/escpos/billCanvasRenderer';
-import { canvasToRasterCommands } from '@/lib/escpos/rasterPrint';
+import { generateBillHTML } from '@/lib/escpos/billHtmlTemplate';
 import { formatToPaperWidth } from '@/lib/escpos/commands';
 import type { PosytudePrinter, PrintResult, PrinterStatus } from '@/types/printer';
 
@@ -11,6 +10,7 @@ declare global {
       listPrinters: () => Promise<{ success: boolean; printers: any[] }>;
       discoverPrinter: () => Promise<{ success: boolean; printer: any; printers: any[] }>;
       printToUSB: (vendorId: number, productId: number, data: Uint8Array) => Promise<PrintResult>;
+      printHtmlBill: (htmlContent: string, paperWidth: string) => Promise<PrintResult>;
       testPrinter: (vendorId: number, productId: number) => Promise<PrintResult>;
       openCashDrawer: (vendorId: number, productId: number) => Promise<PrintResult>;
       getPrinterStatus: (vendorId: number, productId: number) => Promise<PrinterStatus>;
@@ -25,9 +25,12 @@ declare global {
 
 /**
  * Hook for POSYTUDE YHD-8330 USB Printer
- * Implements two-level printing:
- *   1. PRIMARY — Bitmap raster image (pixel-perfect borders)
- *   2. FALLBACK — ASCII-safe text ESC/POS (if bitmap fails)
+ * 
+ * Bill printing uses TWO-LEVEL strategy:
+ *   1. PRIMARY — HTML → Electron webContents.print() (pixel-perfect borders)
+ *   2. FALLBACK — ASCII-safe text ESC/POS via USB (if HTML print fails)
+ * 
+ * KOT printing remains text-based ESC/POS (no borders needed).
  */
 export function usePosytudePrinter() {
   const [isElectron, setIsElectron] = useState(false);
@@ -110,7 +113,7 @@ export function usePosytudePrinter() {
     }
   }, [isElectron]);
 
-  // ── Send raw bytes to printer ──
+  // ── Send raw bytes to printer (USB) ──
   const printRaw = useCallback(async (data: Uint8Array): Promise<PrintResult> => {
     if (!isElectron || !window.electronAPI) {
       return { success: false, error: 'Desktop app required for printing', troubleshooting: ['Run SpeedyBill POS desktop application'] };
@@ -136,39 +139,52 @@ export function usePosytudePrinter() {
     }
   }, [isElectron, printer]);
 
+  // ── KOT: always text-based ESC/POS ──
   const printKOT = useCallback(async (kotData: KOTData): Promise<PrintResult> => {
     const paperWidth = formatToPaperWidth(printer?.format || '80mm');
     const commands = generateKOTCommands(kotData, paperWidth);
     return printRaw(commands);
   }, [printer, printRaw]);
 
+  // ── BILL: HTML primary → text fallback ──
   const printBill = useCallback(async (billData: BillData): Promise<PrintResult> => {
+    const paperWidth = formatToPaperWidth(printer?.format || '80mm');
+
+    // Level 1: HTML → Electron webContents.print()
+    if (isElectron && window.electronAPI?.printHtmlBill) {
+      try {
+        console.log('[Print] Attempting HTML print…');
+        setIsPrinting(true);
+        setPrinter(prev => prev ? { ...prev, status: 'printing' } : null);
+
+        const htmlContent = generateBillHTML(billData, paperWidth);
+        const result = await window.electronAPI.printHtmlBill(htmlContent, paperWidth);
+
+        setPrinter(prev => prev ? { ...prev, status: result.success ? 'connected' : 'error' } : null);
+        setIsPrinting(false);
+
+        if (result.success) {
+          console.log('[Print] ✓ HTML print succeeded');
+          return { success: true };
+        }
+
+        console.warn('[Print] HTML print failed, falling back to text:', result.error);
+      } catch (err) {
+        console.warn('[Print] HTML print error, falling back to text:', err);
+        setIsPrinting(false);
+      }
+    }
+
+    // Level 2: ASCII-safe text ESC/POS via USB
     try {
-      const paperWidth = formatToPaperWidth(printer?.format || '80mm');
+      console.log('[Print] Using text fallback…');
       const commands = generateBillCommands(billData, paperWidth);
       return printRaw(commands);
     } catch (err) {
-      console.error(' Text Pirntng failed:', err);
-      return { success: false, error: 'Both bitmap and text printing failed' };
+      console.error('[Print] Text fallback also failed:', err);
+      return { success: false, error: 'Both HTML and text printing failed' };
     }
-
-    // try {
-    //   console.log('[Print] Attempting bitmap raster mode…');
-    //   const canvas = renderBillToCanvas(billData);
-    //   const rasterBytes = canvasToRasterCommands(canvas);
-    //   const result = await printRaw(rasterBytes);
-
-    //   if (result.success) {
-    //     console.log('[Print] ✓ Bitmap print succeeded');
-    //     return result;
-    //   }
-
-    //   // Raster sent but printer reported failure — fall through
-    //   console.warn('[Print] Bitmap print returned error, falling back to text mode:', result.error);
-    // } catch (err) {
-    //   console.warn('[Print] Bitmap rendering failed, falling back to text mode:', err);
-    // }
-  }, [printer, printRaw]);
+  }, [isElectron, printer, printRaw]);
 
   // ── Test print ──
   const testPrint = useCallback(async (): Promise<PrintResult> => {

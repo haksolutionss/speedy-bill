@@ -64,6 +64,11 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
     isPureVeg = true,
   }, ref) => {
 
+    const cleanedBillNumber = billNumber.split('-').pop() || billNumber;
+    const gstRate = items[0]?.gstRate ?? 5;
+    const halfRate = gstRate / 2;
+    const vegLabel = isPureVeg ? 'PURE VEG.' : 'NON VEG. / VEG';
+
     const calculatedTotal = subTotal - discountAmount + cgstAmount + sgstAmount;
     const roundOff = finalAmount - calculatedTotal;
 
@@ -88,70 +93,67 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 
           /* ── Outer border ── */
           .bill-outer {
-            border: 1.5px solid #000;
+            border: 2px solid #000;
           }
 
           /* ── Header ── */
           .bill-header {
             text-align: center;
-            padding: 6px 4px 4px;
-            border-bottom: 1.5px solid #000;
+            padding: 8px 6px 6px;
+            border-bottom: 2px solid #000;
           }
           .bill-restaurant-name {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 900;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
             margin-bottom: 2px;
           }
           .bill-address-line {
-            font-size: 11px;
-            line-height: 1.4;
+            font-size: 12px;
+            line-height: 1.5;
           }
           .bill-phone {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 700;
-            margin-top: 2px;
+            margin-top: 3px;
           }
 
-          /* ── TAX INVOICE / VEG buttons ── */
+          /* ── TAX INVOICE / VEG box ── */
           .bill-invoice-row {
             display: flex;
             justify-content: center;
-            padding: 5px 8px;
-            border-bottom: 1.5px solid #000;
+            padding: 6px 8px;
+            border-bottom: 2px solid #000;
           }
           .bill-invoice-box {
             display: flex;
-            border: 1.5px solid #000;
+            border: 2px solid #000;
           }
           .bill-invoice-cell {
-            padding: 3px 10px;
+            padding: 4px 12px;
             font-weight: 900;
-            font-size: 12px;
+            font-size: 13px;
             letter-spacing: 0.5px;
             white-space: nowrap;
           }
           .bill-invoice-cell:first-child {
-            border-right: 1.5px solid #000;
+            border-right: 2px solid #000;
           }
 
           /* ── Bill info ── */
-          .bill-info {
-            padding: 0;
-          }
           .bill-info-row {
             display: flex;
             justify-content: space-between;
-            padding: 4px 6px;
-            font-size: 12px;
+            padding: 5px 6px;
+            font-size: 13px;
             font-weight: 700;
             border-bottom: 1px solid #000;
           }
           .bill-date-row {
-            padding: 4px 6px;
-            font-size: 12px;
+            padding: 5px 6px;
+            font-size: 13px;
             font-weight: 700;
-            border-bottom: 1.5px solid #000;
+            border-bottom: 2px solid #000;
           }
 
           /* ── Items table ── */
@@ -159,18 +161,18 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             display: flex;
             padding: 4px 6px;
             font-weight: 900;
-            font-size: 11px;
+            font-size: 12px;
             border-bottom: 1px dotted #000;
           }
           .col-desc { flex: 1; min-width: 0; }
-          .col-qty { width: 32px; text-align: center; }
-          .col-rate { width: 52px; text-align: right; }
-          .col-amt { width: 58px; text-align: right; }
+          .col-qty { width: 36px; text-align: center; }
+          .col-rate { width: 56px; text-align: right; }
+          .col-amt { width: 62px; text-align: right; }
 
           .bill-item-row {
             display: flex;
-            padding: 2px 6px;
-            font-size: 11px;
+            padding: 3px 6px;
+            font-size: 12px;
           }
           .bill-item-row .col-desc {
             overflow: hidden;
@@ -180,46 +182,46 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 
           /* ── Totals ── */
           .bill-totals-section {
-            padding: 0 6px;
+            padding: 0 6px 4px;
           }
           .bill-total-row {
             display: flex;
             justify-content: flex-end;
-            font-size: 11px;
+            font-size: 12px;
             padding: 2px 0;
           }
           .bill-total-row .total-label {
             text-align: right;
-            margin-right: 8px;
+            margin-right: 10px;
           }
           .bill-total-row .total-value {
-            width: 70px;
+            width: 72px;
             text-align: right;
           }
           .bill-subtotal-row {
-            border-top: 1px solid #000;
-            padding-top: 6px;
-            margin-top: 8px;
+            border-top: 1px dotted #000;
+            padding-top: 8px;
+            margin-top: 6px;
           }
           .bill-net-row {
             border-top: 1px solid #000;
-            padding-top: 3px;
-            margin-top: 3px;
+            padding-top: 4px;
+            margin-top: 4px;
             font-weight: 900;
-            font-size: 14px;
+            font-size: 15px;
           }
 
           /* ── Footer ── */
           .bill-footer {
             text-align: center;
-            padding: 6px 4px 8px;
-            border-top: 1.5px solid #000;
-            font-size: 10px;
-            line-height: 1.5;
+            padding: 6px 6px 10px;
+            border-top: 2px solid #000;
+            font-size: 11px;
+            line-height: 1.6;
           }
           .bill-thanks {
             font-weight: 700;
-            font-size: 11px;
+            font-size: 12px;
             letter-spacing: 0.5px;
             margin-top: 4px;
           }
@@ -228,7 +230,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
         <div className="bill-outer">
           {/* ── Header ── */}
           <div className="bill-header">
-            <div className="bill-restaurant-name">{restaurantName}</div>
+            <div className="bill-restaurant-name">{(restaurantName).toUpperCase()}</div>
             {address && address.split(',').map((line, i) => (
               <div key={i} className="bill-address-line">{line.trim()}</div>
             ))}
@@ -239,21 +241,17 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
           <div className="bill-invoice-row">
             <div className="bill-invoice-box">
               <div className="bill-invoice-cell">TAX INVOICE</div>
-              <div className="bill-invoice-cell">
-                {isPureVeg ? 'PURE VEG' : 'NON VEG. / VEG'}
-              </div>
+              <div className="bill-invoice-cell">{vegLabel}</div>
             </div>
           </div>
 
           {/* ── Bill No / Table No ── */}
-          <div className="bill-info">
-            <div className="bill-info-row">
-              <span>Bill No. {billNumber}</span>
-              <span>T. No: {isParcel ? (tokenNumber || 0) : (tableNumber || '-')}</span>
-            </div>
-            <div className="bill-date-row">
-              Date: {formatDate()}
-            </div>
+          <div className="bill-info-row">
+            <span>Bill No. {cleanedBillNumber}</span>
+            <span>T. No: {isParcel ? (tokenNumber || 0) : (tableNumber || '-')}</span>
+          </div>
+          <div className="bill-date-row">
+            Date : {formatDate()}
           </div>
 
           {/* ── Items Header ── */}
@@ -272,7 +270,7 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
                 : item.productName;
               return (
                 <div key={item.id} className="bill-item-row">
-                  <span className="col-desc">{name}</span>
+                  <span className="col-desc">{name.toUpperCase()}</span>
                   <span className="col-qty">{item.quantity}</span>
                   <span className="col-rate">{item.unitPrice.toFixed(2)}</span>
                   <span className="col-amt">{(item.unitPrice * item.quantity).toFixed(2)}</span>
@@ -293,27 +291,27 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             {discountAmount > 0 && (
               <div className="bill-total-row">
                 <span className="total-label">
-                  Discount{discountType === 'percentage' ? ` (${discountValue}%)` : ''} :
+                  {discountType === 'percentage' ? `Discount (${discountValue}%)` : 'Discount'} :
                 </span>
                 <span className="total-value">-{discountAmount.toFixed(2)}</span>
               </div>
             )}
 
-            {/* GST */}
+            {/* GST — always show labels */}
             {showGST && (
               gstMode === 'igst' ? (
                 <div className="bill-total-row">
-                  <span className="total-label">IGST @ {items[0]?.gstRate || 5}% :</span>
+                  <span className="total-label">IGST @ {gstRate}% :</span>
                   <span className="total-value">{(cgstAmount + sgstAmount).toFixed(2)}</span>
                 </div>
               ) : (
                 <>
                   <div className="bill-total-row">
-                    <span className="total-label">C GST @ {(items[0]?.gstRate || 5) / 2}% :</span>
+                    <span className="total-label">C GST @ {halfRate}% :</span>
                     <span className="total-value">{cgstAmount.toFixed(2)}</span>
                   </div>
                   <div className="bill-total-row">
-                    <span className="total-label">S GST @ {(items[0]?.gstRate || 5) / 2}% :</span>
+                    <span className="total-label">S GST @ {halfRate}% :</span>
                     <span className="total-value">{sgstAmount.toFixed(2)}</span>
                   </div>
                 </>
@@ -321,10 +319,10 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
             )}
 
             {/* Round Off */}
-            {Math.abs(roundOff) > 0.01 && (
+            {Math.abs(roundOff) > 0.001 && (
               <div className="bill-total-row">
                 <span className="total-label">Round Off :</span>
-                <span className="total-value">{roundOff > 0 ? '' : '-'}{Math.abs(roundOff).toFixed(2)}</span>
+                <span className="total-value">{roundOff.toFixed(2)}</span>
               </div>
             )}
 
@@ -337,8 +335,10 @@ export const BillTemplate = forwardRef<HTMLDivElement, BillTemplateProps>(
 
           {/* ── Footer ── */}
           <div className="bill-footer">
-            {fssaiNumber && <div>FASSAI LIC No : {fssaiNumber}</div>}
+            <div>Composition taxable person.</div>
             {gstin && <div>GSTIN : {gstin}</div>}
+            <div>HSN/SAC COde : 9963</div>
+            {fssaiNumber && <div>FSSAI LIC No : {fssaiNumber}</div>}
             <div className="bill-thanks">.........THANKS FOR VISIT.........</div>
           </div>
         </div>

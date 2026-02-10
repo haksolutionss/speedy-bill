@@ -7,7 +7,7 @@ export interface KOTData {
   items: CartItem[];
   billNumber?: string;
   kotNumber?: number;
-  kotNumberFormatted?: string; // Formatted KOT number like "01", "02"
+  kotNumberFormatted?: string;
   isParcel?: boolean;
 }
 
@@ -39,9 +39,9 @@ export interface BillData {
   customerName?: string;
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
-  showGST?: boolean; // Whether to show GST in print
-  isReprint?: boolean; // Whether this is a reprint
-  isPureVeg?: boolean; // Pure Veg indicator
+  showGST?: boolean;
+  isReprint?: boolean;
+  isPureVeg?: boolean;
 }
 
 
@@ -53,56 +53,28 @@ const formatDate = (): string => {
   });
 };
 
-const breakTextIntoLines = (text: string, maxChars: number): string[] => {
-  const lines: string[] = [];
-  let current = '';
-  const words = text.split(' ');
-
-  for (const word of words) {
-    if ((current + word).length <= maxChars) {
-      current += (current ? ' ' : '') + word;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-};
-
-
-// Format time for printing
 const formatTime = (): string => {
-  const now = new Date();
-  return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
+const formatAmount = (amount: number): string => amount.toFixed(2);
 
 /**
  * Generate ESC/POS commands for KOT printing
  */
 export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
-  const { tableNumber, tokenNumber, items, billNumber, kotNumber = 1, kotNumberFormatted, isParcel } = data;
+  const { tableNumber, tokenNumber, items, kotNumber = 1, kotNumberFormatted, isParcel } = data;
   const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
-
-  const printTotalLine = (label: string, amount: number, symbol: string) => {
-    const left = label.padEnd(16);   // label width
-    const right = `${symbol}${amount.toFixed(2)}`.padStart(14); // amount width
-    builder.line(left + right);
-  };
 
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
-    // .line('** KOT **')
     .setFontSize(FontSize.NORMAL)
     .bold(false)
     .newline();
 
-
-  // Table/Token number prominently
   builder
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true);
@@ -119,20 +91,17 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     .align(Alignment.LEFT)
     .dashedLine();
 
-  // KOT info - use formatted number
   builder
     .twoColumns(`KOT #: ${displayKotNumber}`, '')
     .twoColumns(`Date: ${formatDate()}`, `Time: ${formatTime()}`)
     .dashedLine();
 
-  // Items header
   builder
     .bold(true)
     .twoColumns('ITEM', 'QTY')
     .bold(false)
     .dashedLine();
 
-  // Items
   items.forEach((item, index) => {
     const itemName = item.portion !== 'single'
       ? `${index + 1}. ${item.productName} (${item.portion})`
@@ -140,7 +109,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 
     builder.twoColumns(itemName, `x${item.quantity}`);
 
-    // Notes for item
     if (item.notes) {
       builder.line(`   >> ${item.notes}`);
     }
@@ -148,7 +116,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 
   builder.dashedLine();
 
-  // Total items count
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
   builder
     .bold(true)
@@ -156,7 +123,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     .line(`TOTAL ITEMS: ${totalQty}`)
     .bold(false);
 
-  // Footer
   builder
     .newline()
     .feed(3)
@@ -166,74 +132,77 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
 };
 
 
-const formatAmount = (amount: number): string => {
-  return amount.toFixed(2);
-};
-
+/**
+ * ASCII-safe text fallback for bill printing.
+ * 
+ * IMPORTANT: This is the FALLBACK only. Primary bill printing uses HTML
+ * via Electron's webContents.print() (see billHtmlTemplate.ts).
+ * 
+ * Rules:
+ *   - NO Unicode box-drawing characters
+ *   - Only ASCII: = - . and standard letters/digits
+ *   - Must be readable on POSYTUDE YHD-8330
+ */
 export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
   const store = useUIStore.getState();
-  // const currentBillNumber = store.currentBillNumber;
-  const cleanedBillNumber = data.billNumber.split("-").pop();
+  const cleanedBillNumber = data.billNumber.split('-').pop();
 
   if (!data.isReprint) {
     store.incrementBillNumber();
   }
 
-  builder.solidLine();
+  // Header
+  builder.doubleLine();
 
   builder
     .align(Alignment.CENTER)
     .bold(true)
-    .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
+    .line((data.restaurantName || 'RESTAURANT').toUpperCase())
     .bold(false);
 
   if (data.address) {
-    const addressLines = data.address.split(',').map(l => l.trim());
-    addressLines.forEach(line => {
+    data.address.split(',').map(l => l.trim()).forEach(line => {
       builder.line(line);
     });
   }
 
   if (data.phone) {
-    builder.line(`Mobile : ${data.phone}`);
+    builder.bold(true).line(`Mobile : ${data.phone}`).bold(false);
   }
 
-  builder.solidLine();
+  builder.doubleLine();
 
-  const halfWidth = Math.floor(builder.getCharsPerLine() / 2);
-  const taxInvoiceText = 'TAX INVOICE';
-  const vegText = 'PURE VEG';
+  // TAX INVOICE / VEG (ASCII safe — no borders)
+  builder
+    .align(Alignment.CENTER)
+    .bold(true)
+    .line('TAX INVOICE')
+    .line(data.isPureVeg !== false ? 'PURE VEG.' : 'NON VEG. / VEG')
+    .bold(false);
 
-  const leftPadding = Math.floor((halfWidth - taxInvoiceText.length) / 2);
-  const rightPadding = Math.floor((halfWidth - vegText.length) / 2);
+  builder.doubleLine();
 
-  const leftSide = ' '.repeat(leftPadding) + taxInvoiceText + ' '.repeat(halfWidth - leftPadding - taxInvoiceText.length);
-  const rightSide = ' '.repeat(rightPadding) + vegText + ' '.repeat(halfWidth - rightPadding - vegText.length);
-
+  // Bill info
   builder
     .align(Alignment.LEFT)
     .bold(true)
-    .line(leftSide + '|' + rightSide)
+    .twoColumns(
+      `Bill No. ${cleanedBillNumber}`,
+      `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`
+    )
     .bold(false);
 
-  builder.solidLine();
-
-  builder
-    .align(Alignment.LEFT)
-    .bold(true)
-    .twoColumns(`Bill No: ${cleanedBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`)
-    .bold(false);
-
-  builder.solidLine();
+  builder.dashedLine();
 
   builder
     .bold(true)
     .line(`Date : ${formatDate()}`)
     .bold(false);
 
-  builder.solidLine();
+  builder.doubleLine();
 
+  // Items header
   builder
     .bold(true)
     .fourColumns('Desc', 'QTY', 'Rate', 'Amount')
@@ -241,18 +210,17 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder.dottedLine();
 
+  // Items
   data.items.forEach((item) => {
     const itemName = item.portion !== 'single' && data.isParcel
       ? `${item.productName} (${item.portion})`
       : item.productName;
 
-    const amount = (item.unitPrice * item.quantity).toFixed(2);
-
     builder.fourColumns(
       itemName.toUpperCase(),
       item.quantity.toString(),
       item.unitPrice.toFixed(2),
-      amount
+      (item.unitPrice * item.quantity).toFixed(2)
     );
 
     if (item.notes) {
@@ -261,14 +229,13 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   });
 
   builder.line('');
-
-  builder.align(Alignment.RIGHT);
   builder.dottedLine();
 
-  builder
-    .align(Alignment.RIGHT)
-    .line(`Total RS. : ${formatAmount(data.subTotal)}`)
-    .line('');
+  // Totals
+  builder.align(Alignment.RIGHT);
+
+  builder.line(`Total RS. : ${formatAmount(data.subTotal)}`);
+  builder.line('');
 
   if (data.discountAmount > 0) {
     const discountLabel = data.discountType === 'percentage'
@@ -278,6 +245,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line('');
   }
 
+  // GST labels — always show
   if (data.showGST !== false) {
     const gstRate = data.items[0]?.gstRate || 5;
     const halfRate = gstRate / 2;
@@ -294,37 +262,38 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   const roundOff = data.finalAmount - calculatedTotal;
 
   if (Math.abs(roundOff) >= 0.01) {
-    builder.line(`Round Off : ${formatAmount(Math.abs(roundOff))}`);
+    builder.line(`Round Off : ${formatAmount(roundOff)}`);
   }
+
+  builder.dashedLine();
 
   builder
     .bold(true)
     .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
     .bold(false);
 
-  builder.solidLine();
+  builder.doubleLine();
 
+  // Footer
   builder.align(Alignment.CENTER);
-
-  if (data.fssaiNumber) {
-    builder.line(`FASSAI LIC No : ${data.fssaiNumber}`);
-  }
+  builder.line('Composition taxable person.');
 
   if (data.gstin) {
     builder.line(`GSTIN : ${data.gstin}`);
   }
 
+  builder.line('HSN/SAC COde : 9963');
+
+  if (data.fssaiNumber) {
+    builder.line(`FSSAI LIC No : ${data.fssaiNumber}`);
+  }
+
   builder.line('.........THANKS FOR VISIT.........');
 
-  builder.solidLine();
+  builder.doubleLine();
 
   builder.feed(4);
-
   builder.partialCut();
 
   return builder.build();
 };
-
-
-
-
