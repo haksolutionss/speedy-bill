@@ -199,25 +199,14 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line(`Mobile : ${data.phone}`);
   }
 
-  builder.solidLine();
+  builder.setLineSpacing(24);
 
-  const halfWidth = Math.floor(builder.getCharsPerLine() / 2);
-  const taxInvoiceText = 'TAX INVOICE';
-  const vegText = 'PURE VEG';
+  builder.drawBoxLine();
+  builder.drawBoxRow('TAX INVOICE', '', 'PURE VEG');
+  builder.drawBoxLine();
 
-  const leftPadding = Math.floor((halfWidth - taxInvoiceText.length) / 2);
-  const rightPadding = Math.floor((halfWidth - vegText.length) / 2);
+  builder.resetLineSpacing();
 
-  const leftSide = ' '.repeat(leftPadding) + taxInvoiceText + ' '.repeat(halfWidth - leftPadding - taxInvoiceText.length);
-  const rightSide = ' '.repeat(rightPadding) + vegText + ' '.repeat(halfWidth - rightPadding - vegText.length);
-
-  builder
-    .align(Alignment.LEFT)
-    .bold(true)
-    .line(leftSide + '|' + rightSide)
-    .bold(false);
-
-  builder.solidLine();
 
   builder
     .align(Alignment.LEFT)
@@ -263,7 +252,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   builder.line('');
 
   builder.align(Alignment.RIGHT);
-  builder.dottedLine();
+  builder.rightDottedLine(16);
 
   builder
     .align(Alignment.RIGHT)
@@ -324,7 +313,4 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   return builder.build();
 };
-
-
-
 
