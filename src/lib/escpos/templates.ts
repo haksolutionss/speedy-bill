@@ -236,7 +236,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder
     .bold(true)
-    .fourColumns('Description', 'QTY', 'Rate', 'Amount')
+    .fourColumns('Desc', 'QTY', 'Rate', 'Amount')
     .bold(false);
 
   builder.dottedLine();
@@ -262,6 +262,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   builder.line('');
 
+  builder.align(Alignment.RIGHT);
   builder.dottedLine();
 
   builder
@@ -323,3 +324,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
 
   return builder.build();
 };
+
+
+
+
