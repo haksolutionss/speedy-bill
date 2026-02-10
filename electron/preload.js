@@ -13,9 +13,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Discover POSYTUDE printer
   discoverPrinter: () => ipcRenderer.invoke('printer:discover'),
 
-  // Print to USB (POSYTUDE)
+  // Print to USB (raw ESC/POS — KOT + text fallback)
   printToUSB: (vendorId, productId, data) =>
     ipcRenderer.invoke('printer:print-usb', { vendorId, productId, data }),
+
+  // Print HTML bill (PRIMARY bill print path)
+  printHtmlBill: (htmlContent, paperWidth) =>
+    ipcRenderer.invoke('printer:print-html', { htmlContent, paperWidth }),
 
   // Test print
   testPrinter: (vendorId, productId) =>
