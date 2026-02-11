@@ -105,11 +105,16 @@ export class ESCPOSBuilder {
     return this.horizontalLine('-');
   }
 
-  doubleLine(): this {
-    return this.horizontalLine('=');
-  }
+
+  // solidLine(): this {
+  //   return this.horizontalLine('─');
+  // }
+  // lightSolidLine(): this {
+  //   return this.horizontalLine('╌');
+  // }
 
   solidLine(): this {
+    // Heavy, solid, 100% supported
     return this.horizontalLine('_');
   }
 
@@ -120,19 +125,18 @@ export class ESCPOSBuilder {
 
   drawBoxRow(left: string, center: string, right: string): this {
     const width = this.charsPerLine;
-    const contentWidth = width - 2; // for | |
+    const contentWidth = width - 2;
 
-    const half = Math.floor(contentWidth / 2);
+    const leftWidth = Math.floor(contentWidth / 2);
+    const rightWidth = contentWidth - leftWidth;
 
-    const leftText = centerText(left, half);
-    const rightText = centerText(right, contentWidth - half);
+    const leftText = left.padEnd(leftWidth).substring(0, leftWidth);
+    const rightText = right.padStart(rightWidth).substring(0, rightWidth);
 
     return this.line(`|${leftText}${rightText}|`);
   }
 
-  drawBoxLine(): this {
-    return this.line('+' + '_'.repeat(this.charsPerLine - 2) + '+');
-  }
+
 
   twoColumns(left: string, right: string): this {
     const maxLeftWidth = this.charsPerLine - right.length - 1;

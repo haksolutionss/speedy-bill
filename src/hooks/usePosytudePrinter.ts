@@ -150,30 +150,30 @@ export function usePosytudePrinter() {
   const printBill = useCallback(async (billData: BillData): Promise<PrintResult> => {
     const paperWidth = formatToPaperWidth(printer?.format || '80mm');
 
-    // Level 1: HTML → Electron webContents.print()
-    if (isElectron && window.electronAPI?.printHtmlBill) {
-      try {
-        console.log('[Print] Attempting HTML print…');
-        setIsPrinting(true);
-        setPrinter(prev => prev ? { ...prev, status: 'printing' } : null);
+    // // Level 1: HTML → Electron webContents.print()
+    // if (isElectron && window.electronAPI?.printHtmlBill) {
+    //   try {
+    //     console.log('[Print] Attempting HTML print…');
+    //     setIsPrinting(true);
+    //     setPrinter(prev => prev ? { ...prev, status: 'printing' } : null);
 
-        const htmlContent = generateBillHTML(billData, paperWidth);
-        const result = await window.electronAPI.printHtmlBill(htmlContent, paperWidth);
+    //     const htmlContent = generateBillHTML(billData, paperWidth);
+    //     const result = await window.electronAPI.printHtmlBill(htmlContent, paperWidth);
 
-        setPrinter(prev => prev ? { ...prev, status: result.success ? 'connected' : 'error' } : null);
-        setIsPrinting(false);
+    //     setPrinter(prev => prev ? { ...prev, status: result.success ? 'connected' : 'error' } : null);
+    //     setIsPrinting(false);
 
-        if (result.success) {
-          console.log('[Print] ✓ HTML print succeeded');
-          return { success: true };
-        }
+    //     if (result.success) {
+    //       console.log('[Print] ✓ HTML print succeeded');
+    //       return { success: true };
+    //     }
 
-        console.warn('[Print] HTML print failed, falling back to text:', result.error);
-      } catch (err) {
-        console.warn('[Print] HTML print error, falling back to text:', err);
-        setIsPrinting(false);
-      }
-    }
+    //     console.warn('[Print] HTML print failed, falling back to text:', result.error);
+    //   } catch (err) {
+    //     console.warn('[Print] HTML print error, falling back to text:', err);
+    //     setIsPrinting(false);
+    //   }
+    // }
 
     // Level 2: ASCII-safe text ESC/POS via USB
     try {

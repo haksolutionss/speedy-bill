@@ -131,18 +131,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
   return builder.build();
 };
 
-
-/**
- * ASCII-safe text fallback for bill printing.
- * 
- * IMPORTANT: This is the FALLBACK only. Primary bill printing uses HTML
- * via Electron's webContents.print() (see billHtmlTemplate.ts).
- * 
- * Rules:
- *   - NO Unicode box-drawing characters
- *   - Only ASCII: = - . and standard letters/digits
- *   - Must be readable on POSYTUDE YHD-8330
- */
 export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
   const store = useUIStore.getState();
@@ -153,7 +141,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   }
 
   // Header
-  builder.doubleLine();
+  builder.solidLine();
 
   builder
     .align(Alignment.CENTER)
@@ -176,13 +164,11 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.bold(true).line(`Mobile : ${data.phone}`).bold(false);
   }
 
-  builder.setLineSpacing(24);
 
   builder.solidLine();
   builder.drawBoxRow('TAX INVOICE', '', 'PURE VEG');
   builder.solidLine();
 
-  builder.resetLineSpacing();
 
 
   builder
@@ -191,14 +177,14 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .twoColumns(`Bill No: ${cleanedBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`)
     .bold(false);
 
-  builder.solidLine();
+  builder.dashedLine();
 
   builder
     .bold(true)
     .line(`Date : ${formatDate()}`)
     .bold(false);
 
-  builder.doubleLine();
+  builder.solidLine();
 
   // Items header
   builder
@@ -206,7 +192,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .fourColumns('Description', 'QTY', 'Rate', 'Amount')
     .bold(false);
 
-  builder.dottedLine();
+  builder.solidLine();
 
   // Items
   data.items.forEach((item) => {
@@ -277,29 +263,24 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   builder.dashedLine();
 
   builder
-    .setFontSize(FontSize.DOUBLE_WIDTH)
+    .setFontSize(FontSize.DOUBLE_HEIGHT)
     .bold(true)
     .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
     .bold(false)
     .setFontSize(FontSize.NORMAL);
 
-  builder.doubleLine();
+  builder.solidLine();
 
   // Footer
   builder.align(Alignment.CENTER);
   builder.line('Composition taxable person.');
-
-  if (data.gstin) {
-    builder.line(`GSTIN : ${data.gstin}`);
-  }
-  if (data.fssaiNumber) {
-    builder.line(`FASSAI LIC No : ${data.fssaiNumber}`);
-  }
+  builder.line(`GSTIN : ${data.gstin || '24DHFPM8077N1ZN'}`);
+  builder.line(`FASSAI LIC No : ${data.fssaiNumber || '10721026000597'}`);
 
 
   builder.line('-----THANKS FOR VISIT-----');
 
-  builder.doubleLine();
+  builder.solidLine();
 
   builder.feed(4);
   builder.partialCut();

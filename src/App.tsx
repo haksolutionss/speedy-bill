@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 // import Staff from "./pages/Staff";
 import Tables from "./pages/Tables";
+import Staff from "./pages/Staff";
 
 const queryClient = new QueryClient({
   defaultOptions: {
