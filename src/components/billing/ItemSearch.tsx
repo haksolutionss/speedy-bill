@@ -65,14 +65,19 @@ export const ItemSearch = forwardRef<ItemSearchRef, ItemSearchProps>(({ onItemAd
       return;
     }
 
-    const searchLower = query.toLowerCase();
-    const filtered = products
-      .filter(p => p.is_active)
-      .filter(p =>
-        p.name.toLowerCase().includes(searchLower) ||
-        p.code.toLowerCase().includes(searchLower)
-      )
-      .slice(0, 5);
+    const searchLower = query.toLowerCase().trim();
+    
+    // Check for exact code match first
+    const exactCodeMatch = products.find(
+      p => p.is_active && p.code.toLowerCase() === searchLower
+    );
+    
+    const filtered = exactCodeMatch
+      ? [exactCodeMatch]
+      : products
+          .filter(p => p.is_active)
+          .filter(p => p.name.toLowerCase().includes(searchLower))
+          .slice(0, 5);
 
     setSuggestions(filtered);
     setSelectedIndex(0);

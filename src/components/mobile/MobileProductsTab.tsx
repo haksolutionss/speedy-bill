@@ -68,10 +68,14 @@ export function MobileProductsTab({ onItemAdded }: MobileProductsTabProps) {
     }
 
     if (search.trim()) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
-      );
+      const q = search.toLowerCase().trim();
+      // Exact code match takes priority
+      const exactCodeMatch = filtered.find(p => p.code.toLowerCase() === q);
+      if (exactCodeMatch) {
+        filtered = [exactCodeMatch];
+      } else {
+        filtered = filtered.filter((p) => p.name.toLowerCase().includes(q));
+      }
     }
 
     return filtered;
