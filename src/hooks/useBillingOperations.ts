@@ -45,7 +45,7 @@ export function useBillingOperations() {
     markItemsSentToKitchen,
     getNextToken,
     setCurrentBillId,
-    incrementBillNumber,
+    setCurrentBillNumber,
   } = useUIStore();
 
   const { settings, calculateLoyaltyPoints } = useSettingsStore();
@@ -90,11 +90,9 @@ export function useBillingOperations() {
         return currentBillId;
       }
 
-      // CREATE
-      const billNumber = incrementBillNumber();
-
+      // CREATE — bill_number is generated server-side via generate_bill_number RPC
       const billData = {
-        bill_number: billNumber,
+        bill_number: 'PLACEHOLDER', // overridden by createBill mutation
         type: isParcelMode ? 'parcel' : 'table',
         table_id: selectedTable?.id || null,
         table_number: selectedTable?.number || null,
@@ -126,6 +124,11 @@ export function useBillingOperations() {
       }));
 
       const result = await createBill({ bill: billData, items }).unwrap();
+
+      // Sync the DB-generated bill number back to local store
+      if (result.bill_number) {
+        setCurrentBillNumber(result.bill_number);
+      }
 
       if (selectedTable) {
         // Set table to 'occupied' when bill is created (before KOT is printed)
@@ -162,7 +165,7 @@ export function useBillingOperations() {
     updateTable,
     getNextToken,
     setCurrentBillId,
-    incrementBillNumber,
+    setCurrentBillNumber,
   ]);
 
   // -----------------------------------

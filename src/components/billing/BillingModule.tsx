@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Users, Hash, Package } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
-import { useGetTableSectionsQuery, useGetProductsQuery } from '@/store/redux/api/billingApi';
+import { useGetTableSectionsQuery, useGetProductsQuery, useGetLatestBillNumberQuery } from '@/store/redux/api/billingApi';
 import { useCartSync } from '@/hooks/useCartSync';
  import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { TableGrid } from './TableGrid';
@@ -20,6 +20,7 @@ export function BillingModule() {
     currentBillId,
     cart,
     coverCount,
+    setCurrentBillNumber,
   } = useUIStore();
 
   // Cart sync hook for Supabase persistence
@@ -46,6 +47,15 @@ export function BillingModule() {
     error: productsError,
     refetch: refetchProducts
   } = useGetProductsQuery();
+
+  // Fetch latest bill number from DB and sync to local store
+  const { data: latestBillNumber } = useGetLatestBillNumberQuery();
+
+  useEffect(() => {
+    if (latestBillNumber) {
+      setCurrentBillNumber(latestBillNumber);
+    }
+  }, [latestBillNumber, setCurrentBillNumber]);
  
    // Cache data for offline use
    useEffect(() => {

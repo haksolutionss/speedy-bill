@@ -45,6 +45,7 @@ interface UIState {
   setSelectedTable: (table: DbTable | null) => void;
   setParcelMode: (mode: boolean) => void;
   setCurrentBillId: (billId: string | null) => void;
+  setCurrentBillNumber: (billNumber: string) => void;
   setCart: (cart: CartItem[]) => void;
 
   // Cart actions
@@ -139,6 +140,7 @@ export const useUIStore = create<UIState>()(
 
 
       setCurrentBillId: (billId) => set({ currentBillId: billId }),
+      setCurrentBillNumber: (billNumber) => set({ currentBillNumber: billNumber }),
 
       setCart: (cart) => set({ cart }),
 
