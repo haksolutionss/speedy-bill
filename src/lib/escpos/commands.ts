@@ -25,6 +25,13 @@ export enum FontSize {
   DOUBLE_BOTH = 0x30,
 }
 
+function centerText(text: string, width: number): string {
+  const pad = Math.max(0, width - text.length);
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return ' '.repeat(left) + text + ' '.repeat(right);
+}
+
 export class ESCPOSBuilder {
   private buffer: number[] = [];
   private paperWidth: PaperWidth;
@@ -37,9 +44,11 @@ export class ESCPOSBuilder {
   }
 
   initialize(): this {
-    this.buffer.push(ESC, 0x40);
+    this.buffer.push(ESC, 0x40);   // reset
+    this.resetLineSpacing();       // ADD THIS
     return this;
   }
+
 
   align(alignment: Alignment): this {
     this.buffer.push(ESC, 0x61, alignment);
@@ -96,13 +105,38 @@ export class ESCPOSBuilder {
     return this.horizontalLine('-');
   }
 
-  doubleLine(): this {
-    return this.horizontalLine('=');
-  }
+
+  // solidLine(): this {
+  //   return this.horizontalLine('─');
+  // }
+  // lightSolidLine(): this {
+  //   return this.horizontalLine('╌');
+  // }
 
   solidLine(): this {
+    // Heavy, solid, 100% supported
     return this.horizontalLine('_');
   }
+
+  rightDottedLine(width = 16): this {
+    const spaces = this.charsPerLine - width;
+    return this.line(' '.repeat(spaces) + '.'.repeat(width));
+  }
+
+  drawBoxRow(left: string, center: string, right: string): this {
+    const width = this.charsPerLine;
+    const contentWidth = width - 2;
+
+    const leftWidth = Math.floor(contentWidth / 2);
+    const rightWidth = contentWidth - leftWidth;
+
+    const leftText = left.padEnd(leftWidth).substring(0, leftWidth);
+    const rightText = right.padStart(rightWidth).substring(0, rightWidth);
+
+    return this.line(`|${leftText}${rightText}|`);
+  }
+
+
 
   twoColumns(left: string, right: string): this {
     const maxLeftWidth = this.charsPerLine - right.length - 1;
@@ -125,10 +159,11 @@ export class ESCPOSBuilder {
 
   fourColumns(col1: string, col2: string, col3: string, col4: string): this {
     const widths = this.paperWidth === '58mm'
-      ? [18, 4, 5, 5]
+      ? [16, 4, 5, 7]
       : this.paperWidth === '76mm'
-        ? [26, 5, 5, 6]
-        : [22, 3, 10, 11];
+        ? [24, 5, 6, 7]
+        : [18, 4, 10, 12];
+
 
     const formatted = [
       col1.substring(0, widths[0]).padEnd(widths[0]),

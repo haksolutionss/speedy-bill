@@ -55,6 +55,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
     currentBillId,
     getKOTItems,
     incrementBillNumber,
+    currentBillNumber
   } = useUIStore();
 
   const { settings, calculateLoyaltyPoints, calculateRedemptionValue } = useSettingsStore();
@@ -125,7 +126,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
       tableNumber: selectedTable?.number,
       tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: kotItems,
-      billNumber: billId.slice(0, 8),
+      billNumber: currentBillNumber,
       kotNumber: parseInt(kotNumber, 10),
       kotNumberFormatted: kotNumber,
       isParcel: isParcelMode,
@@ -139,7 +140,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
 
     return {
       billId,
-      billNumber: currentBillId?.slice(0, 8) || 'BILL-0000',
+      billNumber: currentBillNumber,
       tableNumber: selectedTable?.number,
       tokenNumber: isParcelMode ? tokenNumber : undefined,
       items: cart,
@@ -212,6 +213,7 @@ export function MobileCartTab({ onBack }: MobileCartTabProps) {
 
       if (printResult.success) {
         // Settle the bill with customer and loyalty info
+        incrementBillNumber(); // ✅ MOVE TO NEXT BILL
         await settleBill(
           method,
           undefined,

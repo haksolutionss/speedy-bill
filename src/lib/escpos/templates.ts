@@ -114,7 +114,7 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
     }
   });
 
-  builder.dashedLine();
+  builder.solidLine();
 
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
   builder
@@ -131,18 +131,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
   return builder.build();
 };
 
-
-/**
- * ASCII-safe text fallback for bill printing.
- * 
- * IMPORTANT: This is the FALLBACK only. Primary bill printing uses HTML
- * via Electron's webContents.print() (see billHtmlTemplate.ts).
- * 
- * Rules:
- *   - NO Unicode box-drawing characters
- *   - Only ASCII: = - . and standard letters/digits
- *   - Must be readable on POSYTUDE YHD-8330
- */
 export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '80mm'): Uint8Array => {
   const builder = new ESCPOSBuilder(paperWidth);
   const store = useUIStore.getState();
@@ -153,44 +141,40 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   }
 
   // Header
-  builder.doubleLine();
+  builder.solidLine();
 
   builder
     .align(Alignment.CENTER)
+    .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
-    .line((data.restaurantName || 'RESTAURANT').toUpperCase())
-    .bold(false);
+    .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
+    .bold(false)
+    .setFontSize(FontSize.NORMAL);
+
+  builder.resetLineSpacing();
 
   if (data.address) {
-    data.address.split(',').map(l => l.trim()).forEach(line => {
-      builder.line(line);
-    });
+    builder.setLineSpacing(20);
+    const addressLines = data.address.split(',').map(l => l.trim());
+    addressLines.forEach(line => builder.line(line));
+    builder.resetLineSpacing();
   }
 
   if (data.phone) {
     builder.bold(true).line(`Mobile : ${data.phone}`).bold(false);
   }
 
-  builder.doubleLine();
 
-  // TAX INVOICE / VEG (ASCII safe — no borders)
-  builder
-    .align(Alignment.CENTER)
-    .bold(true)
-    .line('TAX INVOICE')
-    .line(data.isPureVeg !== false ? 'PURE VEG.' : 'NON VEG. / VEG')
-    .bold(false);
+  builder.solidLine();
+  builder.drawBoxRow('TAX INVOICE', '', 'PURE VEG');
+  builder.solidLine();
 
-  builder.doubleLine();
 
-  // Bill info
+
   builder
     .align(Alignment.LEFT)
     .bold(true)
-    .twoColumns(
-      `Bill No. ${cleanedBillNumber}`,
-      `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`
-    )
+    .twoColumns(`Bill No: ${cleanedBillNumber}`, `T. No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`)
     .bold(false);
 
   builder.dashedLine();
@@ -200,15 +184,15 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .line(`Date : ${formatDate()}`)
     .bold(false);
 
-  builder.doubleLine();
+  builder.solidLine();
 
   // Items header
   builder
     .bold(true)
-    .fourColumns('Desc', 'QTY', 'Rate', 'Amount')
+    .fourColumns('Description', 'QTY', 'Rate', 'Amount')
     .bold(false);
 
-  builder.dottedLine();
+  builder.solidLine();
 
   // Items
   data.items.forEach((item) => {
@@ -217,7 +201,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
       : item.productName;
 
     builder.fourColumns(
-      itemName.toUpperCase(),
+      itemName,
       item.quantity.toString(),
       item.unitPrice.toFixed(2),
       (item.unitPrice * item.quantity).toFixed(2)
@@ -228,8 +212,9 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     }
   });
 
-  builder.line('');
-  builder.dottedLine();
+
+  builder.align(Alignment.RIGHT);
+  builder.rightDottedLine(16);
 
   // Totals
   builder.align(Alignment.RIGHT);
@@ -245,18 +230,28 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line('');
   }
 
-  // GST labels — always show
-  if (data.showGST !== false) {
-    const gstRate = data.items[0]?.gstRate || 5;
-    const halfRate = gstRate / 2;
+  // if (data.showGST !== false) {
+  //   const gstRate = data.items[0]?.gstRate || 5;
+  //   const halfRate = gstRate / 2;
 
-    if (data.gstMode === 'igst') {
-      builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
-    } else {
-      builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount)}`);
-      builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount)}`);
-    }
+  //   if (data.gstMode === 'igst') {
+  //     builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
+  //   } else {
+  //     builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount)}`);
+  //     builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount)}`);
+  //   }
+  // }
+
+  const gstRate = data.items[0]?.gstRate || 5;
+  const halfRate = gstRate / 2;
+
+  if (data.gstMode === 'igst') {
+    builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
+  } else {
+    builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount || 0)}`);
+    builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount || 0)}`);
   }
+
 
   const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calculatedTotal;
@@ -268,29 +263,24 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   builder.dashedLine();
 
   builder
+    .setFontSize(FontSize.DOUBLE_HEIGHT)
     .bold(true)
     .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
-    .bold(false);
+    .bold(false)
+    .setFontSize(FontSize.NORMAL);
 
-  builder.doubleLine();
+  builder.solidLine();
 
   // Footer
   builder.align(Alignment.CENTER);
   builder.line('Composition taxable person.');
+  builder.line(`GSTIN : ${data.gstin || '24DHFPM8077N1ZN'}`);
+  builder.line(`FASSAI LIC No : ${data.fssaiNumber || '10721026000597'}`);
 
-  if (data.gstin) {
-    builder.line(`GSTIN : ${data.gstin}`);
-  }
 
-  builder.line('HSN/SAC COde : 9963');
+  builder.line('-----THANKS FOR VISIT-----');
 
-  if (data.fssaiNumber) {
-    builder.line(`FSSAI LIC No : ${data.fssaiNumber}`);
-  }
-
-  builder.line('.........THANKS FOR VISIT.........');
-
-  builder.doubleLine();
+  builder.solidLine();
 
   builder.feed(4);
   builder.partialCut();
