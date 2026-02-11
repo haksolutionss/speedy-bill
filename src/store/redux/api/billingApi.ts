@@ -542,6 +542,26 @@ export const billingApi = createApi({
       providesTags: ['Customers'],
     }),
 
+    // ============ LATEST BILL NUMBER ============
+    getLatestBillNumber: builder.query<string, void>({
+      queryFn: async () => {
+        try {
+          const { data, error } = await supabase
+            .from('bills')
+            .select('bill_number')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) throw error;
+          return { data: data?.bill_number || 'BILL-0000' };
+        } catch (error) {
+          return { error: { message: (error as Error).message } };
+        }
+      },
+      providesTags: ['Bills'],
+    }),
+
     // ============ PAYMENT DETAILS ============
     addPaymentDetails: builder.mutation<void, { billId: string; payments: { method: string; amount: number }[] }>({
       queryFn: async ({ billId, payments }) => {
@@ -582,4 +602,5 @@ export const {
   useMarkItemsAsKOTMutation,
   useGetCustomersQuery,
   useAddPaymentDetailsMutation,
+  useGetLatestBillNumberQuery,
 } = billingApi;
