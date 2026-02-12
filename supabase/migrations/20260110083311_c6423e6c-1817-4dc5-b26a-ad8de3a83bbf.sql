@@ -297,27 +297,6 @@ ON public.payment_details FOR DELETE USING (true);
 
 CREATE INDEX idx_payment_details_bill_id ON public.payment_details(bill_id);
 
--- =====================================================
--- KOT HISTORY (Kitchen Order Tickets)
--- =====================================================
-CREATE TABLE public.kot_history (
-  id UUID NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
-  bill_id UUID NOT NULL REFERENCES public.bills(id) ON DELETE CASCADE,
-  kot_number TEXT NOT NULL,
-  table_number TEXT,
-  token_number INTEGER,
-  printed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.kot_history ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow public read access on kot_history" 
-ON public.kot_history FOR SELECT USING (true);
-
-CREATE POLICY "Allow public insert on kot_history" 
-ON public.kot_history FOR INSERT WITH CHECK (true);
-
-CREATE INDEX idx_kot_history_bill_id ON public.kot_history(bill_id);
 
 -- =====================================================
 -- SETTINGS (App configuration)

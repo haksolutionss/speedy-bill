@@ -1,0 +1,144 @@
+
+# POS System – Data Sync, Billing & Session Fixes
+
+## 1. Local Caching vs Database Sync (Critical)
+
+### Local Cache (Read-Only)
+
+Only cache static, non-transactional data locally:
+
+* Products
+* Sections / Categories
+* Auth session metadata
+* POS UI state (non-bill related)
+* Settings required for POS rendering
+
+These must be treated as read-only during a session.
+
+### Database-Only (Transactional)
+
+All bill-related and transactional data must be stored and synced via the database
+
+❗ Do NOT store cart or bill data in localStorage.
+This is currently causing:
+
+* Cross-device conflicts
+* Out-of-sync carts
+* Failed or duplicate bill printing
+
+The database must be the single source of truth for billing state across devices.
+
+---
+
+## 2. Duplicate Bills & Incorrect Settlement State (Blocker Bug)
+
+### Current Issue
+
+When creating or printing a bill, two records are being saved:
+
+* One with `active / unsettled`
+* One with `settled`
+
+This results in:
+
+* Duplicate bills
+* Multiple print triggers
+* Incorrect accounting
+
+### Required Fix
+
+* Identify where bill creation is happening more than once (create + print flow).
+* Ensure:
+
+  * Only ONE bill record is created per transaction.
+  * Status flow is linear and atomic.
+
+### Settlement Rules
+
+* On print / confirm:
+
+  * Bill must be saved once
+  * Status must be `settled`
+* Payment handling:
+
+  * Cash → settled immediately
+  * Other payment modes → settled with selected mode
+* Printing must:
+
+  * Trigger once
+  * Be tied to the same settled bill record
+
+No intermediate or duplicate bill states should be persisted.
+
+---
+
+## 3. Session Lifecycle & Local Storage Policy
+
+### App Launch
+
+* On initial app load:
+
+  * Clear localStorage completely
+  * No cached data should survive a fresh launch
+
+### Post-Login
+
+After successful authentication, cache only:
+
+* `auth-storage`
+* `products`
+* `sections`
+* `billing-ui-storage`
+* `settings-storage`
+
+### Session Rules
+
+* Session validity: 24 hours
+* After expiry:
+
+  * Auto logout user
+  * Clear all cached data
+  * Force fresh login and data fetch
+
+No stale data must persist across days.
+
+---
+
+## 4. Multi-Device & Real-Time Consistency
+
+The POS system must:
+
+* Work correctly across multiple devices in real time
+* Maintain:
+
+  * No duplicate bills
+  * No duplicate prints
+  * No redundant records
+* Always reflect the latest authoritative state from DB
+
+Printing, billing, and settlement must be idempotent, conflict-free, and deterministic.
+
+---
+
+## Final Expectations
+
+* Single bill → single DB record → single print
+* No local cart or bill storage
+* No cross-device conflicts make sure we have correct billNumber value that must be sync with DB and accros diffrent devices
+* Clean session lifecycle
+* Stable, predictable POS behavior under load
+
+This must be treated as a core POS stability fix, not a cosmetic change.
+
+
+create index IF not exists idx_bills_table_id on public.bills using btree (table_id) TABLESPACE pg_default;
+
+create index IF not exists idx_bills_status on public.bills using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_bills_created_at on public.bills using btree (created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_bills_bill_number on public.bills using btree (bill_number) TABLESPACE pg_default;
+
+create trigger update_bills_updated_at BEFORE
+update on bills for EACH row
+execute FUNCTION update_updated_at_column ();
