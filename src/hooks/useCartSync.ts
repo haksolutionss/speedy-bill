@@ -184,6 +184,15 @@ export function useCartSync() {
         }
       }
 
+      // Update table status based on cart contents so other devices see highlighting
+      const newStatus = cartItems.length > 0 ? 'occupied' : 'available';
+      await supabase
+        .from('tables')
+        .update({ status: newStatus })
+        .eq('id', tableId)
+        .eq('current_bill_id', null as any) // Only update if no active bill (avoid overwriting 'active' status)
+        .in('status', ['available', 'occupied']); // Only transition between these two
+
       lastSyncedCartRef.current = cartJson;
     } catch (err) {
       console.error('[CartSync] Error syncing cart:', err);
@@ -196,7 +205,6 @@ export function useCartSync() {
   const clearCartFromSupabase = useCallback(async (tableId: string) => {
     if (!tableId) return;
 
-
     try {
       const { error } = await supabase
         .from('cart_items')
@@ -207,6 +215,13 @@ export function useCartSync() {
         console.error('[CartSync] Error clearing cart:', error);
       } else {
         lastSyncedCartRef.current = '';
+        // Reset table status to available if no active bill
+        await supabase
+          .from('tables')
+          .update({ status: 'available' })
+          .eq('id', tableId)
+          .is('current_bill_id', null)
+          .in('status', ['occupied']);
       }
     } catch (err) {
       console.error('[CartSync] Error clearing cart:', err);
