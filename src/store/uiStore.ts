@@ -13,9 +13,7 @@ export interface CartItem {
   gstRate: number;
   notes?: string;
   sentToKitchen: boolean;
-  // Track printed quantity for incremental KOT printing
   printedQuantity: number;
-  // For changeable category items - indicates price was manually entered
   isCustomPrice?: boolean;
 }
 
@@ -23,22 +21,18 @@ export interface CartItem {
 export { calculateBillTotals } from '@/lib/billCalculations';
 
 interface UIState {
-  // Current selection state
   selectedTable: DbTable | null;
   isParcelMode: boolean;
   currentBillId: string | null;
   currentBillNumber: string;
   incrementBillNumber: () => string;
-  // Local cart state (for optimistic updates)
   cart: CartItem[];
 
-  // Bill info
   coverCount: number;
   discountType: 'percentage' | 'fixed' | null;
   discountValue: number | null;
   discountReason: string | null;
 
-  // Token counter for parcel orders (local)
   tokenCounter: number;
 
   // Actions
@@ -48,7 +42,6 @@ interface UIState {
   setCurrentBillNumber: (billNumber: string) => void;
   setCart: (cart: CartItem[]) => void;
 
-  // Cart actions
   addToCart: (product: ProductWithPortions, portion: string, quantity: number, overridePrice?: number, isCustomPrice?: boolean) => void;
   updateCartItem: (itemId: string, updates: Partial<CartItem>) => void;
   removeFromCart: (itemId: string) => void;
@@ -56,26 +49,19 @@ interface UIState {
   loadCartFromBill: (bill: BillWithItems) => void;
   markItemsSentToKitchen: () => void;
 
-  // Discount actions
   setDiscount: (type: 'percentage' | 'fixed' | null, value: number | null, reason?: string | null) => void;
   setCoverCount: (count: number) => void;
 
-  // Token
   getNextToken: () => number;
 
-  // Reset
   resetBillingState: () => void;
 
-  // Get items that need to be printed on KOT (only new/added quantities)
   getKOTItems: () => CartItem[];
 }
 
 const generateId = () => crypto.randomUUID();
 
 export const useUIStore = create<UIState>()(
-
-
-
   persist(
     (set, get) => ({
       selectedTable: null,
@@ -88,10 +74,9 @@ export const useUIStore = create<UIState>()(
       discountReason: null,
       tokenCounter: 1,
 
-      // The getNextToken function:
       getNextToken: () => {
         const token = get().tokenCounter;
-        set({ tokenCounter: token + 1 });  // Increments by 1
+        set({ tokenCounter: token + 1 });
         return token;
       },
 
@@ -107,12 +92,11 @@ export const useUIStore = create<UIState>()(
 
       setSelectedTable: (table) => {
         const prevTable = get().selectedTable;
-        // Auto-enable parcel mode if table number starts with 'P'
         const isParcel = table?.number?.startsWith('P') ?? false;
 
         set({
           selectedTable: table,
-          isParcelMode: isParcel,  // ← Now dynamically set based on table number
+          isParcelMode: isParcel,
           cart: prevTable?.id !== table?.id ? [] : get().cart,
           currentBillId: prevTable?.id !== table?.id ? null : get().currentBillId,
           coverCount: 1,
@@ -121,7 +105,6 @@ export const useUIStore = create<UIState>()(
           discountReason: null,
         });
       },
-
 
       setParcelMode: (mode) => {
         const prevMode = get().isParcelMode;
@@ -138,21 +121,17 @@ export const useUIStore = create<UIState>()(
         });
       },
 
-
       setCurrentBillId: (billId) => set({ currentBillId: billId }),
       setCurrentBillNumber: (billNumber) => set({ currentBillNumber: billNumber }),
 
       setCart: (cart) => set({ cart }),
 
       addToCart: (product, portion, quantity, overridePrice, isCustomPrice = false) => {
-        // portion is the size name (string)
         const portionData = product.portions.find((p) => p.size === portion);
         if (!portionData) return;
 
-        // Use override price if provided (for section-based pricing or custom price), otherwise use base price
         const unitPrice = overridePrice ?? portionData.price;
 
-        // For custom price items, always create new cart entry (don't merge)
         if (isCustomPrice) {
           const newItem: CartItem = {
             id: generateId(),
@@ -171,13 +150,11 @@ export const useUIStore = create<UIState>()(
           return;
         }
 
-        // Find existing item that hasn't been sent to kitchen yet
         const existingPendingItem = get().cart.find(
           (item) => item.productId === product.id && item.portion === portion && !item.sentToKitchen && !item.isCustomPrice
         );
 
         if (existingPendingItem) {
-          // Add to existing pending item
           set({
             cart: get().cart.map((item) =>
               item.id === existingPendingItem.id
@@ -186,13 +163,11 @@ export const useUIStore = create<UIState>()(
             ),
           });
         } else {
-          // Check if there's a sent item we should add to instead
           const existingSentItem = get().cart.find(
             (item) => item.productId === product.id && item.portion === portion && item.sentToKitchen && !item.isCustomPrice
           );
 
           if (existingSentItem) {
-            // Add quantity to sent item - the difference will be printed in next KOT
             set({
               cart: get().cart.map((item) =>
                 item.id === existingSentItem.id
@@ -201,7 +176,6 @@ export const useUIStore = create<UIState>()(
               ),
             });
           } else {
-            // Create new item with section-based price if available
             const newItem: CartItem = {
               id: generateId(),
               productId: product.id,
@@ -209,7 +183,7 @@ export const useUIStore = create<UIState>()(
               productCode: product.code,
               portion,
               quantity,
-              unitPrice, // Uses overridePrice if provided
+              unitPrice,
               gstRate: product.gst_rate,
               sentToKitchen: false,
               printedQuantity: 0,
@@ -222,9 +196,7 @@ export const useUIStore = create<UIState>()(
       updateCartItem: (itemId, updates) => {
         const item = get().cart.find((i) => i.id === itemId);
 
-        // Prevent updates to printed items (except quantity increase)
         if (item?.sentToKitchen) {
-          // Only allow quantity increase for printed items
           if (updates.quantity !== undefined && updates.quantity > item.quantity) {
             set({
               cart: get().cart.map((i) =>
@@ -232,7 +204,6 @@ export const useUIStore = create<UIState>()(
               ),
             });
           }
-          // Ignore other updates for printed items
           return;
         }
 
@@ -245,12 +216,7 @@ export const useUIStore = create<UIState>()(
 
       removeFromCart: (itemId) => {
         const item = get().cart.find((i) => i.id === itemId);
-
-        // Prevent removal of printed items
-        if (item?.sentToKitchen) {
-          return;
-        }
-
+        if (item?.sentToKitchen) return;
         set({ cart: get().cart.filter((i) => i.id !== itemId) });
       },
 
@@ -268,7 +234,6 @@ export const useUIStore = create<UIState>()(
           gstRate: Number(item.gst_rate),
           notes: item.notes || undefined,
           sentToKitchen: item.sent_to_kitchen,
-          // If sent to kitchen, all quantity was printed
           printedQuantity: item.sent_to_kitchen ? item.quantity : 0,
         }));
 
@@ -287,7 +252,6 @@ export const useUIStore = create<UIState>()(
           cart: get().cart.map((item) => ({
             ...item,
             sentToKitchen: true,
-            // Update printed quantity to current quantity
             printedQuantity: item.quantity,
           })),
         });
@@ -303,7 +267,6 @@ export const useUIStore = create<UIState>()(
 
       setCoverCount: (count) => set({ coverCount: count }),
 
-
       resetBillingState: () => {
         set({
           selectedTable: null,
@@ -317,18 +280,14 @@ export const useUIStore = create<UIState>()(
         });
       },
 
-
-      // Get items for KOT - only new items or increased quantities
       getKOTItems: () => {
         const cart = get().cart;
         const kotItems: CartItem[] = [];
 
         for (const item of cart) {
           if (!item.sentToKitchen) {
-            // New item, not yet sent to kitchen
             kotItems.push(item);
           } else if (item.quantity > item.printedQuantity) {
-            // Existing item with increased quantity - only print the difference
             kotItems.push({
               ...item,
               quantity: item.quantity - item.printedQuantity,
@@ -341,12 +300,12 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'billing-ui-storage',
+      // Only persist non-transactional UI state
       partialize: (state) => ({
         tokenCounter: state.tokenCounter,
         currentBillNumber: state.currentBillNumber,
-        currentBillId: state.currentBillId,
+        // DO NOT persist currentBillId - it's transactional and must come from DB
       }),
     }
   )
 );
-

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { billingApi } from '@/store/redux/api/billingApi';
 import { useAppDispatch } from '@/store/redux/hooks';
+import { useUIStore } from '@/store/uiStore';
 
 export function RealtimeSubscription() {
   const dispatch = useAppDispatch();
@@ -19,12 +20,31 @@ export function RealtimeSubscription() {
       )
       .subscribe();
 
-    // Subscribe to bill changes
+    // Subscribe to bill changes - also sync latest bill number
     const billsChannel = supabase
       .channel('bills-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'bills' },
+        { event: 'INSERT', schema: 'public', table: 'bills' },
+        (payload) => {
+          dispatch(billingApi.util.invalidateTags(['Bills']));
+          // Sync latest bill number across devices in real-time
+          const newBillNumber = (payload.new as any)?.bill_number;
+          if (newBillNumber) {
+            useUIStore.setState({ currentBillNumber: newBillNumber });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'bills' },
+        () => {
+          dispatch(billingApi.util.invalidateTags(['Bills']));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'bills' },
         () => {
           dispatch(billingApi.util.invalidateTags(['Bills']));
         }

@@ -32,22 +32,6 @@ async function clearCartFromSupabase(tableId: string) {
 }
 
 export function useBillingOperations() {
-  const {
-    selectedTable,
-    isParcelMode,
-    currentBillId,
-    cart,
-    coverCount,
-    discountType,
-    discountValue,
-    discountReason,
-    resetBillingState,
-    markItemsSentToKitchen,
-    getNextToken,
-    setCurrentBillId,
-    setCurrentBillNumber,
-  } = useUIStore();
-
   const { settings, calculateLoyaltyPoints } = useSettingsStore();
   const taxType = settings.tax.type;
 
@@ -59,8 +43,25 @@ export function useBillingOperations() {
 
   // -----------------------------------
   // SAVE OR UPDATE BILL (returns billId)
+  // Always reads fresh state from store
   // -----------------------------------
   const saveOrUpdateBill = useCallback(async (): Promise<string | null> => {
+    // Read fresh state from store to avoid stale closure issues
+    const state = useUIStore.getState();
+    const {
+      cart,
+      currentBillId,
+      selectedTable,
+      isParcelMode,
+      coverCount,
+      discountType,
+      discountValue,
+      discountReason,
+      getNextToken,
+      setCurrentBillId,
+      setCurrentBillNumber,
+    } = state;
+
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return null;
@@ -69,7 +70,7 @@ export function useBillingOperations() {
     const totals = calculateBillTotals(cart, discountType, discountValue, taxType);
 
     try {
-      // UPDATE
+      // UPDATE existing bill
       if (currentBillId) {
         await updateBill({
           id: currentBillId,
@@ -90,9 +91,9 @@ export function useBillingOperations() {
         return currentBillId;
       }
 
-      // CREATE — bill_number is generated server-side via generate_bill_number RPC
+      // CREATE new bill — bill_number is generated server-side
       const billData = {
-        bill_number: 'PLACEHOLDER', // overridden by createBill mutation
+        bill_number: 'PLACEHOLDER',
         type: isParcelMode ? 'parcel' : 'table',
         table_id: selectedTable?.id || null,
         table_number: selectedTable?.number || null,
@@ -131,7 +132,6 @@ export function useBillingOperations() {
       }
 
       if (selectedTable) {
-        // Set table to 'occupied' when bill is created (before KOT is printed)
         await updateTable({
           id: selectedTable.id,
           updates: {
@@ -151,28 +151,15 @@ export function useBillingOperations() {
       toast.error('Failed to save bill');
       return null;
     }
-  }, [
-    cart,
-    currentBillId,
-    selectedTable,
-    isParcelMode,
-    coverCount,
-    discountType,
-    discountValue,
-    discountReason,
-    createBill,
-    updateBill,
-    updateTable,
-    getNextToken,
-    setCurrentBillId,
-    setCurrentBillNumber,
-  ]);
+  }, [taxType, createBill, updateBill, updateTable]);
 
   // -----------------------------------
-  // PRINT KOT (RETURNS billId 🔥)
-  // Updates table status to 'active' after KOT is printed
+  // PRINT KOT (RETURNS billId)
   // -----------------------------------
   const printKOT = useCallback(async (): Promise<string | null> => {
+    const state = useUIStore.getState();
+    const { cart, selectedTable, markItemsSentToKitchen } = state;
+
     const pendingItems = cart.filter(
       (item) => !item.sentToKitchen || item.quantity > item.printedQuantity
     );
@@ -187,31 +174,27 @@ export function useBillingOperations() {
       if (!billId) return null;
 
       const itemIds = pendingItems.map((item) => item.id);
-
       await markItemsAsKOT({ billId, itemIds }).unwrap();
 
-      // After KOT is printed, update table status to 'active'
+      // After KOT, update table status
       if (selectedTable) {
         await updateTable({
           id: selectedTable.id,
-          updates: {
-            status: 'occupied',
-          },
+          updates: { status: 'occupied' },
         }).unwrap();
       }
 
       markItemsSentToKitchen();
-
       return billId;
     } catch (error) {
       console.error('[BillingOps] Error printing KOT:', error);
       toast.error('Failed to send KOT');
       return null;
     }
-  }, [cart, selectedTable, saveOrUpdateBill, markItemsAsKOT, markItemsSentToKitchen, updateTable]);
+  }, [saveOrUpdateBill, markItemsAsKOT, updateTable]);
 
   // -----------------------------------
-  // SETTLE BILL (unchanged contract)
+  // SETTLE BILL - accepts optional billId to avoid stale closure
   // -----------------------------------
   const settleBill = useCallback(
     async (
@@ -219,22 +202,33 @@ export function useBillingOperations() {
       paymentDetails?: { method: 'cash' | 'card' | 'upi'; amount: number }[],
       customerId?: string,
       loyaltyPointsUsed?: number,
-      finalAmount?: number
+      finalAmount?: number,
+      explicitBillId?: string
     ) => {
+      // Read fresh state to avoid stale closures
+      const state = useUIStore.getState();
+      const { cart, selectedTable, discountType, discountValue, resetBillingState } = state;
+
       if (cart.length === 0) {
         toast.error('Cart is empty');
         return false;
       }
 
+      // Use explicit billId first, then fresh state's currentBillId
+      const billId = explicitBillId || state.currentBillId;
       const tableToUpdate = selectedTable;
 
       (async () => {
         try {
-          let billId = currentBillId ?? (await saveOrUpdateBill());
-          if (!billId) return;
+          // If we still don't have a billId, create one (shouldn't happen normally)
+          let resolvedBillId = billId;
+          if (!resolvedBillId) {
+            resolvedBillId = await saveOrUpdateBill();
+          }
+          if (!resolvedBillId) return;
 
           await updateBill({
-            id: billId,
+            id: resolvedBillId,
             updates: {
               status: 'settled',
               payment_method: paymentMethod,
@@ -244,7 +238,7 @@ export function useBillingOperations() {
           }).unwrap();
 
           if (paymentMethod === 'split' && paymentDetails) {
-            await addPaymentDetails({ billId, payments: paymentDetails }).unwrap();
+            await addPaymentDetails({ billId: resolvedBillId, payments: paymentDetails }).unwrap();
           }
 
           if (customerId) {
@@ -293,16 +287,11 @@ export function useBillingOperations() {
       return true;
     },
     [
-      cart,
-      currentBillId,
-      selectedTable,
-      discountType,
-      discountValue,
+      taxType,
       saveOrUpdateBill,
       updateBill,
       updateTable,
       addPaymentDetails,
-      resetBillingState,
       calculateLoyaltyPoints,
     ]
   );
@@ -311,6 +300,9 @@ export function useBillingOperations() {
   // SAVE AS UNSETTLED
   // -----------------------------------
   const saveAsUnsettled = useCallback(async (): Promise<boolean> => {
+    const state = useUIStore.getState();
+    const { cart, selectedTable, resetBillingState } = state;
+
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return false;
@@ -336,11 +328,11 @@ export function useBillingOperations() {
       toast.error('Failed to save bill');
       return false;
     }
-  }, [cart, selectedTable, saveOrUpdateBill, updateBill, resetBillingState]);
+  }, [saveOrUpdateBill, updateBill]);
 
   return {
     saveOrUpdateBill,
-    printKOT, // 🔥 now returns billId
+    printKOT,
     settleBill,
     saveAsUnsettled,
   };
