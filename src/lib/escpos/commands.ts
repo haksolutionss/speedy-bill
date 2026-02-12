@@ -45,7 +45,7 @@ export class ESCPOSBuilder {
 
   initialize(): this {
     this.buffer.push(ESC, 0x40);   // reset
-    this.setLineSpacing(30);       // FIX: Set consistent line spacing (30 dots = balanced spacing)
+    this.setLineSpacing(24);       // FIX: Set consistent line spacing (30 dots = balanced spacing)
     return this;
   }
 
@@ -168,10 +168,10 @@ export class ESCPOSBuilder {
 
   fourColumns(col1: string, col2: string, col3: string, col4: string): this {
     const widths = this.paperWidth === '58mm'
-      ? [17, 4, 5, 6]
+      ? [15, 4, 6, 7]
       : this.paperWidth === '76mm'
-        ? [25, 5, 6, 6]
-        : [20, 4, 9, 11];
+        ? [22, 5, 7, 8]
+        : [22, 4, 10, 12];
 
     const formatted = [
       col1.substring(0, widths[0]).padEnd(widths[0]),
@@ -209,8 +209,7 @@ export class ESCPOSBuilder {
   }
 
   resetLineSpacing(): this {
-    // FIX: Instead of resetting to default, set to 30 dots for consistent spacing
-    this.setLineSpacing(30);
+    this.setLineSpacing(24);
     return this;
   }
 
