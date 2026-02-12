@@ -31,10 +31,13 @@ const hashPin = (pin: string): string => {
   return hash.toString(16);
 };
 
-// Get session expiry date (1 month from now)
+// Session validity: 24 hours
+const SESSION_DURATION_HOURS = 24;
+
+// Get session expiry date (24 hours from now)
 const getSessionExpiry = (): string => {
   const date = new Date();
-  date.setMonth(date.getMonth() + 1);
+  date.setHours(date.getHours() + SESSION_DURATION_HOURS);
   return date.toISOString();
 };
 
@@ -43,6 +46,35 @@ const isSessionExpired = (expiresAt: string | null): boolean => {
   if (!expiresAt) return true;
   return new Date(expiresAt) < new Date();
 };
+
+// Allowed localStorage keys after login
+const ALLOWED_STORAGE_KEYS = [
+  'auth-storage',
+  'billing-ui-storage',
+  'settings-storage',
+];
+
+/**
+ * Clear all localStorage except allowed keys.
+ * Called on app launch and on logout.
+ */
+function clearNonAllowedStorage() {
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && !ALLOWED_STORAGE_KEYS.includes(key)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+}
+
+/**
+ * Clear ALL localStorage (used on logout / session expiry)
+ */
+function clearAllStorage() {
+  localStorage.clear();
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -54,14 +86,12 @@ export const useAuthStore = create<AuthState>()(
 
       loadUserPermissions: async (userId: string): Promise<StaffPermissions> => {
         try {
-          // First check if user has admin role
           const { data: roleData } = await supabase
             .from('user_roles')
             .select('role')
             .eq('user_id', userId)
             .single();
 
-          // Admins get full permissions
           if (roleData?.role === 'admin') {
             return {
               canAccessBilling: true,
@@ -75,7 +105,6 @@ export const useAuthStore = create<AuthState>()(
             };
           }
 
-          // Load staff permissions
           const { data: permData } = await supabase
             .from('staff_permissions')
             .select('*')
@@ -95,7 +124,6 @@ export const useAuthStore = create<AuthState>()(
             };
           }
 
-          // Default permissions for staff
           return {
             canAccessBilling: true,
             canAccessProducts: false,
@@ -149,7 +177,7 @@ export const useAuthStore = create<AuthState>()(
           // Load permissions
           const permissions = await get().loadUserPermissions(users.id);
 
-          // Get role from user_roles table
+          // Get role
           const { data: roleData } = await supabase
             .from('user_roles')
             .select('role')
@@ -175,10 +203,12 @@ export const useAuthStore = create<AuthState>()(
             .eq('id', users.id);
 
           set({ user, isAuthenticated: true, isLoading: false, sessionExpiresAt });
+
+          // Sync latest bill number from DB
           const { data: lastBill } = await supabase
             .from('bills')
             .select('bill_number')
-            .order('bill_number', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(1)
             .single();
 
@@ -195,7 +225,6 @@ export const useAuthStore = create<AuthState>()(
 
       signup: async (mobile: string, pin: string, name?: string) => {
         try {
-          // Check if user already exists
           const { data: existing } = await supabase
             .from('users')
             .select('id')
@@ -206,7 +235,6 @@ export const useAuthStore = create<AuthState>()(
             return { success: false, error: 'Mobile number already registered' };
           }
 
-          // Check if this is the first user (will be admin)
           const { count } = await supabase
             .from('users')
             .select('*', { count: 'exact', head: true });
@@ -232,7 +260,6 @@ export const useAuthStore = create<AuthState>()(
             return { success: false, error: 'Failed to create account' };
           }
 
-          // Add role to user_roles table
           await supabase
             .from('user_roles')
             .insert({
@@ -240,7 +267,6 @@ export const useAuthStore = create<AuthState>()(
               role: isFirstUser ? 'admin' : 'staff',
             });
 
-          // If not first user, create default staff permissions
           if (!isFirstUser) {
             await supabase
               .from('staff_permissions')
@@ -250,7 +276,6 @@ export const useAuthStore = create<AuthState>()(
               });
           }
 
-          // Load permissions (admin gets full permissions)
           const permissions = await get().loadUserPermissions(newUser.id);
 
           const user: User = {
@@ -272,17 +297,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        // Clear auth state
+        // Clear ALL localStorage on logout
+        clearAllStorage();
         set({ user: null, isAuthenticated: false, sessionExpiresAt: null });
-
-        // Clear all localStorage entries
-        localStorage.removeItem('auth-storage');
-        localStorage.removeItem('billing-ui-storage');
-        localStorage.removeItem('settings-storage');
-        localStorage.removeItem('billing-storage');
-
-        // Reset UI store state
-        useUIStore.getState().resetBillingState();
       },
 
       setUser: (user) => {
@@ -292,8 +309,10 @@ export const useAuthStore = create<AuthState>()(
       checkAuth: async () => {
         const { user: currentUser, sessionExpiresAt } = get();
 
-        // Check if session is expired
+        // Check if session is expired (24h)
         if (isSessionExpired(sessionExpiresAt)) {
+          // Session expired - full cleanup
+          clearAllStorage();
           set({ user: null, isAuthenticated: false, isLoading: false, sessionExpiresAt: null });
           return;
         }
@@ -308,6 +327,7 @@ export const useAuthStore = create<AuthState>()(
             .single();
 
           if (!data) {
+            clearAllStorage();
             set({ user: null, isAuthenticated: false, isLoading: false, sessionExpiresAt: null });
           } else {
             // Reload permissions in case they changed

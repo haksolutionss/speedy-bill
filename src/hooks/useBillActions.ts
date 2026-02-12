@@ -90,7 +90,6 @@ export function useBillActions() {
     const tokenNumber = useUIStore.getState().getNextToken();
 
     return {
-
       billId: overrideBillId || currentBillId || '',
       billNumber: currentBillNumber,
       tableNumber: selectedTable?.number,
@@ -125,6 +124,7 @@ export function useBillActions() {
     gstMode, selectedCustomer, loyaltyPointsToUse, pointsToEarn
   ]);
 
+  // F1 - Direct KOT print
   const handleDirectPrintKOT = useCallback(async () => {
     if (!hasPendingItems || isPrinting) {
       if (!hasPendingItems) toast.info('No new items to send to kitchen');
@@ -133,7 +133,9 @@ export function useBillActions() {
 
     setIsPrinting(true);
     try {
-      await printKOT();
+      const billId = await printKOT();
+      if (!billId) return;
+
       const kotData = buildKOTData();
       const result = await printKOTDirect(kotData);
 
@@ -149,6 +151,7 @@ export function useBillActions() {
     }
   }, [hasPendingItems, isPrinting, printKOT, buildKOTData, printKOTDirect, isElectron]);
 
+  // F2 - Direct Bill print + settle (single atomic flow)
   const handleDirectPrintBill = useCallback(async () => {
     if (!hasItems || isPrinting) {
       if (!hasItems) toast.error('Add items to print bill');
@@ -159,7 +162,9 @@ export function useBillActions() {
     try {
       let billId: string | null = null;
 
+      // Step 1: Save/create the bill (only once!)
       if (hasPendingItems) {
+        // printKOT internally calls saveOrUpdateBill, returns billId
         billId = await printKOT();
       } else {
         billId = await saveOrUpdateBill();
@@ -170,16 +175,19 @@ export function useBillActions() {
         return;
       }
 
+      // Step 2: Print the bill
       const defaultMethod = settings.billing.defaultPaymentMethod;
-      const billData = { ...buildBillData(), billId, paymentMethod: defaultMethod };
-      console.log("billData", billData)
+      // Read fresh bill number after save
+      const freshBillNumber = useUIStore.getState().currentBillNumber;
+      const billData = { ...buildBillData(billId), billId, billNumber: freshBillNumber, paymentMethod: defaultMethod };
       const result = await printBillDirect(billData);
 
       if (defaultMethod === 'cash' && isElectron) {
         await openCashDrawer();
       }
 
-      await settleBill(defaultMethod, undefined, undefined, 0, finalAmount);
+      // Step 3: Settle - pass explicit billId to avoid stale closure
+      await settleBill(defaultMethod, undefined, undefined, 0, finalAmount, billId);
 
       if (result.success) {
         console.warn(`Bill settled with ${defaultMethod.toUpperCase()}`);
@@ -237,13 +245,15 @@ export function useBillActions() {
     setIsPrinting(true);
 
     try {
-      const billId = currentBillId ?? await saveOrUpdateBill();
+      // Read fresh billId from store
+      const freshBillId = useUIStore.getState().currentBillId;
+      const billId = freshBillId ?? await saveOrUpdateBill();
       if (!billId) {
         toast.error('Failed to create bill');
         return;
       }
 
-      const billData = buildBillData();
+      const billData = buildBillData(billId);
       billData.paymentMethod = method;
 
       const result = await printBillDirect(billData);
@@ -252,7 +262,8 @@ export function useBillActions() {
         await openCashDrawer();
       }
 
-      await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
+      // Pass explicit billId to settleBill
+      await settleBill(method, undefined, selectedCustomer?.id, loyaltyPointsToUse, finalAmount, billId);
 
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
@@ -265,7 +276,7 @@ export function useBillActions() {
       setLoyaltyPointsToUse(0);
     }
   }, [
-    currentBillId, saveOrUpdateBill, buildBillData, printBillDirect,
+    saveOrUpdateBill, buildBillData, printBillDirect,
     isElectron, openCashDrawer, settleBill, selectedCustomer, loyaltyPointsToUse, finalAmount
   ]);
 
@@ -277,13 +288,15 @@ export function useBillActions() {
     setIsPrinting(true);
 
     try {
-      const billId = currentBillId ?? await saveOrUpdateBill();
+      // Read fresh billId from store
+      const freshBillId = useUIStore.getState().currentBillId;
+      const billId = freshBillId ?? await saveOrUpdateBill();
       if (!billId) {
         toast.error('Failed to create bill');
         return;
       }
 
-      const billData = buildBillData();
+      const billData = buildBillData(billId);
       billData.paymentMethod = 'Split';
 
       const result = await printBillDirect(billData);
@@ -292,7 +305,8 @@ export function useBillActions() {
         await openCashDrawer();
       }
 
-      await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount);
+      // Pass explicit billId to settleBill
+      await settleBill('split', payments, selectedCustomer?.id, loyaltyPointsToUse, finalAmount, billId);
 
       if (!result.success && !isElectron) {
         setShowBillPreview(true);
@@ -305,7 +319,7 @@ export function useBillActions() {
       setLoyaltyPointsToUse(0);
     }
   }, [
-    currentBillId, saveOrUpdateBill, buildBillData, printBillDirect,
+    saveOrUpdateBill, buildBillData, printBillDirect,
     isElectron, openCashDrawer, settleBill, selectedCustomer, loyaltyPointsToUse, finalAmount
   ]);
 
