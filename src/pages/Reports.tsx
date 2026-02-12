@@ -1,26 +1,9 @@
-import { useState } from 'react';
-import { format, subDays, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
-import {
-  FileText,
-  Download,
-  Calendar as CalendarIcon,
-  Receipt,
-  CreditCard,
-  BarChart3,
-  ShoppingBag,
-  Layers,
-  MapPin,
-  ChefHat,
-  Clock,
-  TrendingUp
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -29,33 +12,48 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  useGetSalesReportQuery,
-  useGetItemSalesReportQuery,
-  useGetCategorySalesReportQuery,
-  useGetTableSalesReportQuery,
-  useGetPaymentModeReportQuery,
-  useGetGSTReportQuery,
-  useGetKOTReportQuery,
-  useGetPeakHoursReportQuery,
-} from '@/store/redux/api/reportsApi';
-import { useGetBillsQuery } from '@/store/redux/api/billingApi';
 import { exportToPDF, formatCurrency, formatNumber, formatPercentage } from '@/lib/pdfExport';
+import { cn } from '@/lib/utils';
+import { useGetBillsQuery } from '@/store/redux/api/billingApi';
 import {
-  BarChart,
+  useGetCategorySalesReportQuery,
+  useGetGSTReportQuery,
+  useGetItemSalesReportQuery,
+  useGetPaymentModeReportQuery,
+  useGetPeakHoursReportQuery,
+  useGetSalesReportQuery,
+  useGetTableSalesReportQuery,
+} from '@/store/redux/api/reportsApi';
+import { endOfDay, endOfMonth, format, startOfDay, startOfMonth, subDays } from 'date-fns';
+import {
+  BarChart3,
+  Calendar as CalendarIcon,
+  ChefHat,
+  Clock,
+  CreditCard,
+  Download,
+  FileText,
+  Layers,
+  MapPin,
+  Receipt,
+  ShoppingBag,
+  TrendingUp
+} from 'lucide-react';
+import { useState } from 'react';
+import {
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
 } from 'recharts';
-import { cn } from '@/lib/utils';
 
 type DateRange = { from: Date; to: Date };
 
@@ -67,7 +65,6 @@ const REPORT_TYPES = [
   { id: 'items', label: 'Item-wise Sales', shortLabel: 'Items', icon: ShoppingBag, description: 'Best selling items' },
   { id: 'categories', label: 'Category-wise', shortLabel: 'Categories', icon: Layers, description: 'Sales by category' },
   { id: 'tables', label: 'Table-wise', shortLabel: 'Tables', icon: MapPin, description: 'Revenue per table' },
-  { id: 'kot', label: 'KOT Report', shortLabel: 'KOT', icon: ChefHat, description: 'Kitchen orders' },
   { id: 'peak', label: 'Peak Hours', shortLabel: 'Peak', icon: Clock, description: 'Busiest hours' },
   { id: 'trends', label: 'Sales Trends', shortLabel: 'Trends', icon: TrendingUp, description: 'Daily comparison' },
 ];
@@ -849,87 +846,6 @@ function TableSalesReport({ dateRange }: { dateRange: DateRange }) {
   );
 }
 
-function KOTReport({ dateRange }: { dateRange: DateRange }) {
-  const { data: kots, isLoading } = useGetKOTReportQuery({
-    startDate: dateRange.from.toISOString(),
-    endDate: dateRange.to.toISOString(),
-  });
-
-  const handleExport = () => {
-    const data = (kots || []).map(k => [
-      k.kotNumber,
-      k.billNumber,
-      k.tableNumber || (k.tokenNumber ? `Token ${k.tokenNumber}` : '-'),
-      k.items.map(i => `${i.name} x${i.quantity}`).join(', '),
-      format(new Date(k.printedAt), 'dd/MM/yyyy HH:mm'),
-    ]);
-
-    exportToPDF({
-      title: 'KOT Report',
-      subtitle: 'HotelAqsa - Kitchen Order Tickets',
-      dateRange: { start: dateRange.from.toISOString(), end: dateRange.to.toISOString() },
-      headers: ['KOT No', 'Bill No', 'Table/Token', 'Items', 'Printed At'],
-      data,
-      orientation: 'landscape',
-    });
-  };
-
-  if (isLoading) return <LoadingTable columns={5} />;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <p className="text-sm text-muted-foreground">{(kots || []).length} KOTs found</p>
-        <Button onClick={handleExport} size="sm" className="w-full sm:w-auto">
-          <Download className="h-4 w-4 mr-2" />
-          Export PDF
-        </Button>
-      </div>
-
-      <div className="border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap">KOT No</TableHead>
-                <TableHead className="whitespace-nowrap">Bill No</TableHead>
-                <TableHead className="whitespace-nowrap">Table/Token</TableHead>
-                <TableHead className="whitespace-nowrap">Items</TableHead>
-                <TableHead className="whitespace-nowrap">Printed At</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(kots || []).slice(0, 50).map((k) => (
-                <TableRow key={k.kotNumber}>
-                  <TableCell className="font-medium whitespace-nowrap text-xs sm:text-sm">{k.kotNumber}</TableCell>
-                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{k.billNumber}</TableCell>
-                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">
-                    {k.tableNumber ? `Table ${k.tableNumber}` :
-                      k.tokenNumber ? `Token ${k.tokenNumber}` : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-xs">
-                      {k.items.map((item, i) => (
-                        <div key={i} className="text-xs sm:text-sm">
-                          {item.name} x{item.quantity}
-                          {item.notes && (
-                            <span className="text-muted-foreground ml-1">({item.notes})</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs sm:text-sm">{format(new Date(k.printedAt), 'dd/MM/yyyy HH:mm')}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function PeakHoursReport({ dateRange }: { dateRange: DateRange }) {
   const { data: peakData, isLoading } = useGetPeakHoursReportQuery({
     startDate: dateRange.from.toISOString(),
@@ -1132,7 +1048,6 @@ export default function Reports() {
       case 'items': return <ItemSalesReport dateRange={dateRange} />;
       case 'categories': return <CategorySalesReport dateRange={dateRange} />;
       case 'tables': return <TableSalesReport dateRange={dateRange} />;
-      case 'kot': return <KOTReport dateRange={dateRange} />;
       case 'peak': return <PeakHoursReport dateRange={dateRange} />;
       case 'trends': return <SalesTrendsReport dateRange={dateRange} />;
       default: return <SalesReport dateRange={dateRange} />;

@@ -105,7 +105,7 @@ export const reportsApi = createApi({
           const today = new Date();
           const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
           const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-          
+
           const yesterday = new Date(today);
           yesterday.setDate(yesterday.getDate() - 1);
           const startOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate()).toISOString();
@@ -530,62 +530,6 @@ export const reportsApi = createApi({
       providesTags: ['Reports'],
     }),
 
-    // KOT Report
-    getKOTReport: builder.query<KOTReport[], DateRangeParams>({
-      queryFn: async ({ startDate, endDate }) => {
-        try {
-          const { data: kotHistory, error: kotError } = await supabase
-            .from('kot_history')
-            .select('*')
-            .gte('printed_at', startDate)
-            .lte('printed_at', endDate)
-            .order('printed_at', { ascending: false });
-
-          if (kotError) throw kotError;
-
-          const billIds = [...new Set((kotHistory || []).map((k) => k.bill_id))];
-          if (billIds.length === 0) return { data: [] };
-
-          const { data: bills, error: billsError } = await supabase
-            .from('bills')
-            .select('id, bill_number')
-            .in('id', billIds);
-
-          if (billsError) throw billsError;
-
-          const { data: items, error: itemsError } = await supabase
-            .from('bill_items')
-            .select('bill_id, product_name, quantity, notes, kot_printed_at')
-            .in('bill_id', billIds)
-            .eq('sent_to_kitchen', true);
-
-          if (itemsError) throw itemsError;
-
-          const billNumberMap = new Map((bills || []).map((b) => [b.id, b.bill_number]));
-
-          const result: KOTReport[] = (kotHistory || []).map((kot) => ({
-            kotNumber: kot.kot_number,
-            billNumber: billNumberMap.get(kot.bill_id) || 'Unknown',
-            tableNumber: kot.table_number,
-            tokenNumber: kot.token_number,
-            items: (items || [])
-              .filter((i) => i.bill_id === kot.bill_id)
-              .map((i) => ({
-                name: i.product_name,
-                quantity: i.quantity,
-                notes: i.notes,
-              })),
-            printedAt: kot.printed_at,
-          }));
-
-          return { data: result };
-        } catch (error) {
-          return { error: { message: (error as Error).message } };
-        }
-      },
-      providesTags: ['Reports'],
-    }),
-
     // Peak Hours Report
     getPeakHoursReport: builder.query<PeakHoursData[], DateRangeParams>({
       queryFn: async ({ startDate, endDate }) => {
@@ -636,6 +580,5 @@ export const {
   useGetTableSalesReportQuery,
   useGetPaymentModeReportQuery,
   useGetGSTReportQuery,
-  useGetKOTReportQuery,
   useGetPeakHoursReportQuery,
 } = reportsApi;
