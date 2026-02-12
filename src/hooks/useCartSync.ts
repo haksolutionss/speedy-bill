@@ -2,8 +2,11 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUIStore, type CartItem } from '@/store/uiStore';
 import type { DbTable } from '@/types/database';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const SYNC_DELAY_MS = 10;
+// Unique ID for this browser tab to ignore self-triggered realtime events
+const DEVICE_ID = crypto.randomUUID();
 
 interface DbCartItem {
   id: string;
@@ -215,6 +218,57 @@ export function useCartSync() {
       // Clear local tracking when no table selected
       lastSyncedCartRef.current = '';
     }
+  }, [selectedTable?.id, loadCartForTable]);
+
+  // Real-time subscription for cart_items and bill_items
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+
+  useEffect(() => {
+    // Clean up previous channel
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+
+    if (!selectedTable?.id) return;
+
+    const tableId = selectedTable.id;
+
+    const channel = supabase
+      .channel(`cart-sync-${tableId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cart_items', filter: `table_id=eq.${tableId}` },
+        () => {
+          // Skip if we're currently syncing (our own write)
+          if (isSyncingRef.current) return;
+          // Reload cart from DB
+          const state = useUIStore.getState();
+          if (state.selectedTable?.id === tableId && !state.currentBillId) {
+            loadCartForTable(state.selectedTable);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bill_items' },
+        () => {
+          if (isSyncingRef.current) return;
+          const state = useUIStore.getState();
+          // Only reload if this table has an active bill
+          if (state.selectedTable?.id === tableId && state.currentBillId) {
+            loadCartForTable(state.selectedTable);
+          }
+        }
+      )
+      .subscribe();
+
+    realtimeChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      realtimeChannelRef.current = null;
+    };
   }, [selectedTable?.id, loadCartForTable]);
 
   // Debounced sync cart to Supabase when cart changes
