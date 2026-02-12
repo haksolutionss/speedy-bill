@@ -190,8 +190,8 @@ export function useCartSync() {
         .from('tables')
         .update({ status: newStatus })
         .eq('id', tableId)
-        .eq('current_bill_id', null as any) // Only update if no active bill (avoid overwriting 'active' status)
-        .in('status', ['available', 'occupied']); // Only transition between these two
+        .is('current_bill_id', null) // Only update if no active bill
+        .in('status', ['available', 'occupied']);
 
       lastSyncedCartRef.current = cartJson;
     } catch (err) {
