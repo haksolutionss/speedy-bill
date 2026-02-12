@@ -272,7 +272,17 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Clear auth state
         set({ user: null, isAuthenticated: false, sessionExpiresAt: null });
+
+        // Clear all localStorage entries
+        localStorage.removeItem('auth-storage');
+        localStorage.removeItem('billing-ui-storage');
+        localStorage.removeItem('settings-storage');
+        localStorage.removeItem('billing-storage');
+
+        // Reset UI store state
+        useUIStore.getState().resetBillingState();
       },
 
       setUser: (user) => {
