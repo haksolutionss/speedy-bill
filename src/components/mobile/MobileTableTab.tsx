@@ -182,7 +182,7 @@ export function MobileTableTab({ onTableSelect }: MobileTableTabProps) {
                       : tableStatus === 'active'
                         ? "border-warning/50 bg-warning/10 text-warning"
                         : tableStatus === 'occupied'
-                          ? "border-success/50 bg-success/10 text-success"
+                          ? "border-accent/50 bg-accent/10 text-accent"
                           : "border-border bg-card hover:border-primary/50"
                   )}
                 >
