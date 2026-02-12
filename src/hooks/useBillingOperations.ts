@@ -93,7 +93,7 @@ export function useBillingOperations() {
 
       // CREATE new bill — bill_number is generated server-side
       const billData = {
-        bill_number: 'PLACEHOLDER',
+        bill_number: 'BILL-0001',
         type: isParcelMode ? 'parcel' : 'table',
         table_id: selectedTable?.id || null,
         table_number: selectedTable?.number || null,
@@ -128,6 +128,7 @@ export function useBillingOperations() {
 
       // Sync the DB-generated bill number back to local store
       if (result.bill_number) {
+        console.log("bILLL nUMBER", result.bill_number)
         setCurrentBillNumber(result.bill_number);
       }
 

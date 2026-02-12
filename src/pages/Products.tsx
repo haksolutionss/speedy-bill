@@ -396,143 +396,143 @@ export default function Products() {
               />
             ) : (
               <>
-              <div className="border border-border rounded-lg overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20 cursor-pointer" onClick={() => toggleSort('code')}>
-                        <span className="flex items-center gap-1">Code <ArrowUpDown className="h-3 w-3" /></span>
-                      </TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => toggleSort('name')}>
-                        <span className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3" /></span>
-                      </TableHead>
-                      <TableHead className="hidden sm:table-cell cursor-pointer" onClick={() => toggleSort('category')}>
-                        <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
-                      </TableHead>
-                      <TableHead className="hidden md:table-cell">Portions</TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => toggleSort('price')}>
-                        <span className="flex items-center gap-1 justify-end">Price <ArrowUpDown className="h-3 w-3" /></span>
-                      </TableHead>
-                      <TableHead className="text-center hidden lg:table-cell">GST</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="w-24"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedProducts.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="text-muted-foreground  text-xs">
-                          {product.code}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div>
-                            {product.name}
-                            <span className="sm:hidden block text-xs text-muted-foreground mt-0.5">
-                              {product.category?.name || 'Uncategorized'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge variant="outline">{product.category?.name || 'Uncategorized'}</Badge>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <div className="flex gap-1 flex-wrap">
-                            {product.portions.map((p) => (
-                              <span key={p.size} className="text-xs capitalize text-muted-foreground">
-                                {p.size}
-                              </span>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          ₹{Number(product.portions[0]?.price || 0).toFixed(0)}
-                          {product.portions.length > 1 && '+'}
-                        </TableCell>
-                        <TableCell className="text-center text-sm text-muted-foreground hidden lg:table-cell">
-                          {Number(product.gst_rate)}%
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              product.is_active
-                                ? 'border-success/50 text-success'
-                                : 'border-destructive/50 text-destructive'
-                            )}
-                          >
-                            {product.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openEditProduct(product)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteProductId(product.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                <div className="border border-border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-20 cursor-pointer" onClick={() => toggleSort('code')}>
+                          <span className="flex items-center gap-1">Code <ArrowUpDown className="h-3 w-3" /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer" onClick={() => toggleSort('name')}>
+                          <span className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3" /></span>
+                        </TableHead>
+                        <TableHead className="hidden sm:table-cell cursor-pointer" onClick={() => toggleSort('category')}>
+                          <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
+                        </TableHead>
+                        <TableHead className="hidden md:table-cell">Portions</TableHead>
+                        <TableHead className="text-right cursor-pointer" onClick={() => toggleSort('price')}>
+                          <span className="flex items-center gap-1 justify-end">Price <ArrowUpDown className="h-3 w-3" /></span>
+                        </TableHead>
+                        <TableHead className="text-center hidden lg:table-cell">GST</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="w-24"></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1} to{' '}
-                    {Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of{' '}
-                    {filteredProducts.length} products
-                  </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          className={cn('cursor-pointer', currentPage === 1 && 'pointer-events-none opacity-50')}
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                        let page: number;
-                        if (totalPages <= 5) { page = i + 1; }
-                        else if (currentPage <= 3) { page = i + 1; }
-                        else if (currentPage >= totalPages - 2) { page = totalPages - 4 + i; }
-                        else { page = currentPage - 2 + i; }
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(page)}
-                              isActive={currentPage === page}
-                              className="cursor-pointer"
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedProducts.map((product) => (
+                        <TableRow key={product.id}>
+                          <TableCell className="text-muted-foreground  text-xs">
+                            {product.code}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <div>
+                              {product.name}
+                              <span className="sm:hidden block text-xs text-muted-foreground mt-0.5">
+                                {product.category?.name || 'Uncategorized'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge variant="outline">{product.category?.name || 'Uncategorized'}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="flex gap-1 flex-wrap">
+                              {product.portions.map((p) => (
+                                <span key={p.size} className="text-xs capitalize text-muted-foreground">
+                                  {p.size}
+                                </span>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            ₹{Number(product.portions[0]?.price || 0).toFixed(0)}
+                            {product.portions.length > 1 && '+'}
+                          </TableCell>
+                          <TableCell className="text-center text-sm text-muted-foreground hidden lg:table-cell">
+                            {Number(product.gst_rate)}%
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                product.is_active
+                                  ? 'border-success/50 text-success'
+                                  : 'border-destructive/50 text-destructive'
+                              )}
                             >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                          className={cn('cursor-pointer', currentPage === totalPages && 'pointer-events-none opacity-50')}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                              {product.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openEditProduct(product)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteProductId(product.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                    {/* <p className="text-xs sm:text-sm text-muted-foreground">
+                      Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1} to{' '}
+                      {Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of{' '}
+                      {filteredProducts.length}
+                    </p> */}
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            className={cn('cursor-pointer', currentPage === 1 && 'pointer-events-none opacity-50')}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                          let page: number;
+                          if (totalPages <= 5) { page = i + 1; }
+                          else if (currentPage <= 3) { page = i + 1; }
+                          else if (currentPage >= totalPages - 2) { page = totalPages - 4 + i; }
+                          else { page = currentPage - 2 + i; }
+                          return (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(page)}
+                                isActive={currentPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            className={cn('cursor-pointer', currentPage === totalPages && 'pointer-events-none opacity-50')}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
               </>
             )}
           </>

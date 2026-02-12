@@ -17,7 +17,9 @@ interface StaffMember {
 interface UseStaffReturn {
   staff: StaffMember[];
   isLoading: boolean;
+  error: string | null;
   loadStaff: () => Promise<void>;
+  refetch: () => Promise<void>;
   addStaff: (mobile: string, pin: string, name: string, role: 'manager' | 'staff', permissions: StaffPermissions) => Promise<boolean>;
   updateStaff: (id: string, name: string, role: 'manager' | 'staff', permissions: StaffPermissions) => Promise<boolean>;
   toggleActive: (member: StaffMember) => Promise<void>;
@@ -26,6 +28,7 @@ interface UseStaffReturn {
 export function useStaff(): UseStaffReturn {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const hashPin = (pin: string): string => {
     let hash = 0;
@@ -39,13 +42,14 @@ export function useStaff(): UseStaffReturn {
 
   const loadStaff = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const { data: users, error } = await supabase
+      const { data: users, error: fetchError } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
       const staffWithPermissions: StaffMember[] = await Promise.all(
         (users || []).map(async (user) => {
@@ -100,13 +104,20 @@ export function useStaff(): UseStaffReturn {
       );
 
       setStaff(staffWithPermissions);
+      setError(null);
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       console.error('Failed to load staff:', err);
-      toast.error('Failed to load staff');
+      setError(errorMessage);
+      toast.error('Failed to load staff members');
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const refetch = useCallback(async () => {
+    await loadStaff();
+  }, [loadStaff]);
 
   const addStaff = useCallback(async (
     mobile: string,
@@ -117,7 +128,7 @@ export function useStaff(): UseStaffReturn {
   ): Promise<boolean> => {
     try {
       const pinHash = hashPin(pin);
-      const { data: newUser, error } = await supabase
+      const { data: newUser, error: insertError } = await supabase
         .from('users')
         .insert({
           mobile,
@@ -128,20 +139,22 @@ export function useStaff(): UseStaffReturn {
         .select()
         .single();
 
-      if (error) {
-        if (error.code === '23505') {
+      if (insertError) {
+        if (insertError.code === '23505') {
           toast.error('Mobile number already registered');
         } else {
-          throw error;
+          throw insertError;
         }
         return false;
       }
 
-      await supabase
+      const { error: roleError } = await supabase
         .from('user_roles')
         .insert({ user_id: newUser.id, role });
 
-      await supabase
+      if (roleError) throw roleError;
+
+      const { error: permError } = await supabase
         .from('staff_permissions')
         .insert({
           user_id: newUser.id,
@@ -155,11 +168,15 @@ export function useStaff(): UseStaffReturn {
           can_access_staff: permissions.canAccessStaff,
         });
 
+      if (permError) throw permError;
+
+      toast.success('Staff member added successfully');
       await loadStaff();
       return true;
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add staff member';
       console.error('Failed to add staff:', err);
-      toast.error('Failed to add staff member');
+      toast.error(errorMessage);
       return false;
     }
   }, [loadStaff]);
@@ -171,16 +188,20 @@ export function useStaff(): UseStaffReturn {
     permissions: StaffPermissions
   ): Promise<boolean> => {
     try {
-      await supabase
+      const { error: userError } = await supabase
         .from('users')
         .update({ name: name || null, role })
         .eq('id', id);
 
-      await supabase
+      if (userError) throw userError;
+
+      const { error: roleError } = await supabase
         .from('user_roles')
         .upsert({ user_id: id, role });
 
-      await supabase
+      if (roleError) throw roleError;
+
+      const { error: permError } = await supabase
         .from('staff_permissions')
         .upsert({
           user_id: id,
@@ -194,26 +215,34 @@ export function useStaff(): UseStaffReturn {
           can_access_staff: permissions.canAccessStaff,
         });
 
+      if (permError) throw permError;
+
+      toast.success('Staff member updated successfully');
       await loadStaff();
       return true;
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update staff member';
       console.error('Failed to update staff:', err);
-      toast.error('Failed to update staff member');
+      toast.error(errorMessage);
       return false;
     }
   }, [loadStaff]);
 
   const toggleActive = useCallback(async (member: StaffMember) => {
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('users')
         .update({ is_active: !member.isActive })
         .eq('id', member.id);
 
+      if (updateError) throw updateError;
+
+      toast.success(`Staff member ${!member.isActive ? 'activated' : 'deactivated'} successfully`);
       await loadStaff();
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update staff status';
       console.error('Failed to toggle staff status:', err);
-      toast.error('Failed to update staff status');
+      toast.error(errorMessage);
     }
   }, [loadStaff]);
 
@@ -224,7 +253,9 @@ export function useStaff(): UseStaffReturn {
   return {
     staff,
     isLoading,
+    error,
     loadStaff,
+    refetch,
     addStaff,
     updateStaff,
     toggleActive,
