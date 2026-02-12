@@ -235,32 +235,34 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
               </div>
 
               <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(100px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3 m-2">
-                {section.tables.map((table) => (
-                  <button
-                    key={table.id}
-                    ref={(el) => setTableRef(table.id, el)}
-                    onClick={() => handleTableClick(table)}
-                    onFocus={() => setFocusedTableId(table.id)}
-                    className={cn(
-                      "table-btn min-h-[80px] w-full relative",
-                      table.status === 'available' && "table-btn-available",
-                      table.status === 'occupied' && "table-btn-occupied",
-                      table.status === 'active' && "table-btn-active",
-                      table.status === 'reserved' && "table-btn-reserved",
-                      focusedTableId === table.id && "table-btn-focused",
-                    )}
-                  >
-                    {selectedTable?.id === table.id && (
-                      <div className="absolute -top-2 -right-2 bg-background border-2 border-accent text-accent p-1.5 rounded-full shadow-md">
-                        <Check className="h-4 w-4" />
-                      </div>
-                    )}
+                {section.tables.map((table) => {
+                  const isOccupied = table.status === 'occupied' || table.status === 'active';
+                  const amount = table.current_amount ? Number(table.current_amount) : 0;
 
-                    <span className="text-lg font-bold">{table.number}</span>
-                    <span className="text-[10px] opacity-70">{table.capacity} seats</span>
-
-                  </button>
-                ))}
+                  return (
+                    <button
+                      key={table.id}
+                      ref={(el) => setTableRef(table.id, el)}
+                      onClick={() => handleTableClick(table)}
+                      onFocus={() => setFocusedTableId(table.id)}
+                      className={cn(
+                        "table-btn w-full relative",
+                        table.status === 'available' && "table-btn-available",
+                        table.status === 'occupied' && "table-btn-occupied",
+                        table.status === 'active' && "table-btn-active",
+                        table.status === 'reserved' && "table-btn-reserved",
+                        selectedTable?.id === table.id && "table-btn-selected",
+                        focusedTableId === table.id && "table-btn-focused",
+                      )}
+                    >
+                      <span className="text-xl font-bold leading-tight">{table.number}</span>
+                      <span className="text-[11px] opacity-60">{table.capacity} seats</span>
+                      {isOccupied && amount > 0 && (
+                        <span className="text-[11px] font-semibold mt-0.5">₹{amount.toFixed(0)}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
