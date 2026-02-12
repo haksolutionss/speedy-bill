@@ -2,107 +2,130 @@ import { useEffect, useRef } from 'react';
 import { usePosytudePrinter } from '@/hooks/usePosytudePrinter';
 import { supabase } from '@/integrations/supabase/client';
 
+/**
+ * Atomically claims a print job by setting status to 'processing'.
+ * Returns true only if this instance successfully claimed it (prevents duplicates).
+ */
+async function claimJob(jobId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('print_jobs')
+    .update({ status: 'processing' })
+    .eq('id', jobId)
+    .eq('status', 'pending') // Only claim if still pending — atomic guard
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[PrintJobListener] Claim error:', error);
+    return false;
+  }
+
+  // If data is null, another instance already claimed it
+  return data !== null;
+}
+
 export function PrintJobListener() {
-    const printer = usePosytudePrinter();
-    const processingRef = useRef(new Set<string>());
+  const printer = usePosytudePrinter();
+  const processingRef = useRef(new Set<string>());
 
-    // Process existing pending jobs on mount
-    useEffect(() => {
-        if (!printer.isElectron || !printer.isConnected) return;
+  const processJob = async (job: any) => {
+    if (!printer.isConnected) {
+      await supabase
+        .from('print_jobs')
+        .update({ status: 'failed', error_message: 'Printer not connected' })
+        .eq('id', job.id);
+      return;
+    }
 
-        const processPendingJobs = async () => {
-            const { data, error } = await supabase
-                .from('print_jobs')
-                .select('*')
-                .eq('status', 'pending')
-                .order('created_at', { ascending: true });
+    // Atomically claim the job — if another instance already claimed it, skip
+    const claimed = await claimJob(job.id);
+    if (!claimed) {
+      console.warn('[PrintJobListener] Job already claimed by another instance:', job.id);
+      return;
+    }
 
+    try {
+      const payload =
+        typeof job.payload === 'string'
+          ? JSON.parse(job.payload)
+          : job.payload;
 
-            if (error) {
-                console.error('Query error:', error);
-                return;
-            }
+      let result;
 
-            for (const job of data || []) {
-                if (processingRef.current.has(job.id)) continue;
-                processingRef.current.add(job.id);
-                await processJob(job);
-                processingRef.current.delete(job.id);
-            }
-        };
+      if (job.job_type === 'kot') {
+        result = await printer.printKOT(payload);
+      } else {
+        result = await printer.printBill(payload);
+      }
 
-        processPendingJobs();
-    }, [printer.isElectron, printer.isConnected]);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Print failed');
+      }
 
-    const processJob = async (job: any) => {
+      await supabase
+        .from('print_jobs')
+        .update({ status: 'printed', printed_at: new Date().toISOString() })
+        .eq('id', job.id);
+    } catch (err: any) {
+      console.error('❌ Job failed:', err.message);
+      await supabase
+        .from('print_jobs')
+        .update({ status: 'failed', error_message: err.message })
+        .eq('id', job.id);
+    }
+  };
 
-        if (!printer.isConnected) {
-            await supabase
-                .from('print_jobs')
-                .update({ status: 'failed', error_message: 'Printer not connected' })
-                .eq('id', job.id);
-            return;
-        }
+  // Process existing pending jobs on mount
+  useEffect(() => {
+    if (!printer.isElectron || !printer.isConnected) return;
 
-        try {
+    const processPendingJobs = async () => {
+      const { data, error } = await supabase
+        .from('print_jobs')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
 
-            const payload =
-                typeof job.payload === 'string'
-                    ? JSON.parse(job.payload)
-                    : job.payload;
+      if (error) {
+        console.error('Query error:', error);
+        return;
+      }
 
-            let result;
-
-            if (job.job_type === 'kot') {
-                result = await printer.printKOT(payload);
-            } else {
-                result = await printer.printBill(payload);
-            }
-
-            if (!result?.success) {
-                throw new Error(result?.error || 'Print failed');
-            }
-
-            await supabase
-                .from('print_jobs')
-                .update({ status: 'printed', printed_at: new Date().toISOString() })
-                .eq('id', job.id);
-
-
-        } catch (err: any) {
-            console.error('❌ Job failed:', err.message);
-            await supabase
-                .from('print_jobs')
-                .update({ status: 'failed', error_message: err.message })
-                .eq('id', job.id);
-        }
+      for (const job of data || []) {
+        if (processingRef.current.has(job.id)) continue;
+        processingRef.current.add(job.id);
+        await processJob(job);
+        processingRef.current.delete(job.id);
+      }
     };
 
-    // Realtime subscription
-    useEffect(() => {
-        if (!printer.isElectron) return;
+    processPendingJobs();
+  }, [printer.isElectron, printer.isConnected]);
 
-        const channel = supabase
-            .channel('print-jobs-realtime')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'print_jobs',
-            }, async (payload) => {
-                const job = payload.new as any;
-                console.log("job", job)
-                if (job.status !== 'pending' || processingRef.current.has(job.id)) return;
+  // Realtime subscription
+  useEffect(() => {
+    if (!printer.isElectron) return;
 
-                processingRef.current.add(job.id);
-                await processJob(job);
-                processingRef.current.delete(job.id);
-            })
-            .subscribe();
+    const channel = supabase
+      .channel('print-jobs-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'print_jobs',
+      }, async (payload) => {
+        const job = payload.new as any;
+        if (job.status !== 'pending' || processingRef.current.has(job.id)) return;
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [printer]);
+        processingRef.current.add(job.id);
+        await processJob(job);
+        processingRef.current.delete(job.id);
+      })
+      .subscribe();
 
-    return null;
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [printer]);
+
+  return null;
 }
