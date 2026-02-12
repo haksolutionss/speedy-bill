@@ -45,10 +45,9 @@ export class ESCPOSBuilder {
 
   initialize(): this {
     this.buffer.push(ESC, 0x40);   // reset
-    this.resetLineSpacing();       // ADD THIS
+    this.setLineSpacing(30);       // FIX: Set consistent line spacing (30 dots = balanced spacing)
     return this;
   }
-
 
   align(alignment: Alignment): this {
     this.buffer.push(ESC, 0x61, alignment);
@@ -105,17 +104,9 @@ export class ESCPOSBuilder {
     return this.horizontalLine('-');
   }
 
-
-  // solidLine(): this {
-  //   return this.horizontalLine('─');
-  // }
-  // lightSolidLine(): this {
-  //   return this.horizontalLine('╌');
-  // }
-
   solidLine(): this {
-    // Heavy, solid, 100% supported
-    return this.horizontalLine('_');
+    this.horizontalLine('_');
+    return this
   }
 
   rightDottedLine(width = 16): this {
@@ -125,19 +116,15 @@ export class ESCPOSBuilder {
 
   drawBoxRow(left: string, center: string, right: string): this {
     const width = this.charsPerLine;
-    const contentWidth = width - 2;
+    const contentWidth = width - 2; // for | |
 
-    const leftWidth = Math.floor(contentWidth / 2);
-    const rightWidth = contentWidth - leftWidth;
+    const half = Math.floor(contentWidth / 2);
 
-    const leftText = left.padEnd(leftWidth).substring(0, leftWidth);
-    const rightText = right.padStart(rightWidth).substring(0, rightWidth);
+    const leftText = centerText(left, half);
+    const rightText = centerText(right, contentWidth - half);
 
     return this.line(`|${leftText}${rightText}|`);
   }
-
-
-
   twoColumns(left: string, right: string): this {
     const maxLeftWidth = this.charsPerLine - right.length - 1;
     const leftTrimmed = left.substring(0, maxLeftWidth);
@@ -163,7 +150,6 @@ export class ESCPOSBuilder {
       : this.paperWidth === '76mm'
         ? [24, 5, 6, 7]
         : [18, 4, 10, 12];
-
 
     const formatted = [
       col1.substring(0, widths[0]).padEnd(widths[0]),
@@ -201,7 +187,8 @@ export class ESCPOSBuilder {
   }
 
   resetLineSpacing(): this {
-    this.buffer.push(ESC, 0x32);
+    // FIX: Instead of resetting to default, set to 30 dots for consistent spacing
+    this.setLineSpacing(30);
     return this;
   }
 
@@ -243,7 +230,3 @@ export const formatToPaperWidth = (format: string): PaperWidth => {
       return '80mm';
   }
 };
-
-
-
-

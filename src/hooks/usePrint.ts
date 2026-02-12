@@ -110,13 +110,6 @@ export function usePrint() {
 
   // Print Bill - with optional dev preview
   const printBill = useCallback(async (billData: BillData) => {
-    // Check if we should show dev preview (desktop + development mode + not Electron)
-    if (shouldShowDevPrintPreview()) {
-      setPendingBillData(billData);
-      setShowDevPreview(true);
-      return { success: true, method: 'dev-preview' };
-    }
-
     // Direct print
     return executePrintBill(billData);
   }, [executePrintBill]);

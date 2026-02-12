@@ -141,6 +141,7 @@ export function usePosytudePrinter() {
 
   // ── KOT: always text-based ESC/POS ──
   const printKOT = useCallback(async (kotData: KOTData): Promise<PrintResult> => {
+    console.log("kotData", kotData)
     const paperWidth = formatToPaperWidth(printer?.format || '80mm');
     const commands = generateKOTCommands(kotData, paperWidth);
     return printRaw(commands);
@@ -149,35 +150,10 @@ export function usePosytudePrinter() {
   // ── BILL: HTML primary → text fallback ──
   const printBill = useCallback(async (billData: BillData): Promise<PrintResult> => {
     const paperWidth = formatToPaperWidth(printer?.format || '80mm');
-
-    // // Level 1: HTML → Electron webContents.print()
-    // if (isElectron && window.electronAPI?.printHtmlBill) {
-    //   try {
-    //     console.log('[Print] Attempting HTML print…');
-    //     setIsPrinting(true);
-    //     setPrinter(prev => prev ? { ...prev, status: 'printing' } : null);
-
-    //     const htmlContent = generateBillHTML(billData, paperWidth);
-    //     const result = await window.electronAPI.printHtmlBill(htmlContent, paperWidth);
-
-    //     setPrinter(prev => prev ? { ...prev, status: result.success ? 'connected' : 'error' } : null);
-    //     setIsPrinting(false);
-
-    //     if (result.success) {
-    //       console.log('[Print] ✓ HTML print succeeded');
-    //       return { success: true };
-    //     }
-
-    //     console.warn('[Print] HTML print failed, falling back to text:', result.error);
-    //   } catch (err) {
-    //     console.warn('[Print] HTML print error, falling back to text:', err);
-    //     setIsPrinting(false);
-    //   }
-    // }
-
+    console.log("billData", billData)
     // Level 2: ASCII-safe text ESC/POS via USB
     try {
-      console.log('[Print] Using text fallback…');
+      console.log('Printing Bill');
       const commands = generateBillCommands(billData, paperWidth);
       return printRaw(commands);
     } catch (err) {

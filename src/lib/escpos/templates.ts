@@ -67,6 +67,8 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
   const { tableNumber, tokenNumber, items, kotNumber = 1, kotNumberFormatted, isParcel } = data;
   const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
 
+  builder.solidLine()
+
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
@@ -207,9 +209,9 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
       (item.unitPrice * item.quantity).toFixed(2)
     );
 
-    if (item.notes) {
-      builder.line(`  ${item.notes}`);
-    }
+    // if (item.notes) {
+    //   builder.line(`  ${item.notes}`);
+    // }
   });
 
 
@@ -263,7 +265,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   builder.dashedLine();
 
   builder
-    .setFontSize(FontSize.DOUBLE_HEIGHT)
+    .setFontSize(FontSize.NORMAL)
     .bold(true)
     .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
     .bold(false)

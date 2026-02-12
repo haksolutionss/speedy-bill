@@ -90,7 +90,7 @@ export function PrintJobListener() {
                 table: 'print_jobs',
             }, async (payload) => {
                 const job = payload.new as any;
-
+                console.log("job", job)
                 if (job.status !== 'pending' || processingRef.current.has(job.id)) return;
 
                 processingRef.current.add(job.id);
