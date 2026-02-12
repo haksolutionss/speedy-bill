@@ -42,7 +42,7 @@ export function TableGrid({ onTableSelect, searchInputRef }: TableGridProps) {
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
   const hasItems = cart.length > 0;
-  const hasOccupiedTables = tableSections.some(s => s.tables.some(t => t.status === 'occupied'));
+  const hasOccupiedTables = tableSections.some(s => s.tables.some(t => t.status === 'occupied' || t.status === 'active'));
 
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) {

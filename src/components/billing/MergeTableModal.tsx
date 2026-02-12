@@ -55,7 +55,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
     if (!section) return [];
 
     return section.tables
-      .filter((t) => t.status === 'occupied')
+      .filter((t) => t.status === 'occupied' || t.status === 'active')
       .map((table) => ({
         id: table.id,
         number: table.number,
@@ -75,7 +75,7 @@ export function MergeTableModal({ isOpen, onClose }: MergeTableModalProps) {
   const allOccupiedTables = useMemo(() => {
     return tableSections.flatMap((section) =>
       section.tables
-        .filter((t) => t.status === 'occupied')
+        .filter((t) => t.status === 'occupied' || t.status === 'active')
         .map((table) => ({
           id: table.id,
           number: table.number,

@@ -40,7 +40,7 @@ export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps)
     const tables: { id: string; number: string; sectionId: string; sectionName: string; billId?: string; amount?: number }[] = [];
     tableSections.forEach((section) => {
       section.tables
-        .filter((t) => t.status === 'occupied')
+        .filter((t) => t.status === 'occupied' || t.status === 'active')
         .forEach((table) => {
           tables.push({
             id: table.id,
@@ -114,11 +114,11 @@ export function TransferTableModal({ isOpen, onClose }: TransferTableModalProps)
         },
       }).unwrap();
 
-      // Occupy the new table
+      // Occupy the new table (preserve active status if bill has KOT)
       await updateTable({
         id: toTableId,
         updates: {
-          status: 'occupied',
+          status: fromTable.billId ? 'active' : 'occupied',
           current_bill_id: fromTable.billId || null,
           current_amount: fromTable.amount || null,
         },

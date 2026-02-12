@@ -25,7 +25,7 @@ export interface Table {
   id: string;
   number: string;
   capacity: number;
-  status: 'available' | 'occupied' | 'reserved';
+  status: 'available' | 'occupied' | 'active' | 'reserved';
   currentBillId?: string;
   currentAmount?: number;
 }
@@ -122,7 +122,7 @@ interface BillingState {
   setCoverCount: (count: number) => void;
 
   // Table Actions
-  updateTableStatus: (tableId: string, status: 'available' | 'occupied' | 'reserved') => void;
+  updateTableStatus: (tableId: string, status: 'available' | 'occupied' | 'active' | 'reserved') => void;
   openExistingBill: (billId: string) => void;
 
   // Product Actions

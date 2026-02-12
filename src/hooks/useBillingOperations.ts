@@ -158,7 +158,7 @@ export function useBillingOperations() {
         await updateTable({
           id: selectedTable.id,
           updates: {
-            status: 'occupied',
+            status: 'active',
             current_bill_id: result.id,
             current_amount: totals.finalAmount,
           },
@@ -199,11 +199,11 @@ export function useBillingOperations() {
       const itemIds = pendingItems.map((item) => item.id);
       await markItemsAsKOT({ billId, itemIds }).unwrap();
 
-      // After KOT, update table status
+      // After KOT, update table status to 'active' (KOT printed = in kitchen)
       if (selectedTable) {
         await updateTable({
           id: selectedTable.id,
-          updates: { status: 'occupied' },
+          updates: { status: 'active' },
         }).unwrap();
       }
 

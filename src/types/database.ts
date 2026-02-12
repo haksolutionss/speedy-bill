@@ -24,7 +24,7 @@ export interface DbTable {
   updated_at: string;
 }
 
-export type TableStatus = 'available' | 'occupied' | 'reserved' | 'maintenance';
+export type TableStatus = 'available' | 'occupied' | 'active' | 'reserved' | 'maintenance';
 
 export interface DbCategory {
   id: string;
