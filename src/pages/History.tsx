@@ -592,9 +592,9 @@ export default function History() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-          <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
+          {/* <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
             Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredBills.length)} of {filteredBills.length} bills
-          </p>
+          </p> */}
           <Pagination className="order-1 sm:order-2">
             <PaginationContent className="flex-wrap justify-center">
               <PaginationItem>

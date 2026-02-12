@@ -123,7 +123,7 @@ export class ESCPOSBuilder {
     const leftText = centerText(left, half);
     const rightText = centerText(right, contentWidth - half);
 
-    return this.line(`|${leftText}${rightText}|`);
+    return this.line(`${leftText}${rightText}`);
   }
   twoColumns(left: string, right: string): this {
     const maxLeftWidth = this.charsPerLine - right.length - 1;
@@ -146,10 +146,10 @@ export class ESCPOSBuilder {
 
   fourColumns(col1: string, col2: string, col3: string, col4: string): this {
     const widths = this.paperWidth === '58mm'
-      ? [16, 4, 5, 7]
+      ? [17, 4, 5, 6]
       : this.paperWidth === '76mm'
-        ? [24, 5, 6, 7]
-        : [18, 4, 10, 12];
+        ? [25, 5, 6, 6]
+        : [20, 4, 9, 11];
 
     const formatted = [
       col1.substring(0, widths[0]).padEnd(widths[0]),

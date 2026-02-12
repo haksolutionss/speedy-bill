@@ -40,7 +40,7 @@ const allNavItems: NavItem[] = [
   { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' },
   { path: '/tables', label: 'Tables', icon: MapPin, permission: 'canAccessTables' },
   { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessCustomers' },
-  // { path: '/staff', label: 'Staff', icon: UserCog, permission: 'canAccessStaff' },
+  { path: '/staff', label: 'Staff', icon: UserCog, permission: 'canAccessStaff' },
   { path: '/history', label: 'History', icon: History, permission: 'canAccessHistory' },
   { path: '/settings', label: 'Settings', icon: Settings, permission: 'canAccessSettings' },
 ];

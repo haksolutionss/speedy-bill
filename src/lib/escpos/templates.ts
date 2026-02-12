@@ -67,8 +67,6 @@ export const generateKOTCommands = (data: KOTData, paperWidth: PaperWidth = '80m
   const { tableNumber, tokenNumber, items, kotNumber = 1, kotNumberFormatted, isParcel } = data;
   const displayKotNumber = kotNumberFormatted || kotNumber.toString().padStart(2, '0');
 
-  builder.solidLine()
-
   builder
     .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
