@@ -4,7 +4,9 @@ import { useUIStore, type CartItem } from '@/store/uiStore';
 import type { DbTable } from '@/types/database';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-const SYNC_DELAY_MS = 10;
+const SYNC_DELAY_MS = 300;
+// Debounce delay for realtime reload to batch rapid delete+insert events
+const REALTIME_RELOAD_DELAY_MS = 500;
 // Unique ID for this browser tab to ignore self-triggered realtime events
 const DEVICE_ID = crypto.randomUUID();
 
@@ -42,6 +44,7 @@ export function useCartSync() {
   } = useUIStore();
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeReloadRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncedCartRef = useRef<string>('');
   const isLoadingRef = useRef(false);
   const isSyncingRef = useRef(false);
@@ -239,10 +242,14 @@ export function useCartSync() {
     const reloadCart = () => {
       // Skip if we're currently syncing (our own write)
       if (isSyncingRef.current || isLoadingRef.current) return;
-      const state = useUIStore.getState();
-      if (state.selectedTable?.id === tableId) {
-        loadCartRef.current(state.selectedTable);
-      }
+      // Debounce to handle rapid delete+insert from sync operations
+      if (realtimeReloadRef.current) clearTimeout(realtimeReloadRef.current);
+      realtimeReloadRef.current = setTimeout(() => {
+        const state = useUIStore.getState();
+        if (state.selectedTable?.id === tableId) {
+          loadCartRef.current(state.selectedTable);
+        }
+      }, REALTIME_RELOAD_DELAY_MS);
     };
 
     const channel = supabase
@@ -291,6 +298,7 @@ export function useCartSync() {
     realtimeChannelRef.current = channel;
 
     return () => {
+      if (realtimeReloadRef.current) clearTimeout(realtimeReloadRef.current);
       supabase.removeChannel(channel);
       realtimeChannelRef.current = null;
     };
