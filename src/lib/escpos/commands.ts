@@ -114,6 +114,28 @@ export class ESCPOSBuilder {
     return this.line(' '.repeat(spaces) + '.'.repeat(width));
   }
 
+  /** Line with outer border: |<content padded to fill>| */
+  borderedLine(content: string, align: 'left' | 'center' | 'right' = 'center'): this {
+    const inner = this.charsPerLine - 2; // minus 2 for | |
+    let padded: string;
+    if (align === 'left') {
+      padded = content.substring(0, inner).padEnd(inner);
+    } else if (align === 'right') {
+      padded = content.substring(0, inner).padStart(inner);
+    } else {
+      const trimmed = content.substring(0, inner);
+      const gap = inner - trimmed.length;
+      const left = Math.floor(gap / 2);
+      padded = ' '.repeat(left) + trimmed + ' '.repeat(gap - left);
+    }
+    return this.line('|' + padded + '|');
+  }
+
+  /** Full-width border line: +---...---+ */
+  borderLine(): this {
+    return this.line('+' + '-'.repeat(this.charsPerLine - 2) + '+');
+  }
+
   drawBoxRow(left: string, center: string, right: string): this {
     const width = this.charsPerLine;
     const contentWidth = width - 2; // for | |
