@@ -262,43 +262,23 @@
 
   /* Table button base */
   .table-btn {
-    @apply relative flex flex-col items-center justify-center rounded-lg border-2 p-3 font-medium transition-all duration-150 hover:scale-[1.01] focus:outline-none;
+    @apply relative flex flex-col items-center justify-center rounded-xl border-2 p-3 font-medium transition-all duration-150 hover:scale-[1.02] focus:outline-none;
+    min-height: 90px;
   }
 
-  /* AVAILABLE — calm */
+  /* AVAILABLE — light gray border, clean */
   .table-btn-available {
-    @apply border-success bg-success/10 text-success hover:bg-success/20;
+    @apply border-border/60 bg-card text-foreground hover:border-border hover:bg-muted/30;
   }
 
-  /* OCCUPIED — animated border */
+  /* OCCUPIED — teal/mint accent */
   .table-btn-occupied {
-    @apply relative border-transparent;
-    animation: occupied-border 1.8s ease-in-out infinite;
-  }
-
-  @keyframes occupied-border {
-    0% {
-      box-shadow:
-        0 0 0 2px hsl(var(--accent)),
-        0 0 10px hsl(var(--accent) / 0.6);
-    }
-
-    50% {
-      box-shadow:
-        0 0 0 2px hsl(220 70% 55%),
-        0 0 14px hsl(220 70% 55% / 0.7);
-    }
-
-    100% {
-      box-shadow:
-        0 0 0 2px hsl(var(--accent)),
-        0 0 10px hsl(var(--accent) / 0.6);
-    }
+    @apply border-accent bg-accent/10 text-accent;
   }
 
   /* RESERVED — dashed informational */
   .table-btn-reserved {
-    @apply border-2 border-dashed;
+    @apply border-2 border-dashed border-muted-foreground/40 bg-card text-muted-foreground;
   }
 
   /* 'Active' status — KOT has been printed (in kitchen) */
@@ -309,13 +289,12 @@
 
   /* Selected table — overrides all */
   .table-btn-selected {
-    @apply ring-4 ring-accent/40 border-accent scale-[1.06] z-10;
+    @apply ring-4 ring-accent/40 border-accent scale-[1.04] z-10;
   }
 
   /* Keyboard focus state for tables */
   .table-btn-focused {
     @apply ring-2 ring-accent ring-offset-2 ring-offset-background scale-[1.02] z-10;
-    box-shadow: 0 0 0 3px hsl(var(--accent) / 0.3);
   }
 
   /* Keyboard shortcut badges */
