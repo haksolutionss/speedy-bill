@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Search, Eye, RotateCcw, Printer, Trash2, Receipt, Filter } from 'lucide-react';
+import { Search, Eye, RotateCcw, Printer, Trash2, Receipt, Filter, ArrowUpDown } from 'lucide-react';
 import { useGetBillsQuery, useUpdateBillMutation, useUpdateTableMutation } from '@/store/redux/api/billingApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ import {
 import { usePrint } from '@/hooks/usePrint';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { BillData } from '@/lib/escpos/templates';
+import { ClearHistoryButton } from '@/components/history/ClearHistoryButton';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -47,6 +48,8 @@ export default function History() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'table' | 'parcel'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [printingBillId, setPrintingBillId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<'date' | 'bill_number' | 'amount'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Print hook
   const { printBill, getBusinessInfo, currencySymbol, gstMode } = usePrint();
@@ -72,13 +75,28 @@ export default function History() {
         bill.table_number?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || bill.status === statusFilter;
       const matchesType = typeFilter === 'all' || bill.type === typeFilter;
-      // Exclude deleted bills
       const isNotDeleted = bill.status !== 'deleted';
       return matchesSearch && matchesStatus && matchesType && isNotDeleted;
     })
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'date': cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); break;
+        case 'bill_number': cmp = (a.bill_number || '').localeCompare(b.bill_number || ''); break;
+        case 'amount': cmp = a.final_amount - b.final_amount; break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
-  // Pagination
+  const toggleHistorySort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir(field === 'date' ? 'desc' : 'asc');
+    }
+    setCurrentPage(1);
+  };
   const totalPages = Math.ceil(filteredBills.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedBills = filteredBills.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -266,15 +284,18 @@ export default function History() {
             )}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="w-full sm:w-auto"
-        >
-          {isFetching ? 'Refreshing...' : 'Refresh'}
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <ClearHistoryButton onSuccess={() => refetch()} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="w-full sm:w-auto"
+          >
+            {isFetching ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -328,13 +349,20 @@ export default function History() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="whitespace-nowrap">Bill No.</TableHead>
-                <TableHead className="whitespace-nowrap">Date & Time</TableHead>
+                <TableHead className="whitespace-nowrap cursor-pointer" onClick={() => toggleHistorySort('bill_number')}>
+                  <span className="flex items-center gap-1">Bill No. <ArrowUpDown className="h-3 w-3" /></span>
+                </TableHead>
+                <TableHead className="whitespace-nowrap cursor-pointer" onClick={() => toggleHistorySort('date')}>
+                  <span className="flex items-center gap-1">Date & Time <ArrowUpDown className="h-3 w-3" /></span>
+                </TableHead>
                 <TableHead className="whitespace-nowrap">Type</TableHead>
                 <TableHead className="whitespace-nowrap">Table/Token</TableHead>
                 <TableHead className="text-center whitespace-nowrap">Items</TableHead>
-                <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+                <TableHead className="text-right whitespace-nowrap cursor-pointer" onClick={() => toggleHistorySort('amount')}>
+                  <span className="flex items-center gap-1 justify-end">Amount <ArrowUpDown className="h-3 w-3" /></span>
+                </TableHead>
                 <TableHead className="whitespace-nowrap">Payment</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
                 <TableHead className="whitespace-nowrap">Status</TableHead>
                 <TableHead className="w-32"></TableHead>
               </TableRow>

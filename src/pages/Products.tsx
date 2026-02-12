@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, Package, FolderPlus, Ruler } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, FolderPlus, Ruler, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,6 +23,17 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { DbCategory, ProductWithPortions } from '@/types/database';
+import { CsvImportExport } from '@/components/products/CsvImportExport';
+import { usePortionSizes } from '@/hooks/usePortionSizes';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from '@/components/ui/pagination';
 import {
   useGetProductsQuery,
   useGetCategoriesQuery,
@@ -35,9 +46,17 @@ import {
   useDeleteCategoryMutation,
 } from '@/store/redux/api/billingApi';
 
+type SortField = 'name' | 'code' | 'price' | 'category';
+type SortDir = 'asc' | 'desc';
+
+const PRODUCTS_PER_PAGE = 25;
+
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -54,6 +73,7 @@ export default function Products() {
   const { data: products = [], isLoading: isLoadingProducts, error: productsError, refetch: refetchProducts } = useGetProductsQuery();
   const { data: categories = [], isLoading: isLoadingCategories, error: categoriesError, refetch: refetchCategories } = useGetCategoriesQuery();
   const { data: tableSections = [] } = useGetTableSectionsQuery();
+  const { data: portionSizes = [] } = usePortionSizes();
 
   // Get flat list of sections for the form
   const sections = useMemo(() => tableSections.map(s => ({
@@ -73,16 +93,46 @@ export default function Products() {
   const [updateCategory, { isLoading: isUpdatingCategory }] = useUpdateCategoryMutation();
   const [deleteCategory, { isLoading: isDeletingCategory }] = useDeleteCategoryMutation();
 
-  // Filter products
+  // Filter, sort, and paginate products
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    let result = products.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.code.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = !selectedCategory || product.category_id === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery, selectedCategory]);
+
+    // Sort
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'code': cmp = a.code.localeCompare(b.code); break;
+        case 'price': cmp = (a.portions[0]?.price || 0) - (b.portions[0]?.price || 0); break;
+        case 'category': cmp = (a.category?.name || '').localeCompare(b.category?.name || ''); break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return result;
+  }, [products, searchQuery, selectedCategory, sortField, sortDir]);
+
+  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+    setCurrentPage(1);
+  };
 
   // Handlers
   const handleProductSubmit = async (data: ProductFormData) => {
@@ -206,7 +256,16 @@ export default function Products() {
             <h1 className="text-2xl font-bold">Products</h1>
             <p className="text-muted-foreground">Manage your menu items</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <CsvImportExport
+              products={products}
+              categories={categories}
+              portionSizes={portionSizes?.map((s) => ({ id: s.id, name: s.name })) || []}
+              onImportComplete={() => {
+                refetchProducts();
+                refetchCategories();
+              }}
+            />
             <Button
               variant="outline"
               onClick={() => setIsSizesModalOpen(true)}
@@ -336,22 +395,31 @@ export default function Products() {
                 }
               />
             ) : (
+              <>
               <div className="border border-border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-20">Code</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="hidden sm:table-cell">Category</TableHead>
+                      <TableHead className="w-20 cursor-pointer" onClick={() => toggleSort('code')}>
+                        <span className="flex items-center gap-1">Code <ArrowUpDown className="h-3 w-3" /></span>
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => toggleSort('name')}>
+                        <span className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3" /></span>
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell cursor-pointer" onClick={() => toggleSort('category')}>
+                        <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
+                      </TableHead>
                       <TableHead className="hidden md:table-cell">Portions</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right cursor-pointer" onClick={() => toggleSort('price')}>
+                        <span className="flex items-center gap-1 justify-end">Price <ArrowUpDown className="h-3 w-3" /></span>
+                      </TableHead>
                       <TableHead className="text-center hidden lg:table-cell">GST</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="w-24"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProducts.map((product) => (
+                    {paginatedProducts.map((product) => (
                       <TableRow key={product.id}>
                         <TableCell className="text-muted-foreground  text-xs">
                           {product.code}
@@ -420,6 +488,52 @@ export default function Products() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1} to{' '}
+                    {Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of{' '}
+                    {filteredProducts.length} products
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          className={cn('cursor-pointer', currentPage === 1 && 'pointer-events-none opacity-50')}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        let page: number;
+                        if (totalPages <= 5) { page = i + 1; }
+                        else if (currentPage <= 3) { page = i + 1; }
+                        else if (currentPage >= totalPages - 2) { page = totalPages - 4 + i; }
+                        else { page = currentPage - 2 + i; }
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          className={cn('cursor-pointer', currentPage === totalPages && 'pointer-events-none opacity-50')}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+              </>
             )}
           </>
         )}
