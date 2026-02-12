@@ -136,96 +136,97 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   const store = useUIStore.getState();
   const cleanedBillNumber = data.billNumber.split('-').pop();
   const cols = builder.getCharsPerLine();
-  const inner = cols - 2; // inner width inside | |
 
   if (!data.isReprint) {
     store.incrementBillNumber();
   }
 
-  // === TOP BORDER ===
+  // === HEADER: Restaurant Name (large, bold, centered, NO border) ===
   builder.align(Alignment.CENTER);
-  builder.borderLine();
+  builder.dashedLine();
 
-  // === HEADER: Restaurant Name (large, bold) ===
   builder
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
-    .borderedLine(data.restaurantName?.toUpperCase() || 'RESTAURANT')
+    .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
     .bold(false)
     .setFontSize(FontSize.NORMAL);
 
   // Address lines (centered, compact)
   if (data.address) {
     const addressLines = data.address.split(',').map(l => l.trim());
-    addressLines.forEach(line => builder.borderedLine(line));
+    addressLines.forEach(line => builder.line(line));
   }
 
-  // Mobile
+  // Mobile (bold, centered)
   if (data.phone) {
-    builder.bold(true).borderedLine(`Mobile : ${data.phone}`).bold(false);
+    builder.bold(true).line(`Mobile : ${data.phone}`).bold(false);
   }
 
-  // --- solid separator ---
-  builder.borderLine();
+  // --- separator ---
+  builder.dashedLine();
 
-  // TAX INVOICE | PURE VEG row
+  // TAX INVOICE | PURE VEG row (inline boxed text)
   const vegLabel = data.isPureVeg !== false ? 'PURE VEG' : 'NON VEG';
   const leftBox = '| TAX INVOICE |';
   const rightBox = `| ${vegLabel} |`;
-  const boxGap = inner - leftBox.length - rightBox.length;
-  builder.bold(true).borderedLine(leftBox + ' '.repeat(Math.max(1, boxGap)) + rightBox).bold(false);
+  const boxGap = cols - leftBox.length - rightBox.length;
+  builder.bold(true).line(leftBox + ' '.repeat(Math.max(1, boxGap)) + rightBox).bold(false);
 
-  // --- solid separator ---
-  builder.borderLine();
+  // --- separator ---
+  builder.dashedLine();
 
-  // Bill No & Table/Token No
+  // Bill No & Table/Token No (with | on edges)
+  builder.align(Alignment.LEFT);
   const billNoStr = `Bill No. ${cleanedBillNumber}`;
   const tableNoStr = `T.No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`;
-  const billGap = inner - billNoStr.length - tableNoStr.length;
-  builder.bold(true).borderedLine(billNoStr + ' '.repeat(Math.max(1, billGap)) + tableNoStr, 'left').bold(false);
+  const billLine = '|' + billNoStr + ' '.repeat(Math.max(1, cols - 2 - billNoStr.length - tableNoStr.length)) + tableNoStr + '|';
+  builder.bold(true).line(billLine);
 
-  // Date
-  builder.bold(true).borderedLine(`Date : ${formatDate()}`, 'left').bold(false);
+  // Date (with | on left)
+  builder.line(`|Date : ${formatDate()}`);
+  builder.bold(false);
 
-  // --- solid separator before items ---
-  builder.borderLine();
+  // --- separator before items ---
+  builder.dashedLine();
 
-  // Items header
-  const hdrLine = formatFourCols('Description', 'QTY', 'Rate', 'Amount', inner, paperWidth);
-  builder.bold(true).borderedLine(hdrLine, 'left').bold(false);
+  // Items header (with | on edges, bold)
+  const innerW = cols - 2;
+  const hdrLine = '|' + formatFourCols('Description', 'QTY', 'Rate', 'Amount', innerW, paperWidth) + '|';
+  builder.bold(true).line(hdrLine).bold(false);
 
-  // dotted separator inside border
-  builder.line('|' + '.'.repeat(inner) + '|');
+  // dotted separator
+  builder.dottedLine();
 
-  // Item rows
+  // Item rows (with | on left only)
   data.items.forEach((item) => {
     const itemName = item.portion !== 'single' && item.portion
       ? `${item.productName} (${item.portion})`
       : item.productName;
-    const row = formatFourCols(
+    const row = '|' + formatFourCols(
       itemName,
       item.quantity.toString(),
       item.unitPrice.toFixed(2),
       (item.unitPrice * item.quantity).toFixed(2),
-      inner,
+      innerW,
       paperWidth
-    );
-    builder.borderedLine(row, 'left');
+    ) + '|';
+    builder.line(row);
   });
 
-  // Right-side dotted line inside border
-  const dots = '.'.repeat(20);
-  builder.borderedLine(dots, 'right');
+  // Right-aligned dotted separator
+  builder.align(Alignment.RIGHT);
+  builder.dottedLine();
 
-  // Total RS.
-  builder.borderedLine(`Total RS. : ${formatAmount(data.subTotal)}`, 'right');
+  // Total RS. (right-aligned, no border)
+  builder.line(`Total RS. : ${formatAmount(data.subTotal)}`);
 
   // Discount
   if (data.discountAmount > 0) {
     const discountLabel = data.discountType === 'percentage'
       ? `Discount (${data.discountValue}%) :`
       : 'Discount :';
-    builder.borderedLine(`${discountLabel} -${formatAmount(data.discountAmount)}`, 'right');
+    builder.line(`${discountLabel} -${formatAmount(data.discountAmount)}`);
   }
 
   // GST lines
@@ -233,41 +234,41 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   const halfRate = gstRate / 2;
 
   if (data.gstMode === 'igst') {
-    builder.borderedLine(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`, 'right');
+    builder.line(`IGST @ ${gstRate}% : ${formatAmount(data.cgstAmount + data.sgstAmount)}`);
   } else {
-    builder.borderedLine(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount || 0)}`, 'right');
-    builder.borderedLine(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount || 0)}`, 'right');
+    builder.line(`C GST @ ${halfRate}% : ${formatAmount(data.cgstAmount || 0)}`);
+    builder.line(`S GST @ ${halfRate}% : ${formatAmount(data.sgstAmount || 0)}`);
   }
 
   // Round Off
   const calculatedTotal = data.subTotal - data.discountAmount + data.cgstAmount + data.sgstAmount;
   const roundOff = data.finalAmount - calculatedTotal;
   if (Math.abs(roundOff) >= 0.01) {
-    builder.borderedLine(`Round Off : ${formatAmount(roundOff)}`, 'right');
+    builder.line(`Round Off : ${formatAmount(roundOff)}`);
   }
 
   // Dotted separator before net total
-  builder.borderedLine(dots, 'right');
+  builder.dottedLine();
 
-  // Net Rs. (bold, double-width)
+  // Net Rs. (bold, double-width, right-aligned)
   builder
     .setFontSize(FontSize.DOUBLE_WIDTH)
     .bold(true)
-    .borderedLine(`Net Rs. : ${formatAmount(data.finalAmount)}`, 'right')
+    .line(`Net Rs. : ${formatAmount(data.finalAmount)}`)
     .bold(false)
     .setFontSize(FontSize.NORMAL);
 
-  // --- solid separator ---
-  builder.borderLine();
+  // --- separator ---
+  builder.dashedLine();
 
-  // Footer
-  builder.borderedLine(`FSSAI LIC No : ${data.fssaiNumber || '10721026000597'}`);
-  builder.borderedLine(`GSTIN : ${data.gstin || '24DHFPM8077N1ZN'}`);
-  builder.borderedLine('HSN/SAC CODE : 9963');
-  builder.borderedLine('* THANKS FOR VISIT *');
+  // Footer (centered)
+  builder.align(Alignment.CENTER);
+  builder.line(`FSSAI LIC No : ${data.fssaiNumber || '10721026000597'}`);
+  builder.line(`GSTIN : ${data.gstin || '24DHFPM8077N1ZN'}`);
+  builder.line('HSN/SAC CODE : 9963');
+  builder.line('........THANKS FOR VISIT........');
 
-  // === BOTTOM BORDER ===
-  builder.borderLine();
+  builder.dashedLine();
 
   builder.feed(3);
   builder.partialCut();
