@@ -220,8 +220,10 @@ export function useCartSync() {
     }
   }, [selectedTable?.id, loadCartForTable]);
 
-  // Real-time subscription for cart_items and bill_items
+  // Real-time subscription for cart_items, bill_items, and table status
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const loadCartRef = useRef(loadCartForTable);
+  loadCartRef.current = loadCartForTable;
 
   useEffect(() => {
     // Clean up previous channel
@@ -234,34 +236,57 @@ export function useCartSync() {
 
     const tableId = selectedTable.id;
 
+    const reloadCart = () => {
+      // Skip if we're currently syncing (our own write)
+      if (isSyncingRef.current || isLoadingRef.current) return;
+      const state = useUIStore.getState();
+      if (state.selectedTable?.id === tableId) {
+        loadCartRef.current(state.selectedTable);
+      }
+    };
+
     const channel = supabase
-      .channel(`cart-sync-${tableId}`)
+      .channel(`cart-sync-${tableId}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'cart_items', filter: `table_id=eq.${tableId}` },
-        () => {
-          // Skip if we're currently syncing (our own write)
-          if (isSyncingRef.current) return;
-          // Reload cart from DB
-          const state = useUIStore.getState();
-          if (state.selectedTable?.id === tableId && !state.currentBillId) {
-            loadCartForTable(state.selectedTable);
-          }
-        }
+        reloadCart
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bill_items' },
         () => {
-          if (isSyncingRef.current) return;
           const state = useUIStore.getState();
           // Only reload if this table has an active bill
           if (state.selectedTable?.id === tableId && state.currentBillId) {
-            loadCartForTable(state.selectedTable);
+            if (isSyncingRef.current || isLoadingRef.current) return;
+            loadCartRef.current(state.selectedTable);
           }
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${tableId}` },
+        (payload) => {
+          // When table's current_bill_id changes (e.g., KOT printed on another device)
+          const newBillId = (payload.new as any)?.current_bill_id;
+          const state = useUIStore.getState();
+          if (state.selectedTable?.id === tableId && newBillId !== state.currentBillId) {
+            // Update the selected table reference with new bill info
+            useUIStore.setState({
+              selectedTable: { ...state.selectedTable, current_bill_id: newBillId },
+              currentBillId: newBillId || null,
+            });
+            // Reload cart from the new source (bill_items or cart_items)
+            loadCartRef.current({ ...state.selectedTable, current_bill_id: newBillId });
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[CartSync] Realtime subscription failed:', status);
+        }
+      });
 
     realtimeChannelRef.current = channel;
 
@@ -269,7 +294,7 @@ export function useCartSync() {
       supabase.removeChannel(channel);
       realtimeChannelRef.current = null;
     };
-  }, [selectedTable?.id, loadCartForTable]);
+  }, [selectedTable?.id]);
 
   // Debounced sync cart to Supabase when cart changes
   // Only sync when we DON'T have an active bill (cart_items is for pre-bill storage)
