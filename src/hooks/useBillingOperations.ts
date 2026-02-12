@@ -91,7 +91,29 @@ export function useBillingOperations() {
         return currentBillId;
       }
 
-      // CREATE new bill — bill_number is generated server-side
+      // CREATE new bill — but first check for race condition
+      // If this table already has an active bill, use that instead of creating a duplicate
+      if (selectedTable?.id) {
+        const { data: existingBill } = await supabase
+          .from('bills')
+          .select('id, bill_number')
+          .eq('table_id', selectedTable.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingBill) {
+          console.warn('[BillingOps] Active bill already exists for table, reusing:', existingBill.id);
+          setCurrentBillId(existingBill.id);
+          if (existingBill.bill_number) {
+            setCurrentBillNumber(existingBill.bill_number);
+          }
+          return existingBill.id;
+        }
+      }
+
+      // bill_number is generated server-side
       const billData = {
         bill_number: 'BILL-0001',
         type: isParcelMode ? 'parcel' : 'table',

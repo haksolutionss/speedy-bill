@@ -36,6 +36,22 @@ export function usePrint() {
     // PWA → queue KOT print job (requires billId)
     if (kotData.billId) {
       try {
+        // Dedup: check if a pending KOT job for this bill exists within last 30s
+        const thirtySecsAgo = new Date(Date.now() - 30000).toISOString();
+        const { data: existing } = await supabase
+          .from('print_jobs')
+          .select('id')
+          .eq('bill_id', kotData.billId)
+          .eq('job_type', 'kot')
+          .eq('status', 'pending')
+          .gte('created_at', thirtySecsAgo)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          console.warn('[Print] Duplicate KOT job skipped for bill', kotData.billId);
+          return { success: true, method: 'queue' };
+        }
+
         const { error } = await supabase.from('print_jobs').insert([{
           bill_id: kotData.billId,
           job_type: 'kot',
@@ -84,6 +100,22 @@ export function usePrint() {
 
     // 📱 PWA → queue print job
     try {
+      // Dedup: check if a pending bill job for this bill exists within last 30s
+      const thirtySecsAgo = new Date(Date.now() - 30000).toISOString();
+      const { data: existing } = await supabase
+        .from('print_jobs')
+        .select('id')
+        .eq('bill_id', billData.billId)
+        .eq('job_type', 'bill')
+        .eq('status', 'pending')
+        .gte('created_at', thirtySecsAgo)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        console.warn('[Print] Duplicate bill job skipped for bill', billData.billId);
+        return { success: true, method: 'queue' };
+      }
+
       const { error } = await supabase.from('print_jobs').insert([{
         bill_id: billData.billId,
         job_type: 'bill',
