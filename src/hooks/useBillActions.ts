@@ -54,6 +54,7 @@ export function useBillActions() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
   const [isPrinting, setIsPrinting] = useState(false);
+  const printingLockRef = useRef(false); // Synchronous guard against double execution
 
   const kotRef = useRef<HTMLDivElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -124,14 +125,17 @@ export function useBillActions() {
     gstMode, selectedCustomer, loyaltyPointsToUse, pointsToEarn
   ]);
 
-  // F1 - Direct KOT print
+  // F1 - Direct KOT print (ref-locked to prevent double execution)
   const handleDirectPrintKOT = useCallback(async () => {
-    if (!hasPendingItems || isPrinting) {
-      if (!hasPendingItems) toast.info('No new items to send to kitchen');
+    if (!hasPendingItems) {
+      toast.info('No new items to send to kitchen');
       return;
     }
-
+    // Synchronous ref lock — prevents double execution from rapid key/click
+    if (printingLockRef.current) return;
+    printingLockRef.current = true;
     setIsPrinting(true);
+
     try {
       const billId = await printKOT();
       if (!billId) return;
@@ -147,24 +151,26 @@ export function useBillActions() {
     } catch (error) {
       console.error('KOT print error:', error);
     } finally {
+      printingLockRef.current = false;
       setIsPrinting(false);
     }
-  }, [hasPendingItems, isPrinting, printKOT, buildKOTData, printKOTDirect, isElectron]);
+  }, [hasPendingItems, printKOT, buildKOTData, printKOTDirect, isElectron]);
 
-  // F2 - Direct Bill print + settle (single atomic flow)
+  // F2 - Direct Bill print + settle (single atomic flow, ref-locked)
   const handleDirectPrintBill = useCallback(async () => {
-    if (!hasItems || isPrinting) {
-      if (!hasItems) toast.error('Add items to print bill');
+    if (!hasItems) {
+      toast.error('Add items to print bill');
       return;
     }
-
+    if (printingLockRef.current) return;
+    printingLockRef.current = true;
     setIsPrinting(true);
+
     try {
       let billId: string | null = null;
 
       // Step 1: Save/create the bill (only once!)
       if (hasPendingItems) {
-        // printKOT internally calls saveOrUpdateBill, returns billId
         billId = await printKOT();
       } else {
         billId = await saveOrUpdateBill();
@@ -177,7 +183,6 @@ export function useBillActions() {
 
       // Step 2: Print the bill
       const defaultMethod = settings.billing.defaultPaymentMethod;
-      // Read fresh bill number after save
       const freshBillNumber = useUIStore.getState().currentBillNumber;
       const billData = { ...buildBillData(billId), billId, billNumber: freshBillNumber, paymentMethod: defaultMethod };
       const result = await printBillDirect(billData);
@@ -186,7 +191,7 @@ export function useBillActions() {
         await openCashDrawer();
       }
 
-      // Step 3: Settle - pass explicit billId to avoid stale closure
+      // Step 3: Settle
       await settleBill(defaultMethod, undefined, undefined, 0, finalAmount, billId);
 
       if (result.success) {
@@ -195,10 +200,11 @@ export function useBillActions() {
     } catch (error) {
       console.error('Bill print error:', error);
     } finally {
+      printingLockRef.current = false;
       setIsPrinting(false);
     }
   }, [
-    hasItems, isPrinting, hasPendingItems, printKOT, saveOrUpdateBill,
+    hasItems, hasPendingItems, printKOT, saveOrUpdateBill,
     settings.billing.defaultPaymentMethod, buildBillData, printBillDirect,
     isElectron, openCashDrawer, settleBill, finalAmount
   ]);
