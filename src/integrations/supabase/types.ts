@@ -803,6 +803,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      purge_all_billing_history: {
+        Args: { admin_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "staff"
