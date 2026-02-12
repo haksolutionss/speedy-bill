@@ -141,10 +141,10 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     store.incrementBillNumber();
   }
 
+  builder.bold(true)
+  builder.dashedLine();
   // === HEADER: Restaurant Name (large, bold, centered, NO border) ===
   builder.align(Alignment.CENTER);
-  builder.dashedLine();
-
   builder
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
@@ -164,35 +164,33 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
   }
 
   // --- separator ---
+  builder.bold(true);
   builder.dashedLine();
-
-  // TAX INVOICE | PURE VEG row (inline boxed text)
-  const vegLabel = data.isPureVeg !== false ? 'PURE VEG' : 'NON VEG';
-  const leftBox = '| TAX INVOICE |';
-  const rightBox = `| ${vegLabel} |`;
-  const boxGap = cols - leftBox.length - rightBox.length;
-  builder.bold(true).line(leftBox + ' '.repeat(Math.max(1, boxGap)) + rightBox).bold(false);
-
+  builder.drawBoxRow('TAX INVOICE', '', 'PURE VEG');
   // --- separator ---
   builder.dashedLine();
+  builder.bold(false);
+
+
 
   // Bill No & Table/Token No (with | on edges)
   builder.align(Alignment.LEFT);
   const billNoStr = `Bill No. ${cleanedBillNumber}`;
   const tableNoStr = `T.No: ${data.isParcel ? (data.tokenNumber || '-') : (data.tableNumber || '-')}`;
-  const billLine = '|' + billNoStr + ' '.repeat(Math.max(1, cols - 2 - billNoStr.length - tableNoStr.length)) + tableNoStr + '|';
+  const billLine = billNoStr + ' '.repeat(Math.max(1, cols - 2 - billNoStr.length - tableNoStr.length)) + tableNoStr;
   builder.bold(true).line(billLine);
 
+  builder.dashedLine();
+
   // Date (with | on left)
-  builder.line(`|Date : ${formatDate()}`);
-  builder.bold(false);
+  builder.line(`Date : ${formatDate()}`);
 
   // --- separator before items ---
   builder.dashedLine();
 
   // Items header (with | on edges, bold)
-  const innerW = cols - 2;
-  const hdrLine = '|' + formatFourCols('Description', 'QTY', 'Rate', 'Amount', innerW, paperWidth) + '|';
+  const innerW = cols;
+  const hdrLine = formatFourCols('Description', 'QTY', 'Rate', 'Amount', innerW, paperWidth);
   builder.bold(true).line(hdrLine).bold(false);
 
   // dotted separator
@@ -203,24 +201,26 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     const itemName = item.portion !== 'single' && item.portion
       ? `${item.productName} (${item.portion})`
       : item.productName;
-    const row = '|' + formatFourCols(
+    const row = formatFourCols(
       itemName,
       item.quantity.toString(),
       item.unitPrice.toFixed(2),
       (item.unitPrice * item.quantity).toFixed(2),
       innerW,
       paperWidth
-    ) + '|';
+    );
     builder.line(row);
   });
 
   // Right-aligned dotted separator
   builder.align(Alignment.RIGHT);
-  builder.dottedLine();
+  builder.rightDottedLine(16);
 
   // Total RS. (right-aligned, no border)
   builder.line(`Total RS. : ${formatAmount(data.subTotal)}`);
 
+
+  builder.line('')
   // Discount
   if (data.discountAmount > 0) {
     const discountLabel = data.discountType === 'percentage'
@@ -247,8 +247,7 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     builder.line(`Round Off : ${formatAmount(roundOff)}`);
   }
 
-  // Dotted separator before net total
-  builder.dottedLine();
+  builder.rightDottedLine(16);
 
   // Net Rs. (bold, double-width, right-aligned)
   builder
@@ -259,17 +258,18 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     .setFontSize(FontSize.NORMAL);
 
   // --- separator ---
+  builder.bold(true)
   builder.dashedLine();
 
   // Footer (centered)
   builder.align(Alignment.CENTER);
+  builder.line('Composition Taxable Person');
   builder.line(`FSSAI LIC No : ${data.fssaiNumber || '10721026000597'}`);
   builder.line(`GSTIN : ${data.gstin || '24DHFPM8077N1ZN'}`);
-  builder.line('HSN/SAC CODE : 9963');
   builder.line('........THANKS FOR VISIT........');
-
+  builder.line('')
+  builder.bold(true)
   builder.dashedLine();
-
   builder.feed(3);
   builder.partialCut();
 
