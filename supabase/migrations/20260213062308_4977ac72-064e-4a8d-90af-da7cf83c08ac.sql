@@ -1,0 +1,1 @@
+ALTER TABLE public.tables DROP CONSTRAINT IF EXISTS tables_status_check;
