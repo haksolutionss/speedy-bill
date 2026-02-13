@@ -23,6 +23,7 @@ export enum FontSize {
   DOUBLE_HEIGHT = 0x10,
   DOUBLE_WIDTH = 0x20,
   DOUBLE_BOTH = 0x30,
+  DOUBLE_MORE = 0x40,
 }
 
 function centerText(text: string, width: number): string {
@@ -46,6 +47,11 @@ export class ESCPOSBuilder {
   initialize(): this {
     this.buffer.push(ESC, 0x40);   // reset
     this.setLineSpacing(24);       // FIX: Set consistent line spacing (30 dots = balanced spacing)
+    return this;
+  }
+
+  setFont(font: 'A' | 'B' = 'A'): this {
+    this.buffer.push(ESC, 0x4D, font === 'A' ? 0 : 1);
     return this;
   }
 

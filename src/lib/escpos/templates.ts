@@ -141,17 +141,20 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     store.incrementBillNumber();
   }
 
+  builder.setFont('A')
   builder.bold(true)
   builder.dashedLine();
   // === HEADER: Restaurant Name (large, bold, centered, NO border) ===
   builder.align(Alignment.CENTER);
   builder
+    .align(Alignment.CENTER)
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
     .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
     .bold(false)
     .setFontSize(FontSize.NORMAL);
 
+  builder.setFont('A')
   // Address lines (centered, compact)
   if (data.address) {
     const addressLines = data.address.split(',').map(l => l.trim());
