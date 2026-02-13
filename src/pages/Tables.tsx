@@ -282,7 +282,7 @@ export default function Tables() {
                           className={cn(
                             'group relative p-4 rounded-lg border-2 transition-colors',
                             table.status === 'available' && 'border-success/30 bg-success/5',
-                            table.status === 'occupied' && 'border-accent/30 bg-accent/5',
+                            (table.status === 'occupied' || table.status === 'active') && 'border-accent/30 bg-accent/5',
                             table.status === 'reserved' && 'border-blue-500/30 bg-blue-500/5',
                             table.status === 'maintenance' && 'border-muted-foreground/30 bg-muted'
                           )}
@@ -295,7 +295,7 @@ export default function Tables() {
                               className={cn(
                                 'mt-2 text-[10px]',
                                 table.status === 'available' && 'border-success/50 text-success',
-                                table.status === 'occupied' && 'border-accent/50 text-accent',
+                                (table.status === 'occupied' || table.status === 'active') && 'border-accent/50 text-accent',
                                 table.status === 'reserved' && 'border-blue-500/50 text-blue-400',
                                 table.status === 'maintenance' && 'border-muted-foreground/50 text-muted-foreground'
                               )}

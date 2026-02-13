@@ -63,10 +63,24 @@ export function RealtimeSubscription() {
       )
       .subscribe();
 
+    // Subscribe to cart_items changes to refresh table status/highlighting
+    const cartItemsChannel = supabase
+      .channel('cart-items-global-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cart_items' },
+        () => {
+          // Invalidate tables so table grid re-fetches and shows updated status
+          dispatch(billingApi.util.invalidateTags(['Tables', 'TableSections']));
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(tablesChannel);
       supabase.removeChannel(billsChannel);
       supabase.removeChannel(billItemsChannel);
+      supabase.removeChannel(cartItemsChannel);
     };
   }, [dispatch]);
 

@@ -129,12 +129,12 @@ export default function History() {
         },
       }).unwrap();
 
-      // If this was a table bill, mark table as occupied
+      // If this was a table bill, mark table as active (bill already has KOT)
       if (tableId) {
         await updateTable({
           id: tableId,
           updates: {
-            status: 'occupied',
+            status: 'active',
             current_bill_id: billId,
           },
         }).unwrap();

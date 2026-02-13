@@ -141,13 +141,13 @@ export const generateBillCommands = (data: BillData, paperWidth: PaperWidth = '8
     store.incrementBillNumber();
   }
 
+  builder.setFont('A')
   builder.bold(true)
   builder.dashedLine();
   // === HEADER: Restaurant Name (large, bold, centered, NO border) ===
   builder.align(Alignment.CENTER);
   builder
     .align(Alignment.CENTER)
-    .setFont('B')               // IMPORTANT
     .setFontSize(FontSize.DOUBLE_BOTH)
     .bold(true)
     .line(data.restaurantName?.toUpperCase() || 'RESTAURANT')
