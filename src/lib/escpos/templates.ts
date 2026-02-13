@@ -288,8 +288,7 @@ function formatFourCols(
     ? [15, 4, 5, 6]
     : paper === '76mm'
       ? [23, 5, 6, 6]
-      : [18, 4, 9, 11];
-
+      : [19, 4, 9, 12];
   return [
     col1.substring(0, widths[0]).padEnd(widths[0]),
     col2.substring(0, widths[1]).padStart(widths[1]),
